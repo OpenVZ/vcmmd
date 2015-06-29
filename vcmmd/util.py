@@ -1,0 +1,23 @@
+def strmemsize(val):
+    if val > 10 * 1024 * 1024:
+        return str(val / (1024 * 1024)) + 'M'
+    if val > 10 * 1024:
+        return str(val / 1024) + 'K'
+    return str(val)
+
+
+class LoggerWriter:
+    ##
+    # Helper for redirecting stdout/stderr to a logger.
+
+    def __init__(self, logger, level):
+        self.logger = logger
+        self.level = level
+        self.__buf = ''
+
+    def write(self, message):
+        l = message.split('\n')
+        l[0] = self.__buf + l[0]
+        for s in l[:-1]:
+            self.logger.log(self.level, s)
+        self.__buf = l[-1]

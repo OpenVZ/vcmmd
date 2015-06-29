@@ -1,0 +1,6 @@
+include Makefile.version
+include vcmmd.conf
+recursive-include bin *
+recursive-include vcmmd *
+recursive-include systemd *
+recursive-include logrotate *

@@ -1,0 +1,22 @@
+# Distribution/Packaging
+build/
+dist/
+MANIFEST
+
+# Compiled object files
+*.o
+
+# Compiled dynamic libraries
+*.so
+
+# Compiled python
+*.pyc
+
+# Compiled protocol buffers
+*.pb.h
+*.pb.c
+*_pb2.py
+
+# Editor temporaries
+*.swp
+*~

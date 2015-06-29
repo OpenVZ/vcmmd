@@ -1,0 +1,7 @@
+/var/log/vcmmd.log {
+    weekly
+    rotate 4
+    copytruncate
+    notifempty
+    missingok
+}

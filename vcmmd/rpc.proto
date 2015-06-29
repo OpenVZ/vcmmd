@@ -1,0 +1,50 @@
+package vcmmd.rpc;
+
+/*
+ * @id:		Container ID
+ * @config:	Container configuration
+ */
+
+/*
+ * RepsonseType below is for successful requests. On error, any request returns
+ * RESP_ERROR.
+ */
+enum RequestType {		/* Request -> ResponseType: */
+	REQ_REGISTER	= 0;	/* @id, @config -> RESP_EMPTY */
+	REQ_UNREGISTER	= 1;	/* @id -> RESP_EMPTY */
+	REQ_SET_CONFIG	= 2;	/* @id, @config -> RESP_EMPTY */
+	REQ_GET_CONFIG	= 3;	/* @id -> RESP_CONFIG */
+	REQ_LIST	= 4;	/* None -> RESP_LIST */
+}
+
+/*
+ * RESP_LIST is special: it is followed by @list_len responses of type
+ * RESP_CONFIG containing all registered configurations.
+ */
+enum ResponseType {		/* Response: */
+	RESP_EMPTY	= 0;	/* None */
+	RESP_ERROR	= 1;	/* @errcode, @errmsg */
+	RESP_CONFIG	= 2;	/* @id, @config */
+	RESP_LIST	= 3;	/* @list_len */
+}
+
+message Config {
+	optional uint64		guarantee	= 1 [default = 0];
+	optional uint64		limit		= 2 [default = 18446744073709551615];
+	optional uint64		swap_limit	= 3 [default = 18446744073709551615];
+}
+
+message Request {
+	required RequestType	type		= 1;
+	optional string		id		= 2;
+	optional Config		config		= 3;
+}
+
+message Response {
+	required ResponseType	type		= 1;
+	optional uint32		errcode		= 2;
+	optional string		errmsg		= 3;
+	optional string		id		= 4;
+	optional Config		config		= 5;
+	optional uint32		list_len	= 6;
+}
