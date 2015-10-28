@@ -106,7 +106,7 @@ static void set_idle_pages(long start_pfn, long end_pfn) throw(error)
 // Counts idle pages in range [start_pfn, end_pfn).
 // Returns map: cg ino -> (idle anon, idle file).
 static unordered_map<long, pair<long, long>>
-count_idle_pages_per_cgroup(long start_pfn, long end_pfn) throw(error)
+count_idle_pages(long start_pfn, long end_pfn) throw(error)
 {
 	// kpageidle requires pfn to be aligned by 64
 	long start_pfn2 = start_pfn & ~63UL;
@@ -186,7 +186,7 @@ static PyObject *py_set_idle_pages(PyObject *self, PyObject *args)
 	Py_RETURN_NONE;
 }
 
-static PyObject *py_count_idle_pages_per_cgroup(PyObject *self, PyObject *args)
+static PyObject *py_count_idle_pages(PyObject *self, PyObject *args)
 {
 	long start_pfn, end_pfn;
 	if (!PyArg_ParseTuple(args, "ll", &start_pfn, &end_pfn))
@@ -194,7 +194,7 @@ static PyObject *py_count_idle_pages_per_cgroup(PyObject *self, PyObject *args)
 
 	unordered_map<long, pair<long, long>> result;
 	try {
-		result = count_idle_pages_per_cgroup(start_pfn, end_pfn);
+		result = count_idle_pages(start_pfn, end_pfn);
 	} py_catch_error();
 
 	// map the result to a PyDict
@@ -231,8 +231,8 @@ static PyMethodDef kpageutil_funcs[] = {
 		METH_VARARGS, NULL,
 	},
 	{
-		"count_idle_pages_per_cgroup",
-		(PyCFunction)py_count_idle_pages_per_cgroup,
+		"count_idle_pages",
+		(PyCFunction)py_count_idle_pages,
 		METH_VARARGS, NULL,
 	},
 	{ },

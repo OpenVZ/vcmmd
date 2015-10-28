@@ -191,9 +191,9 @@ class UnusedMemEstimator:
         self.__scan_start = self.__time()
         self.__warned = False
 
-    # kpageutil.count_idle_pages_per_cgroup uses cgroup ino as a key in the
-    # resulting dictionary while we want it to be referenced by cgroup name.
-    # This functions does the conversion.
+    # kpageutil.count_idle_pages uses cgroup ino as a key in the resulting
+    # dictionary while we want it to be referenced by cgroup name. This
+    # functions does the conversion.
     def __update_memcg_unused(self):
         result = {}
         Z = (0, 0)
@@ -227,7 +227,7 @@ class UnusedMemEstimator:
         start_pfn = self.__scan_pfn
         end_pfn = min(self.__scan_pfn + self.SCAN_CHUNK, sysinfo.END_PFN)
         # count idle pages
-        cur = kpageutil.count_idle_pages_per_cgroup(start_pfn, end_pfn)
+        cur = kpageutil.count_idle_pages(start_pfn, end_pfn)
         # accumulate the result
         Z = (0, 0)
         tot = self.__nr_unused
