@@ -40,7 +40,7 @@ public:
 // Converts caught exception to appropriate PyErr
 #define py_catch_error()						\
 	catch (error &e) {						\
-		return PyErr_Format(PyExc_RuntimeError, e.what());	\
+		return PyErr_Format(PyExc_RuntimeError, "%s", e.what());\
 	} catch (bad_alloc e) {						\
 		return PyErr_NoMemory();				\
 	}
