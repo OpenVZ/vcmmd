@@ -45,6 +45,36 @@ public:
 		return PyErr_NoMemory();				\
 	}
 
+enum mem_type {
+	MEM_ANON,
+	MEM_FILE,
+	NR_MEM_TYPES,
+};
+
+class idle_mem_stat {
+private:
+	long idle_[NR_MEM_TYPES];
+public:
+	idle_mem_stat()
+	{
+		for (int i = 0; i < NR_MEM_TYPES; ++i)
+			idle_[i] = 0;
+	}
+
+	long get_nr_idle(mem_type type)
+	{
+		return idle_[type];
+	}
+
+	void inc_nr_idle(mem_type type)
+	{
+		++idle_[type];
+	}
+};
+
+// ino -> idle_mem_stat
+typedef unordered_map<long, class idle_mem_stat> cg_idle_mem_stat_t;
+
 // Helper for opening /proc/kpage*
 static void kpf_open(const char *path, ios_base::openmode mode,
 		     long pos, fstream &f) throw(error)
@@ -104,9 +134,8 @@ static void set_idle_pages(long start_pfn, long end_pfn) throw(error)
 }
 
 // Counts idle pages in range [start_pfn, end_pfn).
-// Returns map: cg ino -> (idle anon, idle file).
-static unordered_map<long, pair<long, long>>
-count_idle_pages(long start_pfn, long end_pfn) throw(error)
+// Returns map: cg ino -> idle_mem_stat.
+cg_idle_mem_stat_t count_idle_pages(long start_pfn, long end_pfn) throw(error)
 {
 	// kpageidle requires pfn to be aligned by 64
 	long start_pfn2 = start_pfn & ~63UL;
@@ -125,7 +154,7 @@ count_idle_pages(long start_pfn, long end_pfn) throw(error)
 	long head_cg = 0;
 	int buf_index = KPAGE_BATCH;
 
-	unordered_map<long, pair<long, long>> result;
+	cg_idle_mem_stat_t result;
 
 	for (long pfn = start_pfn2; pfn < end_pfn; ++pfn, ++buf_index) {
 		if (buf_index >= KPAGE_BATCH) {
@@ -164,11 +193,11 @@ count_idle_pages(long start_pfn, long end_pfn) throw(error)
 				continue;
 		}
 
-		auto &cnt = result[head_cg];
+		auto &stat = result[head_cg];
 		if (head_anon)
-			cnt.first++;
+			stat.inc_nr_idle(MEM_ANON);
 		else
-			cnt.second++;
+			stat.inc_nr_idle(MEM_FILE);
 	}
 	return result;
 }
@@ -186,13 +215,14 @@ static PyObject *py_set_idle_pages(PyObject *self, PyObject *args)
 	Py_RETURN_NONE;
 }
 
+// Returns dict: cg ino -> (idle anon, idle file).
 static PyObject *py_count_idle_pages(PyObject *self, PyObject *args)
 {
 	long start_pfn, end_pfn;
 	if (!PyArg_ParseTuple(args, "ll", &start_pfn, &end_pfn))
 		return NULL;
 
-	unordered_map<long, pair<long, long>> result;
+	cg_idle_mem_stat_t result;
 	try {
 		result = count_idle_pages(start_pfn, end_pfn);
 	} py_catch_error();
@@ -204,15 +234,17 @@ static PyObject *py_count_idle_pages(PyObject *self, PyObject *args)
 
 	for (auto &kv : result) {
 		py_ref key = PyInt_FromLong(kv.first);
-		py_ref val1 = PyInt_FromLong(kv.second.first);
-		py_ref val2 = PyInt_FromLong(kv.second.second);
-		if (!key || !val1 || !val2)
+		py_ref val = PyTuple_New(NR_MEM_TYPES);
+		if (!key || !val)
 			return PyErr_NoMemory();
 
-		py_ref val = PyTuple_Pack(2,
-				(PyObject *)val1, (PyObject *)val2);
-		if (!val)
-			return PyErr_NoMemory();
+		for (int i = 0; i < NR_MEM_TYPES; i++) {
+			mem_type t = static_cast<mem_type>(i);
+			PyObject *p = PyInt_FromLong(kv.second.get_nr_idle(t));
+			if (!p)
+				return PyErr_NoMemory();
+			PyTuple_SET_ITEM((PyObject *)val, i, p);
+		}
 
 		if (PyDict_SetItem(dict, key, val) < 0)
 			return PyErr_NoMemory();
