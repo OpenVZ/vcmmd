@@ -10,10 +10,10 @@
 
 #define KPAGEFLAGS_PATH		"/proc/kpageflags"
 #define KPAGECGROUP_PATH	"/proc/kpagecgroup"
-#define KPAGEIDLE_PATH		"/proc/kpageidle"
+#define IDLE_PAGE_BITMAP_PATH	"/sys/kernel/mm/page_idle/bitmap"
 
-// must be multiple of 64 for the sake of kpageidle
-#define KPAGE_BATCH		1024
+// must be multiple of 64 for the sake of idle page bitmap
+#define BATCH_SIZE		1024
 
 using namespace std;
 
@@ -108,25 +108,25 @@ static void do_write(fstream &f, int n, const char *path,
 // Marks pages in range [start_pfn, end_pfn) idle.
 static void set_idle_pages(long start_pfn, long end_pfn) throw(error)
 {
-	// kpageidle requires pfn to be aligned by 64
+	// idle page bitmap requires pfn to be aligned by 64
 	long start_pfn2 = start_pfn & ~63UL;
 	long end_pfn2 = (end_pfn + 63) & ~63UL;
 
 	fstream f;
-	do_open(KPAGEIDLE_PATH, ios::out, start_pfn2 / 64, f);
+	do_open(IDLE_PAGE_BITMAP_PATH, ios::out, start_pfn2 / 64, f);
 
-	uint64_t buf[KPAGE_BATCH / 64];
-	for (int i = 0; i < KPAGE_BATCH / 64; i++)
+	uint64_t buf[BATCH_SIZE / 64];
+	for (int i = 0; i < BATCH_SIZE / 64; i++)
 		buf[i] = ~0ULL;
 
-	for (long pfn = start_pfn2; pfn < end_pfn; pfn += KPAGE_BATCH) {
-		int n = min((long)KPAGE_BATCH, end_pfn2 - pfn);
+	for (long pfn = start_pfn2; pfn < end_pfn; pfn += BATCH_SIZE) {
+		int n = min((long)BATCH_SIZE, end_pfn2 - pfn);
 		buf[0] = buf[n / 64 - 1] = ~0ULL;
 		if (pfn < start_pfn)
 			buf[0] &= ~((1ULL << (start_pfn & 63)) - 1);
 		if (pfn + n > end_pfn)
 			buf[n / 64 - 1] &= (1ULL << (end_pfn & 63)) - 1;
-		do_write(f, n / 64, KPAGEIDLE_PATH, buf);
+		do_write(f, n / 64, IDLE_PAGE_BITMAP_PATH, buf);
 	}
 }
 
@@ -134,32 +134,33 @@ static void set_idle_pages(long start_pfn, long end_pfn) throw(error)
 // Returns map: cg ino -> idle_mem_stat.
 cg_idle_mem_stat_t count_idle_pages(long start_pfn, long end_pfn) throw(error)
 {
-	// kpageidle requires pfn to be aligned by 64
+	// idle page bitmap requires pfn to be aligned by 64
 	long start_pfn2 = start_pfn & ~63UL;
 	long end_pfn2 = (end_pfn + 63) & ~63UL;
 
 	fstream f_flags, f_cg, f_idle;
 	do_open(KPAGEFLAGS_PATH, ios::in, start_pfn2, f_flags);
 	do_open(KPAGECGROUP_PATH, ios::in, start_pfn2, f_cg);
-	do_open(KPAGEIDLE_PATH, ios::in, start_pfn2 / 64, f_idle);
+	do_open(IDLE_PAGE_BITMAP_PATH, ios::in, start_pfn2 / 64, f_idle);
 
-	uint64_t buf_flags[KPAGE_BATCH],
-		 buf_cg[KPAGE_BATCH],
-		 buf_idle[KPAGE_BATCH / 64];
+	uint64_t buf_flags[BATCH_SIZE],
+		 buf_cg[BATCH_SIZE],
+		 buf_idle[BATCH_SIZE / 64];
 
 	bool head_idle = false, head_anon = false;
 	long head_cg = 0;
-	int buf_index = KPAGE_BATCH;
+	int buf_index = BATCH_SIZE;
 
 	cg_idle_mem_stat_t result;
 
 	for (long pfn = start_pfn2; pfn < end_pfn; ++pfn, ++buf_index) {
-		if (buf_index >= KPAGE_BATCH) {
+		if (buf_index >= BATCH_SIZE) {
 			// buffer is empty - refill
-			int n = min((long)KPAGE_BATCH, end_pfn2 - pfn);
+			int n = min((long)BATCH_SIZE, end_pfn2 - pfn);
 			do_read(f_flags, n, KPAGEFLAGS_PATH, buf_flags);
 			do_read(f_cg, n, KPAGECGROUP_PATH, buf_cg);
-			do_read(f_idle, n / 64, KPAGEIDLE_PATH, buf_idle);
+			do_read(f_idle, n / 64, IDLE_PAGE_BITMAP_PATH,
+				buf_idle);
 			buf_index = 0;
 		}
 

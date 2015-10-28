@@ -271,7 +271,7 @@ class UnusedMemEstimator:
 
     @staticmethod
     def is_available():
-        return os.path.exists("/proc/kpageidle")
+        return os.path.exists("/sys/kernel/mm/page_idle/bitmap")
 
     ##
     # Scan memory periodically counting unused pages until shutdown.
