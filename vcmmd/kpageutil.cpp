@@ -75,9 +75,8 @@ public:
 // ino -> idle_mem_stat
 typedef unordered_map<long, class idle_mem_stat> cg_idle_mem_stat_t;
 
-// Helper for opening /proc/kpage*
-static void kpf_open(const char *path, ios_base::openmode mode,
-		     long pos, fstream &f) throw(error)
+static void do_open(const char *path, ios_base::openmode mode,
+		    long pos, fstream &f) throw(error)
 {
 	// disable stream buffering - we know better how to do it
 	f.rdbuf()->pubsetbuf(0, 0);
@@ -90,8 +89,7 @@ static void kpf_open(const char *path, ios_base::openmode mode,
 	f.seekg(pos * 8);
 }
 
-// Helper for reading /proc/kpage*
-static void kpf_read(fstream &f, int n, const char *path,
+static void do_read(fstream &f, int n, const char *path,
 		     uint64_t *buf) throw(error)
 {
 	if (!f.read(reinterpret_cast<char *>(buf), n * 8))
@@ -99,9 +97,8 @@ static void kpf_read(fstream &f, int n, const char *path,
 
 }
 
-// Helper for writing /proc/kpage*
-static void kpf_write(fstream &f, int n, const char *path,
-		      const uint64_t *buf) throw(error)
+static void do_write(fstream &f, int n, const char *path,
+		     const uint64_t *buf) throw(error)
 {
 	if (!f.write(reinterpret_cast<const char *>(buf), n * 8))
 		throw error(string("Write '") + path + "' failed");
@@ -116,7 +113,7 @@ static void set_idle_pages(long start_pfn, long end_pfn) throw(error)
 	long end_pfn2 = (end_pfn + 63) & ~63UL;
 
 	fstream f;
-	kpf_open(KPAGEIDLE_PATH, ios::out, start_pfn2 / 64, f);
+	do_open(KPAGEIDLE_PATH, ios::out, start_pfn2 / 64, f);
 
 	uint64_t buf[KPAGE_BATCH / 64];
 	for (int i = 0; i < KPAGE_BATCH / 64; i++)
@@ -129,7 +126,7 @@ static void set_idle_pages(long start_pfn, long end_pfn) throw(error)
 			buf[0] &= ~((1ULL << (start_pfn & 63)) - 1);
 		if (pfn + n > end_pfn)
 			buf[n / 64 - 1] &= (1ULL << (end_pfn & 63)) - 1;
-		kpf_write(f, n / 64, KPAGEIDLE_PATH, buf);
+		do_write(f, n / 64, KPAGEIDLE_PATH, buf);
 	}
 }
 
@@ -142,9 +139,9 @@ cg_idle_mem_stat_t count_idle_pages(long start_pfn, long end_pfn) throw(error)
 	long end_pfn2 = (end_pfn + 63) & ~63UL;
 
 	fstream f_flags, f_cg, f_idle;
-	kpf_open(KPAGEFLAGS_PATH, ios::in, start_pfn2, f_flags);
-	kpf_open(KPAGECGROUP_PATH, ios::in, start_pfn2, f_cg);
-	kpf_open(KPAGEIDLE_PATH, ios::in, start_pfn2 / 64, f_idle);
+	do_open(KPAGEFLAGS_PATH, ios::in, start_pfn2, f_flags);
+	do_open(KPAGECGROUP_PATH, ios::in, start_pfn2, f_cg);
+	do_open(KPAGEIDLE_PATH, ios::in, start_pfn2 / 64, f_idle);
 
 	uint64_t buf_flags[KPAGE_BATCH],
 		 buf_cg[KPAGE_BATCH],
@@ -160,9 +157,9 @@ cg_idle_mem_stat_t count_idle_pages(long start_pfn, long end_pfn) throw(error)
 		if (buf_index >= KPAGE_BATCH) {
 			// buffer is empty - refill
 			int n = min((long)KPAGE_BATCH, end_pfn2 - pfn);
-			kpf_read(f_flags, n, KPAGEFLAGS_PATH, buf_flags);
-			kpf_read(f_cg, n, KPAGECGROUP_PATH, buf_cg);
-			kpf_read(f_idle, n / 64, KPAGEIDLE_PATH, buf_idle);
+			do_read(f_flags, n, KPAGEFLAGS_PATH, buf_flags);
+			do_read(f_cg, n, KPAGECGROUP_PATH, buf_cg);
+			do_read(f_idle, n / 64, KPAGEIDLE_PATH, buf_idle);
 			buf_index = 0;
 		}
 
