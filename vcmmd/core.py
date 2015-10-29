@@ -5,7 +5,6 @@ import os.path
 import struct
 import threading
 
-import config
 import util
 
 
@@ -209,9 +208,6 @@ class AbstractLoadManager:
     # Handle requests until shutdown.
 
     def serve_forever(self):
-        timeout = config.CORE__UPDATE_PERIOD
-        if not timeout:
-            timeout = None
         self.__need_update.acquire()
         self.__is_shut_down.clear()
         try:
@@ -222,7 +218,7 @@ class AbstractLoadManager:
                 self._do_update(self.__entities.values())
                 self.__for_each_entity(self.LoadEntityClass.sync,
                                        "Failed to sync entity %s")
-                self.__need_update.wait(timeout=timeout)
+                self.__need_update.wait()
             self.__save_state()
             self.__for_each_entity(self.LoadEntityClass.reset,
                                    "Failed to reset entity %s")

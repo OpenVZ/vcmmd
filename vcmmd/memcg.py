@@ -130,10 +130,6 @@ class MemCg(AbstractLoadEntity):
         self.config = cfg
 
     def update(self):
-        old_mem_usage = self.mem_usage
-        old_mem_unused = self.mem_unused
-        self.mem_usage = self.mem_unused = 0
-
         self.mem_usage = self.__read_mem_usage()
 
         unused_mem_estimate = self.unused_mem_estimate
@@ -143,12 +139,6 @@ class MemCg(AbstractLoadEntity):
             self.mem_unused = min(self.mem_usage,
                                   sum(unused_mem_estimate[self.id]))
             del unused_mem_estimate[self.id]
-        else:
-            self.mem_unused = old_mem_unused
-            # We assume that usage decrease is due to unused mem reclaim.
-            if self.mem_usage < old_mem_usage:
-                self.mem_unused -= old_mem_usage - self.mem_usage
-                self.mem_unused = max(self.mem_unused, 0)
 
     def sync(self):
         self.__write_mem_low(self.mem_reservation)

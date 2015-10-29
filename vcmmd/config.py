@@ -8,9 +8,6 @@ import logging
 ##
 # core section
 
-# Trigger load update every
-CORE__UPDATE_PERIOD = 10  # seconds
-
 # Maximal memory portion that can be reserved for containers.
 CORE__MAX_RESERVATION = 0.75
 
@@ -87,7 +84,6 @@ class _ConfigLoader:
             self.logger.warning("Error reading config file: %s" % err)
             return
 
-        self.update_opt('core.update_period', self.OPT_INT)
         self.update_opt('core.max_reservation', self.OPT_FLOAT)
         self.update_opt('core.system_mem', self.OPT_INT)
 
