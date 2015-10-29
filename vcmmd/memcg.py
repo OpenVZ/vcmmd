@@ -175,6 +175,7 @@ class UnusedMemEstimator:
         self.logger = logger or logging.getLogger(__name__)
         self.__is_shut_down = threading.Event()
         self.__should_shut_down = threading.Event()
+        kpageutil.init(sysinfo.END_PFN)
 
     @staticmethod
     def __time():

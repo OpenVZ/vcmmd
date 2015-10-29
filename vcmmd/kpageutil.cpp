@@ -1,3 +1,4 @@
+#undef NDEBUG
 #include <Python.h>
 
 #include <fstream>
@@ -6,6 +7,8 @@
 #include <algorithm>
 #include <unordered_map>
 
+#include <assert.h>
+#include <sys/mman.h>
 #include <linux/kernel-page-flags.h>
 
 #define KPAGEFLAGS_PATH		"/proc/kpageflags"
@@ -45,6 +48,23 @@ public:
 		return PyErr_NoMemory();				\
 	}
 
+// The following constant must fit in char, because we want to have only one
+// extra byte per tracked page for storing age. We could use 4 bits or even 2
+// bits, so that 2 or 4 pages would share the same byte, but it would
+// complicate the code and shorten the history significantly.
+#define MAX_IDLE_AGE		255
+
+static long max_pfn;
+static unsigned char *idle_page_age;
+
+#define IDLE_STAT_BUCKETS	(MAX_IDLE_AGE + 1)
+
+// bucket i (0 <= i < 255) -> nr idle for exactly (i + 1) intervals
+// bucket 255 -> nr idle for >= last 256 intervals
+struct idle_stat_buckets_array {
+	long count[IDLE_STAT_BUCKETS];
+};
+
 enum mem_type {
 	MEM_ANON,
 	MEM_FILE,
@@ -53,22 +73,30 @@ enum mem_type {
 
 class idle_mem_stat {
 private:
-	long idle_[NR_MEM_TYPES];
+	idle_stat_buckets_array idle_[NR_MEM_TYPES];
 public:
 	idle_mem_stat()
 	{
 		for (int i = 0; i < NR_MEM_TYPES; ++i)
-			idle_[i] = 0;
+			for (int j = 0; j < IDLE_STAT_BUCKETS; j++)
+				idle_[i].count[j] = 0;
 	}
 
-	long get_nr_idle(mem_type type)
+	// idle_by_age[i] equals nr pages that have been idle for > i intervals
+	// (cf. idle_stat_buckets_array)
+	void get_nr_idle(mem_type type, long idle_by_age[IDLE_STAT_BUCKETS])
 	{
-		return idle_[type];
+		long sum = 0;
+
+		for (int i = IDLE_STAT_BUCKETS - 1; i >= 0; i--) {
+			sum += idle_[type].count[i];
+			idle_by_age[i] = sum;
+		}
 	}
 
-	void inc_nr_idle(mem_type type)
+	void inc_nr_idle(mem_type type, int age)
 	{
-		++idle_[type];
+		++idle_[type].count[age];
 	}
 };
 
@@ -134,6 +162,8 @@ static void set_idle_pages(long start_pfn, long end_pfn) throw(error)
 // Returns map: cg ino -> idle_mem_stat.
 cg_idle_mem_stat_t count_idle_pages(long start_pfn, long end_pfn) throw(error)
 {
+	assert(idle_page_age != NULL);
+
 	// idle page bitmap requires pfn to be aligned by 64
 	long start_pfn2 = start_pfn & ~63UL;
 	long end_pfn2 = (end_pfn + 63) & ~63UL;
@@ -169,35 +199,53 @@ cg_idle_mem_stat_t count_idle_pages(long start_pfn, long end_pfn) throw(error)
 
 		uint64_t flags = buf_flags[buf_index],
 			 cg = buf_cg[buf_index];
-		bool idle = buf_idle[buf_index / 64] & (1ULL << (buf_index & 63));
 
 		if (!(flags & (1 << KPF_COMPOUND_TAIL))) {
 			// not compound page or compound page head
-			head_idle = false;
 			head_cg = cg;
 			head_anon = !!(flags & (1 << KPF_ANON));
-
-			if (!idle)
-				continue;
+			head_idle = buf_idle[buf_index / 64] &
+					(1ULL << (buf_index & 63));
 
 			// do not treat mlock'd pages as idle
 			if (flags & (1 << KPF_UNEVICTABLE))
-				continue;
+				head_idle = false;
+		} // else compound page tail - count as per head
 
-			head_idle = true;
-		} else {
-			// compound page tail - count it if the head is idle
-			if (!head_idle)
-				continue;
+		if (!head_idle) {
+			idle_page_age[pfn] = 0;
+			continue;
 		}
+
+		int age = idle_page_age[pfn];
+		if (age < MAX_IDLE_AGE)
+			idle_page_age[pfn] = age + 1;
 
 		auto &stat = result[head_cg];
 		if (head_anon)
-			stat.inc_nr_idle(MEM_ANON);
+			stat.inc_nr_idle(MEM_ANON, age);
 		else
-			stat.inc_nr_idle(MEM_FILE);
+			stat.inc_nr_idle(MEM_FILE, age);
 	}
 	return result;
+}
+
+static PyObject *py_init(PyObject *self, PyObject *args)
+{
+	assert(idle_page_age == NULL);
+
+	// We'd better determine this constant by ourselves on module load, but
+	// it's much easier to do that from Python, so we just require it to be
+	// passed to us before any functions can be used.
+	if (!PyArg_ParseTuple(args, "l", &max_pfn))
+		return NULL;
+
+	idle_page_age = (unsigned char *)mmap(NULL, max_pfn,
+			PROT_READ|PROT_WRITE, MAP_PRIVATE|MAP_ANONYMOUS, -1, 0);
+	if (!idle_page_age)
+		return PyErr_NoMemory();
+
+	Py_RETURN_NONE;
 }
 
 static PyObject *py_set_idle_pages(PyObject *self, PyObject *args)
@@ -238,7 +286,9 @@ static PyObject *py_count_idle_pages(PyObject *self, PyObject *args)
 
 		for (int i = 0; i < NR_MEM_TYPES; i++) {
 			mem_type t = static_cast<mem_type>(i);
-			PyObject *p = PyInt_FromLong(kv.second.get_nr_idle(t));
+			long idle_by_age[IDLE_STAT_BUCKETS];
+			kv.second.get_nr_idle(t, idle_by_age);
+			PyObject *p = PyInt_FromLong(idle_by_age[0]);
 			if (!p)
 				return PyErr_NoMemory();
 			PyTuple_SET_ITEM((PyObject *)val, i, p);
@@ -255,6 +305,11 @@ static PyObject *py_count_idle_pages(PyObject *self, PyObject *args)
 }
 
 static PyMethodDef kpageutil_funcs[] = {
+	{
+		"init",
+		(PyCFunction)py_init,
+		METH_VARARGS, NULL,
+	},
 	{
 		"set_idle_pages",
 		(PyCFunction)py_set_idle_pages,
