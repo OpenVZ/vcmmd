@@ -13,7 +13,6 @@ import util
 logger = logging.getLogger(__name__)
 
 if os.path.exists("/sys/kernel/mm/page_idle/bitmap"):
-    idlememscan.init(sysinfo.END_PFN)
     AVAILABLE = True
 else:
     AVAILABLE = False

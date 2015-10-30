@@ -1,15 +1,16 @@
-#undef NDEBUG
 #include <Python.h>
 
 #include <fstream>
+#include <sstream>
 #include <string>
 #include <utility>
 #include <algorithm>
 #include <unordered_map>
 
-#include <assert.h>
 #include <sys/mman.h>
 #include <linux/kernel-page-flags.h>
+
+#define ZONEINFO_PATH		"/proc/zoneinfo"
 
 #define KPAGEFLAGS_PATH		"/proc/kpageflags"
 #define KPAGECGROUP_PATH	"/proc/kpagecgroup"
@@ -57,7 +58,7 @@ public:
 // complicate the code and shorten the history significantly.
 #define MAX_IDLE_AGE		255
 
-static long max_pfn;
+static long END_PFN;
 static unsigned char *idle_page_age;
 
 #define IDLE_STAT_BUCKETS	(MAX_IDLE_AGE + 1)
@@ -178,8 +179,6 @@ static void set_idle_pages(long start_pfn, long end_pfn) throw(error)
 // Returns map: cg ino -> idle_mem_stat.
 static void count_idle_pages(long start_pfn, long end_pfn) throw(error)
 {
-	assert(idle_page_age != NULL);
-
 	// idle page bitmap requires pfn to be aligned by 64
 	long start_pfn2 = start_pfn & ~63UL;
 	long end_pfn2 = (end_pfn + 63) & ~63UL;
@@ -246,27 +245,9 @@ static void count_idle_pages(long start_pfn, long end_pfn) throw(error)
 	}
 }
 
-static PyObject *py_init(PyObject *self, PyObject *args)
-{
-	assert(idle_page_age == NULL);
-
-	// We'd better determine this constant by ourselves on module load, but
-	// it's much easier to do that from Python, so we just require it to be
-	// passed to us before any functions can be used.
-	if (!PyArg_ParseTuple(args, "l", &max_pfn))
-		return NULL;
-
-	idle_page_age = (unsigned char *)mmap(NULL, max_pfn,
-			PROT_READ|PROT_WRITE, MAP_PRIVATE|MAP_ANONYMOUS, -1, 0);
-	if (!idle_page_age)
-		return PyErr_NoMemory();
-
-	Py_RETURN_NONE;
-}
-
 static PyObject *py_nr_iters(PyObject *self, PyObject *args)
 {
-	int nr_iters = (max_pfn + SCAN_CHUNK - 1) / SCAN_CHUNK;
+	int nr_iters = (END_PFN + SCAN_CHUNK - 1) / SCAN_CHUNK;
 	PyObject *ret = PyInt_FromLong(nr_iters);
 	if (!ret)
 		return PyErr_NoMemory();
@@ -284,8 +265,8 @@ static PyObject *py_iter(PyObject *self, PyObject *args)
 
 	long start_pfn = scan_iter * SCAN_CHUNK;
 	long end_pfn = start_pfn + SCAN_CHUNK;
-	if (end_pfn >= max_pfn) {
-		end_pfn = max_pfn;
+	if (end_pfn >= END_PFN) {
+		end_pfn = END_PFN;
 		scan_iter = 0;
 		ret = true;
 	} else
@@ -338,11 +319,6 @@ static PyObject *py_result(PyObject *self, PyObject *args)
 
 static PyMethodDef idlememscan_funcs[] = {
 	{
-		"init",
-		(PyCFunction)py_init,
-		METH_VARARGS, NULL,
-	},
-	{
 		"nr_iters",
 		(PyCFunction)py_nr_iters,
 		METH_NOARGS, NULL,
@@ -360,9 +336,42 @@ static PyMethodDef idlememscan_funcs[] = {
 	{ },
 };
 
-extern "C" {
-void initidlememscan(void)
+static void init_END_PFN()
 {
-	Py_InitModule("idlememscan", idlememscan_funcs);
+	fstream f(ZONEINFO_PATH, ios::in);
+	string line;
+	long spanned = 0;
+	while (getline(f, line)) {
+		stringstream ss(line);
+		string key;
+		ss >> key;
+		if (key == "spanned") {
+			ss >> spanned;
+		} else if (key == "start_pfn:") {
+			long pfn;
+			ss >> pfn;
+			pfn += spanned;
+			spanned = 0;
+			if (pfn > END_PFN)
+				END_PFN = pfn;
+		}
+	}
+	if (END_PFN == 0)
+		throw error("Failed to parse zoneinfo");
 }
+
+static void init_idle_page_age_array()
+{
+	idle_page_age = (unsigned char *)mmap(NULL, END_PFN,
+			PROT_READ|PROT_WRITE, MAP_PRIVATE|MAP_ANONYMOUS, -1, 0);
+	if (!idle_page_age)
+		throw error("Failed to allocate idle_page_age array");
+}
+
+PyMODINIT_FUNC
+initidlememscan(void)
+{
+	init_END_PFN();
+	init_idle_page_age_array();
+	Py_InitModule("idlememscan", idlememscan_funcs);
 }
