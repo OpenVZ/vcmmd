@@ -17,7 +17,10 @@
 #define IDLE_PAGE_BITMAP_PATH	"/sys/kernel/mm/page_idle/bitmap"
 
 // must be multiple of 64 for the sake of idle page bitmap
-#define BATCH_SIZE		1024
+//
+// in order to avoid memory wastage on unused entries of idle_page_age array if
+// sampling is used, must be a multiple of page size
+#define BATCH_SIZE		4096
 
 // how many pages py_iter scans in one go
 #define SCAN_CHUNK		32768
@@ -60,6 +63,12 @@ public:
 
 static long END_PFN;
 static unsigned char *idle_page_age;
+
+// scan 1/sampling pages
+static int sampling = 1;
+
+// how many pages one iterages spans
+static int iter_span = SCAN_CHUNK;
 
 #define IDLE_STAT_BUCKETS	(MAX_IDLE_AGE + 1)
 
@@ -121,7 +130,7 @@ public:
 static unordered_map<long, class idle_mem_stat> cg_idle_mem_stat;
 
 static void do_open(const char *path, ios_base::openmode mode,
-		    long pos, fstream &f) throw(error)
+		    fstream &f) throw(error)
 {
 	// disable stream buffering - we know better how to do it
 	f.rdbuf()->pubsetbuf(0, 0);
@@ -129,22 +138,21 @@ static void do_open(const char *path, ios_base::openmode mode,
 	f.open(path, mode | ios::binary);
 	if (!f)
 		throw error(string("Open '") + path + "' failed");
-
-	// seek to the requested position
-	f.seekg(pos * 8);
 }
 
-static void do_read(fstream &f, int n, const char *path,
+static void do_read(fstream &f, long pos, int n, const char *path,
 		     uint64_t *buf) throw(error)
 {
+	f.seekg(pos * 8);
 	if (!f.read(reinterpret_cast<char *>(buf), n * 8))
 		throw error(string("Read '") + path + "' failed");
 
 }
 
-static void do_write(fstream &f, int n, const char *path,
+static void do_write(fstream &f, long pos, int n, const char *path,
 		     const uint64_t *buf) throw(error)
 {
+	f.seekg(pos * 8);
 	if (!f.write(reinterpret_cast<const char *>(buf), n * 8))
 		throw error(string("Write '") + path + "' failed");
 
@@ -158,21 +166,29 @@ static void set_idle_pages(long start_pfn, long end_pfn) throw(error)
 	long end_pfn2 = (end_pfn + 63) & ~63UL;
 
 	fstream f;
-	do_open(IDLE_PAGE_BITMAP_PATH, ios::out, start_pfn2 / 64, f);
+	do_open(IDLE_PAGE_BITMAP_PATH, ios::out, f);
 
 	uint64_t buf[BATCH_SIZE / 64];
 	for (int i = 0; i < BATCH_SIZE / 64; i++)
 		buf[i] = ~0ULL;
 
-	for (long pfn = start_pfn2; pfn < end_pfn; pfn += BATCH_SIZE) {
+	for (long pfn = start_pfn2; pfn < end_pfn;
+	     pfn += BATCH_SIZE * sampling) {
 		int n = min((long)BATCH_SIZE, end_pfn2 - pfn);
 		buf[0] = buf[n / 64 - 1] = ~0ULL;
 		if (pfn < start_pfn)
 			buf[0] &= ~((1ULL << (start_pfn & 63)) - 1);
 		if (pfn + n > end_pfn)
 			buf[n / 64 - 1] &= (1ULL << (end_pfn & 63)) - 1;
-		do_write(f, n / 64, IDLE_PAGE_BITMAP_PATH, buf);
+		do_write(f, pfn / 64, n / 64, IDLE_PAGE_BITMAP_PATH, buf);
 	}
+}
+
+static inline long __next_pfn(long pfn, long buf_index)
+{
+	if (buf_index >= BATCH_SIZE)
+		pfn += BATCH_SIZE * (sampling - 1);
+	return pfn + 1;
 }
 
 // Counts idle pages in range [start_pfn, end_pfn).
@@ -184,9 +200,9 @@ static void count_idle_pages(long start_pfn, long end_pfn) throw(error)
 	long end_pfn2 = (end_pfn + 63) & ~63UL;
 
 	fstream f_flags, f_cg, f_idle;
-	do_open(KPAGEFLAGS_PATH, ios::in, start_pfn2, f_flags);
-	do_open(KPAGECGROUP_PATH, ios::in, start_pfn2, f_cg);
-	do_open(IDLE_PAGE_BITMAP_PATH, ios::in, start_pfn2 / 64, f_idle);
+	do_open(KPAGEFLAGS_PATH, ios::in, f_flags);
+	do_open(KPAGECGROUP_PATH, ios::in, f_cg);
+	do_open(IDLE_PAGE_BITMAP_PATH, ios::in, f_idle);
 
 	uint64_t buf_flags[BATCH_SIZE],
 		 buf_cg[BATCH_SIZE],
@@ -196,14 +212,15 @@ static void count_idle_pages(long start_pfn, long end_pfn) throw(error)
 	long head_cg = 0;
 	int buf_index = BATCH_SIZE;
 
-	for (long pfn = start_pfn2; pfn < end_pfn; ++pfn, ++buf_index) {
+	for (long pfn = start_pfn2; pfn < end_pfn;
+	     pfn = __next_pfn(pfn, ++buf_index)) {
 		if (buf_index >= BATCH_SIZE) {
 			// buffer is empty - refill
 			int n = min((long)BATCH_SIZE, end_pfn2 - pfn);
-			do_read(f_flags, n, KPAGEFLAGS_PATH, buf_flags);
-			do_read(f_cg, n, KPAGECGROUP_PATH, buf_cg);
-			do_read(f_idle, n / 64, IDLE_PAGE_BITMAP_PATH,
-				buf_idle);
+			do_read(f_flags, pfn, n, KPAGEFLAGS_PATH, buf_flags);
+			do_read(f_cg, pfn, n, KPAGECGROUP_PATH, buf_cg);
+			do_read(f_idle, pfn / 64, n / 64,
+				IDLE_PAGE_BITMAP_PATH, buf_idle);
 			buf_index = 0;
 		}
 
@@ -241,17 +258,26 @@ static void count_idle_pages(long start_pfn, long end_pfn) throw(error)
 			stat.inc_nr_idle(type, age);
 		} else
 			idle_page_age[pfn] = 0;
-
 	}
 }
 
 static PyObject *py_nr_iters(PyObject *self, PyObject *args)
 {
-	int nr_iters = (END_PFN + SCAN_CHUNK - 1) / SCAN_CHUNK;
+	int nr_iters = (END_PFN + iter_span - 1) / iter_span;
 	PyObject *ret = PyInt_FromLong(nr_iters);
 	if (!ret)
 		return PyErr_NoMemory();
 	return ret;
+}
+
+static PyObject *py_set_sampling(PyObject *self, PyObject *args)
+{
+	if (!PyArg_ParseTuple(args, "i", &sampling))
+		return NULL;
+
+	iter_span = SCAN_CHUNK * sampling;
+
+	Py_RETURN_NONE;
 }
 
 // Does one scan iter. Returns true if the current scan was finished.
@@ -263,8 +289,8 @@ static PyObject *py_iter(PyObject *self, PyObject *args)
 	if (!scan_iter)
 		cg_idle_mem_stat.clear();
 
-	long start_pfn = scan_iter * SCAN_CHUNK;
-	long end_pfn = start_pfn + SCAN_CHUNK;
+	long start_pfn = scan_iter * iter_span;
+	long end_pfn = start_pfn + iter_span;
 	if (end_pfn >= END_PFN) {
 		end_pfn = END_PFN;
 		scan_iter = 0;
@@ -345,6 +371,11 @@ static PyMethodDef idlememscan_funcs[] = {
 		"nr_iters",
 		(PyCFunction)py_nr_iters,
 		METH_NOARGS, NULL,
+	},
+	{
+		"set_sampling",
+		(PyCFunction)py_set_sampling,
+		METH_VARARGS, NULL,
 	},
 	{
 		"iter",
