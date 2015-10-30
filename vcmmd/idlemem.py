@@ -6,8 +6,12 @@ import time
 
 import config
 import idlememscan
-import sysinfo
 import util
+
+
+ANON = 0
+FILE = 1
+NR_MEM_TYPES = 2
 
 
 logger = logging.getLogger(__name__)
@@ -20,6 +24,8 @@ else:
 
 @util.SingletonDecorator
 class _Scanner:
+
+    IDLE_STAT_ZERO = ((0, ) * (idlememscan.MAX_AGE + 1), ) * NR_MEM_TYPES
 
     ##
     # interval: interval between updates, in seconds
@@ -52,31 +58,35 @@ class _Scanner:
         self.__scan_start = self.__time()
         self.__warned = False
 
+    @staticmethod
+    def __sum_idle_stat(a, b):
+        return tuple(map(sum, zip(a[i], b[i]))
+                     for i in xrange(NR_MEM_TYPES))
+
     # idlememscan.result uses cgroup ino as a key in the resulting dictionary
     # while we want it to be referenced by cgroup name. This functions does the
     # conversion.
     def __update_idle_stat(self):
         result = {}
         result_raw = idlememscan.result()
-        Z = (0, 0)
         for name in os.listdir(config.MEMCG__ROOT_PATH):
             path = os.path.join(config.MEMCG__ROOT_PATH, name)
             if not os.path.isdir(path):
                 continue
-            cnt = Z
+            cnt = self.IDLE_STAT_ZERO
             for root, subdirs, files in os.walk(path):
                 try:
                     ino = os.stat(root)[stat.ST_INO]
                 except OSError:  # cgroup dir removed?
                     continue
-                cnt = map(sum, zip(cnt, result_raw.get(ino, Z)))
-            # convert pages to bytes
-            result[name] = tuple(x * sysinfo.PAGE_SIZE for x in cnt)
+                cnt = self.__sum_idle_stat(
+                    cnt, result_raw.get(ino, self.IDLE_STAT_ZERO))
+            result[name] = cnt
         self.__idle_stat = result
         logger.debug("Unused memory estimate (anon/file)): %s" %
                      "; ".join('%s: %s/%s' % (k,
-                                              util.strmemsize(v1),
-                                              util.strmemsize(v2))
+                                              util.strmemsize(v1[1]),
+                                              util.strmemsize(v2[1]))
                                for k, (v1, v2) in result.iteritems()))
 
     def __scan_done(self):
@@ -133,7 +143,7 @@ class _Scanner:
         self.__is_shut_down.wait()
 
     def get_idle_stat(self, cg):
-        return self.__idle_stat.get(cg, (0, 0))
+        return self.__idle_stat.get(cg, self.IDLE_STAT_ZERO)
 
 
 def start_background_scan(interval, on_update=None):

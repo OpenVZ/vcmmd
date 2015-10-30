@@ -283,7 +283,14 @@ static PyObject *py_iter(PyObject *self, PyObject *args)
 		Py_RETURN_FALSE;
 }
 
-// Returns dict: cg ino -> (idle anon, idle file).
+// Returns dict: cg ino -> (anon stats, file stats).
+//
+// Anon/file stats are represented by tuple:
+//
+// (total, idle[1], idle[2], ..., idle[IDLE_STAT_BUCKETS])
+//
+// where @total is the total number of ageable pages scanned, @idle[i] is the
+// number of pages that have been idle for >= i last intervals.
 static PyObject *py_result(PyObject *self, PyObject *args)
 {
 	// map the result to a PyDict
@@ -299,12 +306,28 @@ static PyObject *py_result(PyObject *self, PyObject *args)
 
 		for (int i = 0; i < NR_MEM_TYPES; i++) {
 			mem_type t = static_cast<mem_type>(i);
-			long idle_by_age[IDLE_STAT_BUCKETS];
-			kv.second.get_nr_idle(t, idle_by_age);
-			PyObject *p = PyInt_FromLong(idle_by_age[0]);
-			if (!p)
+
+			long idle_stat[IDLE_STAT_BUCKETS + 1];
+			idle_stat[0] = kv.second.get_nr_total(t);
+			kv.second.get_nr_idle(t, idle_stat + 1);
+
+			py_ref idle_stat_tuple =
+				PyTuple_New(IDLE_STAT_BUCKETS + 1);
+			if (!idle_stat_tuple)
 				return PyErr_NoMemory();
-			PyTuple_SET_ITEM((PyObject *)val, i, p);
+
+			for (int j = 0; j <= IDLE_STAT_BUCKETS; j++) {
+				PyObject *p = PyInt_FromLong(idle_stat[j]);
+				if (!p)
+					return PyErr_NoMemory();
+				PyTuple_SET_ITEM(static_cast<PyObject *>
+						 (idle_stat_tuple), j, p);
+			}
+
+			// PyTuple_SET_ITEM steals reference
+			Py_INCREF(idle_stat_tuple);
+			PyTuple_SET_ITEM(static_cast<PyObject *>(val),
+					 i, idle_stat_tuple);
 		}
 
 		if (PyDict_SetItem(dict, key, val) < 0)
@@ -373,5 +396,10 @@ initidlememscan(void)
 {
 	init_END_PFN();
 	init_idle_page_age_array();
-	Py_InitModule("idlememscan", idlememscan_funcs);
+
+	PyObject *m = Py_InitModule("idlememscan", idlememscan_funcs);
+	if (!m)
+		return;
+
+	PyModule_AddIntConstant(m, "MAX_AGE", MAX_IDLE_AGE + 1);
 }
