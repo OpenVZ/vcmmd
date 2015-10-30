@@ -18,6 +18,9 @@
 // must be multiple of 64 for the sake of idle page bitmap
 #define BATCH_SIZE		1024
 
+// how many pages py_iter scans in one go
+#define SCAN_CHUNK		32768
+
 using namespace std;
 
 class error: public exception {
@@ -101,7 +104,7 @@ public:
 };
 
 // ino -> idle_mem_stat
-typedef unordered_map<long, class idle_mem_stat> cg_idle_mem_stat_t;
+static unordered_map<long, class idle_mem_stat> cg_idle_mem_stat;
 
 static void do_open(const char *path, ios_base::openmode mode,
 		    long pos, fstream &f) throw(error)
@@ -160,7 +163,7 @@ static void set_idle_pages(long start_pfn, long end_pfn) throw(error)
 
 // Counts idle pages in range [start_pfn, end_pfn).
 // Returns map: cg ino -> idle_mem_stat.
-cg_idle_mem_stat_t count_idle_pages(long start_pfn, long end_pfn) throw(error)
+static void count_idle_pages(long start_pfn, long end_pfn) throw(error)
 {
 	assert(idle_page_age != NULL);
 
@@ -180,8 +183,6 @@ cg_idle_mem_stat_t count_idle_pages(long start_pfn, long end_pfn) throw(error)
 	bool head_idle = false, head_anon = false;
 	long head_cg = 0;
 	int buf_index = BATCH_SIZE;
-
-	cg_idle_mem_stat_t result;
 
 	for (long pfn = start_pfn2; pfn < end_pfn; ++pfn, ++buf_index) {
 		if (buf_index >= BATCH_SIZE) {
@@ -221,13 +222,12 @@ cg_idle_mem_stat_t count_idle_pages(long start_pfn, long end_pfn) throw(error)
 		if (age < MAX_IDLE_AGE)
 			idle_page_age[pfn] = age + 1;
 
-		auto &stat = result[head_cg];
+		auto &stat = cg_idle_mem_stat[head_cg];
 		if (head_anon)
 			stat.inc_nr_idle(MEM_ANON, age);
 		else
 			stat.inc_nr_idle(MEM_FILE, age);
 	}
-	return result;
 }
 
 static PyObject *py_init(PyObject *self, PyObject *args)
@@ -248,37 +248,53 @@ static PyObject *py_init(PyObject *self, PyObject *args)
 	Py_RETURN_NONE;
 }
 
-static PyObject *py_set_idle_pages(PyObject *self, PyObject *args)
+static PyObject *py_nr_iters(PyObject *self, PyObject *args)
 {
-	long start_pfn, end_pfn;
-	if (!PyArg_ParseTuple(args, "ll", &start_pfn, &end_pfn))
-		return NULL;
+	int nr_iters = (max_pfn + SCAN_CHUNK - 1) / SCAN_CHUNK;
+	PyObject *ret = PyInt_FromLong(nr_iters);
+	if (!ret)
+		return PyErr_NoMemory();
+	return ret;
+}
+
+// Does one scan iter. Returns true if the current scan was finished.
+static PyObject *py_iter(PyObject *self, PyObject *args)
+{
+	static int scan_iter;
+	bool ret = false;
+
+	if (!scan_iter)
+		cg_idle_mem_stat.clear();
+
+	long start_pfn = scan_iter * SCAN_CHUNK;
+	long end_pfn = start_pfn + SCAN_CHUNK;
+	if (end_pfn >= max_pfn) {
+		end_pfn = max_pfn;
+		scan_iter = 0;
+		ret = true;
+	} else
+		scan_iter++;
 
 	try {
+		count_idle_pages(start_pfn, end_pfn);
 		set_idle_pages(start_pfn, end_pfn);
 	} py_catch_error();
 
-	Py_RETURN_NONE;
+	if (ret)
+		Py_RETURN_TRUE;
+	else
+		Py_RETURN_FALSE;
 }
 
 // Returns dict: cg ino -> (idle anon, idle file).
-static PyObject *py_count_idle_pages(PyObject *self, PyObject *args)
+static PyObject *py_result(PyObject *self, PyObject *args)
 {
-	long start_pfn, end_pfn;
-	if (!PyArg_ParseTuple(args, "ll", &start_pfn, &end_pfn))
-		return NULL;
-
-	cg_idle_mem_stat_t result;
-	try {
-		result = count_idle_pages(start_pfn, end_pfn);
-	} py_catch_error();
-
 	// map the result to a PyDict
 	py_ref dict = PyDict_New();
 	if (!dict)
 		return PyErr_NoMemory();
 
-	for (auto &kv : result) {
+	for (auto &kv : cg_idle_mem_stat) {
 		py_ref key = PyInt_FromLong(kv.first);
 		py_ref val = PyTuple_New(NR_MEM_TYPES);
 		if (!key || !val)
@@ -311,14 +327,19 @@ static PyMethodDef kpageutil_funcs[] = {
 		METH_VARARGS, NULL,
 	},
 	{
-		"set_idle_pages",
-		(PyCFunction)py_set_idle_pages,
-		METH_VARARGS, NULL,
+		"nr_iters",
+		(PyCFunction)py_nr_iters,
+		METH_NOARGS, NULL,
 	},
 	{
-		"count_idle_pages",
-		(PyCFunction)py_count_idle_pages,
-		METH_VARARGS, NULL,
+		"iter",
+		(PyCFunction)py_iter,
+		METH_NOARGS, NULL,
+	},
+	{
+		"result",
+		(PyCFunction)py_result,
+		METH_NOARGS, NULL,
 	},
 	{ },
 };

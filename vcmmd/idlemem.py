@@ -22,8 +22,6 @@ else:
 @util.SingletonDecorator
 class _Scanner:
 
-    SCAN_CHUNK = 32768
-
     ##
     # interval: interval between updates, in seconds
     # on_update: callback to run on each update
@@ -49,17 +47,18 @@ class _Scanner:
         self.__should_shut_down.wait(seconds)
 
     def __init_scan(self):
-        self.__nr_unused = {}
-        self.__scan_pfn = 0
+        self.__scan_iters = kpageutil.nr_iters()
+        self.__iter = 0
         self.__scan_time = 0.0
         self.__scan_start = self.__time()
         self.__warned = False
 
-    # kpageutil.count_idle_pages uses cgroup ino as a key in the resulting
-    # dictionary while we want it to be referenced by cgroup name. This
-    # functions does the conversion.
+    # kpageutil.result uses cgroup ino as a key in the resulting dictionary
+    # while we want it to be referenced by cgroup name. This functions does the
+    # conversion.
     def __update_idle_stat(self):
         result = {}
+        result_raw = kpageutil.result()
         Z = (0, 0)
         for name in os.listdir(config.MEMCG__ROOT_PATH):
             path = os.path.join(config.MEMCG__ROOT_PATH, name)
@@ -71,7 +70,7 @@ class _Scanner:
                     ino = os.stat(root)[stat.ST_INO]
                 except OSError:  # cgroup dir removed?
                     continue
-                cnt = map(sum, zip(cnt, self.__nr_unused.get(ino, Z)))
+                cnt = map(sum, zip(cnt, result_raw.get(ino, Z)))
             # convert pages to bytes
             result[name] = tuple(x * sysinfo.PAGE_SIZE for x in cnt)
         self.__idle_stat = result
@@ -86,29 +85,10 @@ class _Scanner:
         if self.on_update:
             self.on_update()
 
-    def __scan_iter(self):
-        start_time = self.__time()
-        start_pfn = self.__scan_pfn
-        end_pfn = min(self.__scan_pfn + self.SCAN_CHUNK, sysinfo.END_PFN)
-        # count idle pages
-        cur = kpageutil.count_idle_pages(start_pfn, end_pfn)
-        # accumulate the result
-        Z = (0, 0)
-        tot = self.__nr_unused
-        for k in set(cur.keys() + tot.keys()):
-            tot[k] = map(sum, zip(tot.get(k, Z), cur.get(k, Z)))
-        # mark the scanned pages as idle for the next iteration
-        kpageutil.set_idle_pages(start_pfn, end_pfn)
-        # advance the pos and accumulate the time spent
-        self.__scan_pfn = end_pfn
-        self.__scan_time += self.__time() - start_time
-
     def __throttle(self):
-        if self.__scan_time == 0:
-            return
-        pages_left = sysinfo.END_PFN - self.__scan_pfn
+        iters_left = self.__scan_iters - self.__iter
         time_left = self.interval - (self.__time() - self.__scan_start)
-        time_required = pages_left * self.__scan_time / self.__scan_pfn
+        time_required = iters_left * self.__scan_time / self.__iter
         if time_required > time_left:
             # only warn about significant lags (> 0.1% of interval)
             if not self.__warned and \
@@ -118,16 +98,16 @@ class _Scanner:
                                (time_left, time_required))
                 self.__warned = True
             return
-        chunks_left = float(pages_left) / self.SCAN_CHUNK
-        self.__sleep((time_left - time_required) / chunks_left
-                     if pages_left > 0 else time_left)
+        self.__sleep((time_left - time_required) / iters_left
+                     if iters_left > 0 else time_left)
 
-    def __scan(self):
-        self.__scan_iter()
+    def __scan_iter(self):
+        start = self.__time()
+        done = kpageutil.iter()
+        self.__scan_time += self.__time() - start
+        self.__iter += 1
         self.__throttle()
-        if self.__scan_pfn >= sysinfo.END_PFN:
-            self.__scan_done()
-            self.__init_scan()
+        return done
 
     ##
     # Scan memory periodically counting unused pages until shutdown.
@@ -137,7 +117,9 @@ class _Scanner:
         try:
             self.__init_scan()
             while not self.__should_shut_down.is_set():
-                self.__scan()
+                if self.__scan_iter():
+                    self.__scan_done()
+                    self.__init_scan()
         finally:
             self.__should_shut_down.clear()
             self.__is_shut_down.set()
