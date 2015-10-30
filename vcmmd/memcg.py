@@ -1,14 +1,10 @@
 import errno
 import logging
-import os
 import os.path
-import stat
-import threading
-import time
 
 import config
 from core import Error, LoadConfig, AbstractLoadEntity, AbstractLoadManager
-import kpageutil
+import idlemem
 import sysinfo
 import util
 
@@ -16,11 +12,6 @@ import util
 class MemCg(AbstractLoadEntity):
 
     MAX_LIMIT = 9223372036854775807  # int64
-
-    # Estimate of the amount of unused memory per cgroup.
-    # Stored as a dictionary: id -> (unused_anon, unused_file)
-    # Updated by UnusedMemEstimator.
-    unused_mem_estimate = {}
 
     def __init__(self, id):
         AbstractLoadEntity.__init__(self, id)
@@ -131,14 +122,9 @@ class MemCg(AbstractLoadEntity):
 
     def update(self):
         self.mem_usage = self.__read_mem_usage()
-
-        unused_mem_estimate = self.unused_mem_estimate
-        if self.id in unused_mem_estimate:
-            # An estimate was recently updated, take it.
-            # TODO: do not count anon if there is no swap
-            self.mem_unused = min(self.mem_usage,
-                                  sum(unused_mem_estimate[self.id]))
-            del unused_mem_estimate[self.id]
+        # TODO: do not count anon if there is no swap
+        self.mem_unused = min(self.mem_usage,
+                              sum(idlemem.get_idle_stat(self.id)))
 
     def sync(self):
         self.__write_mem_low(self.mem_reservation)
@@ -146,143 +132,6 @@ class MemCg(AbstractLoadEntity):
     def reset(self):
         self.__write_mem_low(0)
         self.__write_mem_high(self.MAX_LIMIT)
-
-
-class UnusedMemEstimator:
-
-    SCAN_CHUNK = 32768
-
-    ##
-    # interval: interval between updates, in seconds
-    # on_update: callback to run on each update
-    #
-    # To avoid CPU bursts, the estimator will distribute the scanning in time
-    # so that a full scan fits in the given interval.
-
-    def __init__(self, interval, on_update=None, logger=None):
-        self.interval = interval
-        self.on_update = on_update
-        self.logger = logger or logging.getLogger(__name__)
-        self.__is_shut_down = threading.Event()
-        self.__should_shut_down = threading.Event()
-        kpageutil.init(sysinfo.END_PFN)
-
-    @staticmethod
-    def __time():
-        return time.time()
-
-    # like sleep, but is interrupted by shutdown
-    def __sleep(self, seconds):
-        self.__should_shut_down.wait(seconds)
-
-    def __init_scan(self):
-        self.__nr_unused = {}
-        self.__scan_pfn = 0
-        self.__scan_time = 0.0
-        self.__scan_start = self.__time()
-        self.__warned = False
-
-    # kpageutil.count_idle_pages uses cgroup ino as a key in the resulting
-    # dictionary while we want it to be referenced by cgroup name. This
-    # functions does the conversion.
-    def __update_memcg_unused(self):
-        result = {}
-        Z = (0, 0)
-        for name in os.listdir(config.MEMCG__ROOT_PATH):
-            path = os.path.join(config.MEMCG__ROOT_PATH, name)
-            if not os.path.isdir(path):
-                continue
-            cnt = Z
-            for root, subdirs, files in os.walk(path):
-                try:
-                    ino = os.stat(root)[stat.ST_INO]
-                except OSError:  # cgroup dir removed?
-                    continue
-                cnt = map(sum, zip(cnt, self.__nr_unused.get(ino, Z)))
-            # convert pages to bytes
-            result[name] = tuple(x * sysinfo.PAGE_SIZE for x in cnt)
-        MemCg.unused_mem_estimate = result
-        self.logger.debug("Unused memory estimate (anon/file)): %s" %
-                          "; ".join('%s: %s/%s' % (k,
-                                                   util.strmemsize(v1),
-                                                   util.strmemsize(v2))
-                                    for k, (v1, v2) in result.iteritems()))
-
-    def __scan_done(self):
-        self.__update_memcg_unused()
-        if self.on_update:
-            self.on_update()
-
-    def __scan_iter(self):
-        start_time = self.__time()
-        start_pfn = self.__scan_pfn
-        end_pfn = min(self.__scan_pfn + self.SCAN_CHUNK, sysinfo.END_PFN)
-        # count idle pages
-        cur = kpageutil.count_idle_pages(start_pfn, end_pfn)
-        # accumulate the result
-        Z = (0, 0)
-        tot = self.__nr_unused
-        for k in set(cur.keys() + tot.keys()):
-            tot[k] = map(sum, zip(tot.get(k, Z), cur.get(k, Z)))
-        # mark the scanned pages as idle for the next iteration
-        kpageutil.set_idle_pages(start_pfn, end_pfn)
-        # advance the pos and accumulate the time spent
-        self.__scan_pfn = end_pfn
-        self.__scan_time += self.__time() - start_time
-
-    def __throttle(self):
-        if self.__scan_time == 0:
-            return
-        pages_left = sysinfo.END_PFN - self.__scan_pfn
-        time_left = self.interval - (self.__time() - self.__scan_start)
-        time_required = pages_left * self.__scan_time / self.__scan_pfn
-        if time_required > time_left:
-            # only warn about significant lags (> 0.1% of interval)
-            if not self.__warned and \
-                    time_required - time_left > self.interval / 1000.0:
-                self.logger.warning("Memory scanner is lagging behind "
-                                    "(%s s left, %s s required)" %
-                                    (time_left, time_required))
-                self.__warned = True
-            return
-        chunks_left = float(pages_left) / self.SCAN_CHUNK
-        self.__sleep((time_left - time_required) / chunks_left
-                     if pages_left > 0 else time_left)
-
-    def __scan(self):
-        self.__scan_iter()
-        self.__throttle()
-        if self.__scan_pfn >= sysinfo.END_PFN:
-            self.__scan_done()
-            self.__init_scan()
-
-    ##
-    # Check if the idle memory tracking feature is supported by the kernel.
-    # Return true if it is, false otherwise.
-
-    @staticmethod
-    def is_available():
-        return os.path.exists("/sys/kernel/mm/page_idle/bitmap")
-
-    ##
-    # Scan memory periodically counting unused pages until shutdown.
-
-    def serve_forever(self):
-        self.__is_shut_down.clear()
-        try:
-            self.__init_scan()
-            while not self.__should_shut_down.is_set():
-                self.__scan()
-        finally:
-            self.__should_shut_down.clear()
-            self.__is_shut_down.set()
-
-    ##
-    # Stop the serve_forever loop and wait until it exits.
-
-    def shutdown(self):
-        self.__should_shut_down.set()
-        self.__is_shut_down.wait()
 
 
 class BaseMemCgManager(AbstractLoadManager):
@@ -297,30 +146,22 @@ class BaseMemCgManager(AbstractLoadManager):
 
     def __init__(self, *args, **kwargs):
         AbstractLoadManager.__init__(self, *args, **kwargs)
+        if config.MEMCG__MEM_INUSE_TIME == 0:
+            self.TRACK_UNUSED_MEM = False
 
         if not self.SUPPORTS_GUARANTEES:
             self.logger.warning("Memory guarantees are not supported by "
                                 "the load manager and will be ignored")
 
-        self.unused_mem_estimator = None
-        if self.TRACK_UNUSED_MEM:
-            if UnusedMemEstimator.is_available():
-                if config.MEMCG__MEM_INUSE_TIME != 0:
-                    self.unused_mem_estimator = UnusedMemEstimator(
-                        config.MEMCG__MEM_INUSE_TIME, self.update, self.logger)
-            else:
-                self.logger.error("Failed to activate idle memory estimator: "
-                                  "Not supported by the kernel")
-
     def serve_forever(self):
-        if self.unused_mem_estimator:
-            threading.Thread(target=self.unused_mem_estimator.
-                             serve_forever).start()
+        if self.TRACK_UNUSED_MEM:
+            idlemem.logger = self.logger
+            idlemem.start_background_scan(config.MEMCG__MEM_INUSE_TIME,
+                                          self.update)
         AbstractLoadManager.serve_forever(self)
 
     def shutdown(self):
-        if self.unused_mem_estimator:
-            self.unused_mem_estimator.shutdown()
+        idlemem.stop_background_scan()
         AbstractLoadManager.shutdown(self)
 
     # Minimal logic is implemented in MemCg.set_config.
