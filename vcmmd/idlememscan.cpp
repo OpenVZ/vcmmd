@@ -76,13 +76,16 @@ enum mem_type {
 
 class idle_mem_stat {
 private:
+	long total_[NR_MEM_TYPES];
 	idle_stat_buckets_array idle_[NR_MEM_TYPES];
 public:
 	idle_mem_stat()
 	{
-		for (int i = 0; i < NR_MEM_TYPES; ++i)
+		for (int i = 0; i < NR_MEM_TYPES; ++i) {
+			total_[i] = 0;
 			for (int j = 0; j < IDLE_STAT_BUCKETS; j++)
 				idle_[i].count[j] = 0;
+		}
 	}
 
 	// idle_by_age[i] equals nr pages that have been idle for > i intervals
@@ -100,6 +103,16 @@ public:
 	void inc_nr_idle(mem_type type, int age)
 	{
 		++idle_[type].count[age];
+	}
+
+	long get_nr_total(mem_type type)
+	{
+		return total_[type];
+	}
+
+	void inc_nr_total(mem_type type)
+	{
+		++total_[type];
 	}
 };
 
@@ -180,7 +193,7 @@ static void count_idle_pages(long start_pfn, long end_pfn) throw(error)
 		 buf_cg[BATCH_SIZE],
 		 buf_idle[BATCH_SIZE / 64];
 
-	bool head_idle = false, head_anon = false;
+	bool head_idle = false, head_anon = false, head_lru = false;
 	long head_cg = 0;
 	int buf_index = BATCH_SIZE;
 
@@ -204,6 +217,7 @@ static void count_idle_pages(long start_pfn, long end_pfn) throw(error)
 		if (!(flags & (1 << KPF_COMPOUND_TAIL))) {
 			// not compound page or compound page head
 			head_cg = cg;
+			head_lru = !!(flags & (1 << KPF_LRU));
 			head_anon = !!(flags & (1 << KPF_ANON));
 			head_idle = buf_idle[buf_index / 64] &
 					(1ULL << (buf_index & 63));
@@ -213,20 +227,22 @@ static void count_idle_pages(long start_pfn, long end_pfn) throw(error)
 				head_idle = false;
 		} // else compound page tail - count as per head
 
-		if (!head_idle) {
-			idle_page_age[pfn] = 0;
+		if (!head_lru)
 			continue;
-		}
-
-		int age = idle_page_age[pfn];
-		if (age < MAX_IDLE_AGE)
-			idle_page_age[pfn] = age + 1;
 
 		auto &stat = cg_idle_mem_stat[head_cg];
-		if (head_anon)
-			stat.inc_nr_idle(MEM_ANON, age);
-		else
-			stat.inc_nr_idle(MEM_FILE, age);
+		mem_type type = head_anon ? MEM_ANON : MEM_FILE;
+
+		stat.inc_nr_total(type);
+
+		if (head_idle) {
+			int age = idle_page_age[pfn];
+			if (age < MAX_IDLE_AGE)
+				idle_page_age[pfn] = age + 1;
+			stat.inc_nr_idle(type, age);
+		} else
+			idle_page_age[pfn] = 0;
+
 	}
 }
 
