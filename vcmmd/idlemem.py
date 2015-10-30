@@ -5,7 +5,7 @@ import threading
 import time
 
 import config
-import kpageutil
+import idlememscan
 import sysinfo
 import util
 
@@ -13,7 +13,7 @@ import util
 logger = logging.getLogger(__name__)
 
 if os.path.exists("/sys/kernel/mm/page_idle/bitmap"):
-    kpageutil.init(sysinfo.END_PFN)
+    idlememscan.init(sysinfo.END_PFN)
     AVAILABLE = True
 else:
     AVAILABLE = False
@@ -47,18 +47,18 @@ class _Scanner:
         self.__should_shut_down.wait(seconds)
 
     def __init_scan(self):
-        self.__scan_iters = kpageutil.nr_iters()
+        self.__scan_iters = idlememscan.nr_iters()
         self.__iter = 0
         self.__scan_time = 0.0
         self.__scan_start = self.__time()
         self.__warned = False
 
-    # kpageutil.result uses cgroup ino as a key in the resulting dictionary
+    # idlememscan.result uses cgroup ino as a key in the resulting dictionary
     # while we want it to be referenced by cgroup name. This functions does the
     # conversion.
     def __update_idle_stat(self):
         result = {}
-        result_raw = kpageutil.result()
+        result_raw = idlememscan.result()
         Z = (0, 0)
         for name in os.listdir(config.MEMCG__ROOT_PATH):
             path = os.path.join(config.MEMCG__ROOT_PATH, name)
@@ -103,7 +103,7 @@ class _Scanner:
 
     def __scan_iter(self):
         start = self.__time()
-        done = kpageutil.iter()
+        done = idlememscan.iter()
         self.__scan_time += self.__time() - start
         self.__iter += 1
         self.__throttle()

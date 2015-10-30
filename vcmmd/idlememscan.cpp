@@ -320,7 +320,7 @@ static PyObject *py_result(PyObject *self, PyObject *args)
 	return dict;
 }
 
-static PyMethodDef kpageutil_funcs[] = {
+static PyMethodDef idlememscan_funcs[] = {
 	{
 		"init",
 		(PyCFunction)py_init,
@@ -345,8 +345,8 @@ static PyMethodDef kpageutil_funcs[] = {
 };
 
 extern "C" {
-void initkpageutil(void)
+void initidlememscan(void)
 {
-	Py_InitModule("kpageutil", kpageutil_funcs);
+	Py_InitModule("idlememscan", idlememscan_funcs);
 }
 }
