@@ -63,6 +63,17 @@ class MemCg(AbstractLoadEntity):
     def __read_mem_usage(self):
         return self.__read_int('memory.usage_in_bytes')
 
+    def __read_stat(self):
+        stat = {}
+        for l in self.__read('memory.stat').split('\n'):
+            try:
+                k, v = l.split(' ')
+                v = int(v)
+            except ValueError:
+                continue
+            stat[k] = v
+        return stat
+
     def __write_mem_low(self, val):
         self.__write_limit('memory.low', val)
 
@@ -122,9 +133,19 @@ class MemCg(AbstractLoadEntity):
 
     def update(self):
         self.mem_usage = self.__read_mem_usage()
-        # TODO: do not count anon if there is no swap
+
+        stat = self.__read_stat()
+        anon = stat['total_inactive_anon'] + stat['total_active_anon']
+        file = stat['total_inactive_file'] + stat['total_active_file']
+
         idle_stat = idlemem.get_idle_stat(self.id)
-        total_idle = map(sum, zip(*idle_stat))[1]
+        idle_anon = (anon * idle_stat[idlemem.ANON][1] /
+                     (idle_stat[idlemem.ANON][0] + 1))
+        idle_file = (file * idle_stat[idlemem.FILE][1] /
+                     (idle_stat[idlemem.FILE][0] + 1))
+
+        # TODO: do not count anon if there is no swap
+        total_idle = idle_anon + idle_file
         self.mem_unused = min(self.mem_usage, total_idle)
 
     def sync(self):
