@@ -7,6 +7,7 @@
 #include <algorithm>
 #include <unordered_map>
 
+#include <unistd.h>
 #include <sys/mman.h>
 #include <linux/kernel-page-flags.h>
 
@@ -54,6 +55,7 @@ public:
 // complicate the code and shorten the history significantly.
 #define MAX_IDLE_AGE		255
 
+static int PAGE_SIZE;
 static long END_PFN;
 static unsigned char *idle_page_age;
 
@@ -332,7 +334,8 @@ static PyObject *py_result(PyObject *self, PyObject *args)
 				return PyErr_NoMemory();
 
 			for (int j = 0; j <= IDLE_STAT_BUCKETS; j++) {
-				PyObject *p = PyInt_FromLong(idle_stat[j]);
+				PyObject *p = PyInt_FromLong(idle_stat[j] *
+							     PAGE_SIZE);
 				if (!p)
 					return PyErr_NoMemory();
 				PyTuple_SET_ITEM(static_cast<PyObject *>
@@ -379,6 +382,11 @@ static PyMethodDef idlememscan_funcs[] = {
 	{ },
 };
 
+static void init_PAGE_SIZE()
+{
+	PAGE_SIZE = sysconf(_SC_PAGESIZE);
+}
+
 static void init_END_PFN()
 {
 	fstream f(ZONEINFO_PATH, ios::in);
@@ -422,6 +430,7 @@ PyMODINIT_FUNC
 initidlememscan(void)
 {
 	try {
+		init_PAGE_SIZE();
 		init_END_PFN();
 		init_idle_page_age_array();
 		init_files();

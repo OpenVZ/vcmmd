@@ -125,7 +125,7 @@ class MemCg(AbstractLoadEntity):
         # TODO: do not count anon if there is no swap
         idle_stat = idlemem.get_idle_stat(self.id)
         total_idle = map(sum, zip(*idle_stat))[1]
-        self.mem_unused = min(self.mem_usage, total_idle * sysinfo.PAGE_SIZE)
+        self.mem_unused = min(self.mem_usage, total_idle)
 
     def sync(self):
         self.__write_mem_low(self.mem_reservation)

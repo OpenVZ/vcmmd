@@ -1,6 +1,3 @@
-import os
-
-
 def _parse_meminfo():
     meminfo = {}
     with open('/proc/meminfo', 'r') as f:
@@ -12,5 +9,4 @@ def _parse_meminfo():
             meminfo[l[0].rstrip(':')] = val
     return meminfo
 
-PAGE_SIZE = os.sysconf("SC_PAGE_SIZE")
 MEM_TOTAL = _parse_meminfo()["MemTotal"]
