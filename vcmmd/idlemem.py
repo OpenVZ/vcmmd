@@ -83,11 +83,6 @@ class _Scanner:
                     cnt, result_raw.get(ino, self.IDLE_STAT_ZERO))
             result[name] = cnt
         self.__idle_stat = result
-        logger.debug("Unused memory estimate (anon/file)): %s" %
-                     "; ".join('%s: %s/%s' % (k,
-                                              util.strmemsize(v1[1]),
-                                              util.strmemsize(v2[1]))
-                               for k, (v1, v2) in result.iteritems()))
 
     def __scan_done(self):
         self.__update_idle_stat()
