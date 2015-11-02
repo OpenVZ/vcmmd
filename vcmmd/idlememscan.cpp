@@ -129,6 +129,9 @@ public:
 // ino -> idle_mem_stat
 static unordered_map<long, class idle_mem_stat> cg_idle_mem_stat;
 
+// /proc/kpageflags, /proc/kpagecgroup, /sys/kernel/mm/page_idle/bitmap
+static fstream f_flags, f_cg, f_idle;
+
 static void do_open(const char *path, ios_base::openmode mode,
 		    fstream &f) throw(error)
 {
@@ -165,9 +168,6 @@ static void set_idle_pages(long start_pfn, long end_pfn) throw(error)
 	long start_pfn2 = start_pfn & ~63UL;
 	long end_pfn2 = (end_pfn + 63) & ~63UL;
 
-	fstream f;
-	do_open(IDLE_PAGE_BITMAP_PATH, ios::out, f);
-
 	uint64_t buf[BATCH_SIZE / 64];
 	for (int i = 0; i < BATCH_SIZE / 64; i++)
 		buf[i] = ~0ULL;
@@ -180,7 +180,7 @@ static void set_idle_pages(long start_pfn, long end_pfn) throw(error)
 			buf[0] &= ~((1ULL << (start_pfn & 63)) - 1);
 		if (pfn + n > end_pfn)
 			buf[n / 64 - 1] &= (1ULL << (end_pfn & 63)) - 1;
-		do_write(f, pfn / 64, n / 64, IDLE_PAGE_BITMAP_PATH, buf);
+		do_write(f_idle, pfn / 64, n / 64, IDLE_PAGE_BITMAP_PATH, buf);
 	}
 }
 
@@ -198,11 +198,6 @@ static void count_idle_pages(long start_pfn, long end_pfn) throw(error)
 	// idle page bitmap requires pfn to be aligned by 64
 	long start_pfn2 = start_pfn & ~63UL;
 	long end_pfn2 = (end_pfn + 63) & ~63UL;
-
-	fstream f_flags, f_cg, f_idle;
-	do_open(KPAGEFLAGS_PATH, ios::in, f_flags);
-	do_open(KPAGECGROUP_PATH, ios::in, f_cg);
-	do_open(IDLE_PAGE_BITMAP_PATH, ios::in, f_idle);
 
 	uint64_t buf_flags[BATCH_SIZE],
 		 buf_cg[BATCH_SIZE],
@@ -422,11 +417,19 @@ static void init_idle_page_age_array()
 		throw error("Failed to allocate idle_page_age array");
 }
 
+static void init_files()
+{
+	do_open(KPAGEFLAGS_PATH, ios::in, f_flags);
+	do_open(KPAGECGROUP_PATH, ios::in, f_cg);
+	do_open(IDLE_PAGE_BITMAP_PATH, ios::in | ios::out, f_idle);
+}
+
 PyMODINIT_FUNC
 initidlememscan(void)
 {
 	init_END_PFN();
 	init_idle_page_age_array();
+	init_files();
 
 	PyObject *m = Py_InitModule("idlememscan", idlememscan_funcs);
 	if (!m)
