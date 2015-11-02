@@ -38,6 +38,7 @@ class _Scanner:
         self.interval = 0
         self.on_update = None
         self.__idle_stat = {}
+        self.__warned_lag = False
         self.__is_shut_down = threading.Event()
         self.__is_shut_down.set()
         self.__should_shut_down = threading.Event()
@@ -56,7 +57,6 @@ class _Scanner:
         self.__iter = 0
         self.__scan_time = 0.0
         self.__scan_start = self.__time()
-        self.__warned = False
 
     @staticmethod
     def __sum_idle_stat(a, b):
@@ -95,12 +95,12 @@ class _Scanner:
         time_required = iters_left * self.__scan_time / self.__iter
         if time_required > time_left:
             # only warn about significant lags (> 0.1% of interval)
-            if not self.__warned and \
+            if not self.__warned_lag and \
                     time_required - time_left > self.interval / 1000.0:
                 logger.warning("Memory scanner is lagging behind "
                                "(%s s left, %s s required)" %
                                (time_left, time_required))
-                self.__warned = True
+                self.__warned_lag = True
             return
         self.__sleep((time_left - time_required) / iters_left
                      if iters_left > 0 else time_left)
