@@ -196,8 +196,9 @@ static void count_idle_pages(long start_pfn, long end_pfn) throw(error)
 		 buf_cg[BATCH_SIZE],
 		 buf_idle[BATCH_SIZE / 64];
 
-	bool head_idle = false, head_anon = false, head_lru = false;
 	long head_cg = 0;
+	bool head_lru = false, head_anon = false,
+	     head_unevictable = false, head_idle = false;
 	int buf_index = BATCH_SIZE;
 
 	for (long pfn = start_pfn2; pfn < end_pfn;
@@ -223,15 +224,12 @@ static void count_idle_pages(long start_pfn, long end_pfn) throw(error)
 			head_cg = cg;
 			head_lru = !!(flags & (1 << KPF_LRU));
 			head_anon = !!(flags & (1 << KPF_ANON));
+			head_unevictable = !!(flags & (1 << KPF_UNEVICTABLE));
 			head_idle = buf_idle[buf_index / 64] &
 					(1ULL << (buf_index & 63));
-
-			// do not treat mlock'd pages as idle
-			if (flags & (1 << KPF_UNEVICTABLE))
-				head_idle = false;
 		} // else compound page tail - count as per head
 
-		if (!head_lru)
+		if (!head_lru || head_unevictable)
 			continue;
 
 		auto &stat = cg_idle_mem_stat[head_cg];
