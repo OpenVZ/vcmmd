@@ -1,9 +1,6 @@
 import ConfigParser
 import logging
 
-# Maximal memory portion that can be reserved for containers.
-MAX_RESERVATION = 0.75
-
 # Amount of memory to reserve for the host, in bytes
 SYSTEM_MEM = 536870912
 
@@ -71,7 +68,6 @@ class _ConfigLoader:
             self.logger.warning("Error reading config file: %s" % err)
             return
 
-        self.update_opt('max_reservation', self.OPT_FLOAT)
         self.update_opt('system_mem', self.OPT_INT)
         self.update_opt('memcg_mount', self.OPT_STR)
         self.update_opt('mem_idle_delay', self.OPT_INT)

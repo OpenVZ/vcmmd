@@ -205,7 +205,6 @@ class DefaultMemCgManager(BaseMemCgManager):
 
     def _calc_reservation(self, entities):
         mem_avail = max(sysinfo.MEM_TOTAL - config.SYSTEM_MEM, 0)
-        mem_avail = int(config.MAX_RESERVATION * mem_avail)
 
         # Reservations are calculated by dividing the available memory among
         # entities proportionally to the memory demand.
