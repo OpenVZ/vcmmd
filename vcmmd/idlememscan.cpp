@@ -33,6 +33,7 @@ private:
 public:
 	error(const string &msg) : msg_(msg) { }
 	virtual const char *what() const throw() { return msg_.c_str(); }
+	void set_py_err() { PyErr_SetString(PyExc_RuntimeError, this->what()); }
 };
 
 // With this class we do not need to bother about dropping ref to a PyObject -
@@ -46,14 +47,6 @@ public:
 	operator PyObject *() const { return obj_; }
 	operator bool() const { return !!obj_; }
 };
-
-// Converts caught exception to appropriate PyErr
-#define py_catch_error()						\
-	catch (error &e) {						\
-		return PyErr_Format(PyExc_RuntimeError, "%s", e.what());\
-	} catch (bad_alloc e) {						\
-		return PyErr_NoMemory();				\
-	}
 
 // The following constant must fit in char, because we want to have only one
 // extra byte per tracked page for storing age. We could use 4 bits or even 2
@@ -296,7 +289,10 @@ static PyObject *py_iter(PyObject *self, PyObject *args)
 	try {
 		count_idle_pages(start_pfn, end_pfn);
 		set_idle_pages(start_pfn, end_pfn);
-	} py_catch_error();
+	} catch (error &e) {
+		e.set_py_err();
+		return NULL;
+	}
 
 	if (ret)
 		Py_RETURN_TRUE;
@@ -427,9 +423,14 @@ static void init_files()
 PyMODINIT_FUNC
 initidlememscan(void)
 {
-	init_END_PFN();
-	init_idle_page_age_array();
-	init_files();
+	try {
+		init_END_PFN();
+		init_idle_page_age_array();
+		init_files();
+	} catch (error &e) {
+		e.set_py_err();
+		return;
+	}
 
 	PyObject *m = Py_InitModule("idlememscan", idlememscan_funcs);
 	if (!m)
