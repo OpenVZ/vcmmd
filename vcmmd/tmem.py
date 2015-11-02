@@ -29,14 +29,14 @@ def _set_active(mod, active):
 
 
 def initialize():
-    if config.TMEM__TCACHE:
+    if config.USE_TCACHE:
         _set_active('tcache', True)
-    if config.TMEM__TSWAP:
+    if config.USE_TSWAP:
         _set_active('tswap', True)
 
 
 def finilize():
-    if config.TMEM__TCACHE:
+    if config.USE_TCACHE:
         _set_active('tcache', False)
-    if config.TMEM__TSWAP:
+    if config.USE_TSWAP:
         _set_active('tswap', False)

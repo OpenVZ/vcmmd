@@ -31,7 +31,7 @@ class MemCg(AbstractLoadEntity):
         self.mem_reservation = 0
 
     def __path(self):
-        return os.path.join(config.MEMCG__ROOT_PATH, self.id)
+        return os.path.join(config.MEMCG_MOUNT, self.id)
 
     def __read(self, name):
         filepath = os.path.join(self.__path(), name)
@@ -108,8 +108,8 @@ class MemCg(AbstractLoadEntity):
             self.__write_memsw_limit(memsw_limit)
 
         if cfg.limit < cfg.MAX_LIMIT:
-            high = int(cfg.limit * config.MEMCG__HIGH)
-            high = min(high, config.MEMCG__HIGH_MAX)
+            high = int(cfg.limit * config.HIGH_WMARK_RATIO)
+            high = min(high, config.HIGH_WMARK_MAX)
             high = max(cfg.limit - high, 0)
         else:
             high = cfg.MAX_LIMIT
@@ -168,7 +168,7 @@ class BaseMemCgManager(AbstractLoadManager):
 
     def __init__(self, *args, **kwargs):
         AbstractLoadManager.__init__(self, *args, **kwargs)
-        if config.MEMCG__MEM_INUSE_TIME == 0:
+        if config.MEM_IDLE_DELAY == 0:
             self.TRACK_UNUSED_MEM = False
 
         if not self.SUPPORTS_GUARANTEES:
@@ -178,7 +178,7 @@ class BaseMemCgManager(AbstractLoadManager):
     def serve_forever(self):
         if self.TRACK_UNUSED_MEM:
             idlemem.logger = self.logger
-            idlemem.start_background_scan(config.MEMCG__MEM_INUSE_TIME,
+            idlemem.start_background_scan(config.MEM_IDLE_DELAY,
                                           self.update)
         AbstractLoadManager.serve_forever(self)
 
@@ -195,7 +195,7 @@ class DefaultMemCgManager(BaseMemCgManager):
     TRACK_UNUSED_MEM = True
 
     def _estimate_wss(self, e):
-        if e.mem_unused < e.mem_usage * config.MEMCG__MIN_UNUSED_MEM:
+        if e.mem_unused < e.mem_usage * config.MEM_IDLE_THRESH:
             # memcg does not seem to have much idle memory, so give it a chance
             # to increase its share
             wss = min(e.config.limit, sysinfo.MEM_TOTAL)
@@ -204,8 +204,8 @@ class DefaultMemCgManager(BaseMemCgManager):
         return wss
 
     def _calc_reservation(self, entities):
-        mem_avail = max(sysinfo.MEM_TOTAL - config.CORE__SYSTEM_MEM, 0)
-        mem_avail = int(config.CORE__MAX_RESERVATION * mem_avail)
+        mem_avail = max(sysinfo.MEM_TOTAL - config.SYSTEM_MEM, 0)
+        mem_avail = int(config.MAX_RESERVATION * mem_avail)
 
         # Reservations are calculated by dividing the available memory among
         # entities proportionally to the memory demand.

@@ -1,45 +1,32 @@
 import ConfigParser
 import logging
 
-# Config options are stored in an ini file. When parsed, the value of option
-# NAME living in section SECTION is stored in global variable NAME__SECTION.
-# List of all config options with their default values is given below.
-
-##
-# core section
-
 # Maximal memory portion that can be reserved for containers.
-CORE__MAX_RESERVATION = 0.75
+MAX_RESERVATION = 0.75
 
 # Amount of memory to reserve for the host, in bytes
-CORE__SYSTEM_MEM = 536870912
+SYSTEM_MEM = 536870912
 
 # Start reclaim in a container if the amount of free memory is less than
-# min(<container RAM size> * memcg.high, memcg.high_max)
-MEMCG__HIGH = 0.02
-MEMCG__HIGH_MAX = 16777216  # bytes
-
-##
-# memcg section
+# min(<container RAM size> * HIGH_WMARK_RATIO, HIGH_WMARK_MAX)
+HIGH_WMARK_RATIO = 0.02
+HIGH_WMARK_MAX = 16777216  # bytes
 
 # Path to memory cgroup mount point
-MEMCG__ROOT_PATH = "/sys/fs/cgroup/memory"
+MEMCG_MOUNT = "/sys/fs/cgroup/memory"
 
 # Treat a page as unused if it has not been touched for more than
-MEMCG__MEM_INUSE_TIME = 300  # seconds
+MEM_IDLE_DELAY = 300  # seconds
 
 # Do not take into account memory that is not used by a container if its
 # relative portion is less than
-MEMCG__MIN_UNUSED_MEM = 0.1
-
-##
-# tmem section
+MEM_IDLE_THRESH = 0.1
 
 # Enable tcache?
-TMEM__TCACHE = True
+USE_TCACHE = True
 
 # Enable tswap?
-TMEM__TSWAP = True
+USE_TSWAP = True
 
 
 class _ConfigLoader:
@@ -50,8 +37,9 @@ class _ConfigLoader:
     OPT_BOOL = 3
     OPT_FLOAT = 4
 
-    def __init__(self, config_filename, logger=None):
+    def __init__(self, config_filename, config_section='DEFAULT', logger=None):
         self.config_filename = config_filename
+        self.config_section = config_section
         self.logger = logger or logging.getLogger(__name__)
         self.parser = ConfigParser.RawConfigParser()
 
@@ -64,15 +52,14 @@ class _ConfigLoader:
             self.OPT_FLOAT: self.parser.getfloat,
         }
 
-    def update_opt(self, full_name, type):
-        section, name = full_name.split('.')
+    def update_opt(self, name, type):
         try:
-            val = self.opt_getter[type](section, name)
+            val = self.opt_getter[type](self.config_section, name)
         except (ConfigParser.Error, ValueError) as err:
             self.logger.warning("Error parsing config option '%s': %s" %
-                                (full_name, err))
+                                (name, err))
         else:
-            globals()[section.upper() + '__' + name.upper()] = val
+            globals()[name.upper()] = val
 
     def load(self):
         self.logger.debug("Loading config from file '%s'" %
@@ -84,18 +71,16 @@ class _ConfigLoader:
             self.logger.warning("Error reading config file: %s" % err)
             return
 
-        self.update_opt('core.max_reservation', self.OPT_FLOAT)
-        self.update_opt('core.system_mem', self.OPT_INT)
-
-        self.update_opt('memcg.root_path', self.OPT_STR)
-        self.update_opt('memcg.mem_inuse_time', self.OPT_INT)
-        self.update_opt('memcg.min_unused_mem', self.OPT_FLOAT)
-        self.update_opt('memcg.high', self.OPT_FLOAT)
-        self.update_opt('memcg.high_max', self.OPT_INT)
-
-        self.update_opt('tmem.tcache', self.OPT_BOOL)
-        self.update_opt('tmem.tswap', self.OPT_BOOL)
+        self.update_opt('max_reservation', self.OPT_FLOAT)
+        self.update_opt('system_mem', self.OPT_INT)
+        self.update_opt('memcg_mount', self.OPT_STR)
+        self.update_opt('mem_idle_delay', self.OPT_INT)
+        self.update_opt('mem_idle_thresh', self.OPT_FLOAT)
+        self.update_opt('high_wmark_ratio', self.OPT_FLOAT)
+        self.update_opt('high_wmark_max', self.OPT_INT)
+        self.update_opt('use_tcache', self.OPT_BOOL)
+        self.update_opt('use_tswap', self.OPT_BOOL)
 
 
 def load_from_file(config_filename, logger=None):
-    _ConfigLoader(config_filename, logger).load()
+    _ConfigLoader(config_filename, logger=logger).load()
