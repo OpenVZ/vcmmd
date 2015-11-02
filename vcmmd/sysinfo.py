@@ -9,4 +9,14 @@ def _parse_meminfo():
             meminfo[l[0].rstrip(':')] = val
     return meminfo
 
+
+def _lookup_memcg_mount():
+    with open('/etc/mtab', 'r') as f:
+        for l in f:
+            m = l.split()
+            if m[2] == 'cgroup' and 'memory' in m[3].split(','):
+                return m[1]
+    raise RuntimeError("Memory cgroup not mounted")
+
 MEM_TOTAL = _parse_meminfo()["MemTotal"]
+MEMCG_MOUNT = _lookup_memcg_mount()

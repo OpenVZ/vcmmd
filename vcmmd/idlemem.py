@@ -4,8 +4,8 @@ import stat
 import threading
 import time
 
-import config
 import idlememscan
+import sysinfo
 import util
 
 
@@ -69,8 +69,8 @@ class _Scanner:
     def __update_idle_stat(self):
         result = {}
         result_raw = idlememscan.result()
-        for name in os.listdir(config.MEMCG_MOUNT):
-            path = os.path.join(config.MEMCG_MOUNT, name)
+        for name in os.listdir(sysinfo.MEMCG_MOUNT):
+            path = os.path.join(sysinfo.MEMCG_MOUNT, name)
             if not os.path.isdir(path):
                 continue
             cnt = self.IDLE_STAT_ZERO

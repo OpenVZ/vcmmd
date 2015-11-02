@@ -31,7 +31,7 @@ class MemCg(AbstractLoadEntity):
         self.mem_reservation = 0
 
     def __path(self):
-        return os.path.join(config.MEMCG_MOUNT, self.id)
+        return os.path.join(sysinfo.MEMCG_MOUNT, self.id)
 
     def __read(self, name):
         filepath = os.path.join(self.__path(), name)

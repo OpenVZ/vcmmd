@@ -9,9 +9,6 @@ SYSTEM_MEM = 536870912
 HIGH_WMARK_RATIO = 0.02
 HIGH_WMARK_MAX = 16777216  # bytes
 
-# Path to memory cgroup mount point
-MEMCG_MOUNT = "/sys/fs/cgroup/memory"
-
 # Treat a page as unused if it has not been touched for more than
 MEM_IDLE_DELAY = 300  # seconds
 
@@ -69,7 +66,6 @@ class _ConfigLoader:
             return
 
         self.update_opt('system_mem', self.OPT_INT)
-        self.update_opt('memcg_mount', self.OPT_STR)
         self.update_opt('mem_idle_delay', self.OPT_INT)
         self.update_opt('mem_idle_thresh', self.OPT_FLOAT)
         self.update_opt('high_wmark_ratio', self.OPT_FLOAT)
