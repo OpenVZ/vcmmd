@@ -166,20 +166,20 @@ class BaseMemCgManager(AbstractLoadManager):
     # Do we take into account memory guarantees?
     SUPPORTS_GUARANTEES = False
 
-    # Start unused memory estimator?
-    TRACK_UNUSED_MEM = False
+    # Start idle memory estimator?
+    TRACK_IDLE_MEM = False
 
     def __init__(self, *args, **kwargs):
         AbstractLoadManager.__init__(self, *args, **kwargs)
         if config.MEM_IDLE_DELAY == 0:
-            self.TRACK_UNUSED_MEM = False
+            self.TRACK_IDLE_MEM = False
 
         if not self.SUPPORTS_GUARANTEES:
             self.logger.warning("Memory guarantees are not supported by "
                                 "the load manager and will be ignored")
 
     def serve_forever(self):
-        if self.TRACK_UNUSED_MEM:
+        if self.TRACK_IDLE_MEM:
             idlemem.logger = self.logger
             idlemem.start_background_scan(config.MEM_IDLE_DELAY,
                                           config.MEM_IDLE_SAMPLING_RATIO,
@@ -196,7 +196,7 @@ class BaseMemCgManager(AbstractLoadManager):
 
 class DefaultMemCgManager(BaseMemCgManager):
 
-    TRACK_UNUSED_MEM = True
+    TRACK_IDLE_MEM = True
 
     def _estimate_wss(self, e):
         if e.mem_unused < e.mem_usage * config.MEM_IDLE_THRESH:
