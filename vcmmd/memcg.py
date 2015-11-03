@@ -169,17 +169,12 @@ class BaseMemCgManager(AbstractLoadManager):
     # Start idle memory estimator?
     TRACK_IDLE_MEM = False
 
-    def __init__(self, *args, **kwargs):
-        AbstractLoadManager.__init__(self, *args, **kwargs)
-        if config.MEM_IDLE_DELAY == 0:
-            self.TRACK_IDLE_MEM = False
-
+    def serve_forever(self):
         if not self.SUPPORTS_GUARANTEES:
             self.logger.warning("Memory guarantees are not supported by "
                                 "the load manager and will be ignored")
 
-    def serve_forever(self):
-        if self.TRACK_IDLE_MEM:
+        if self.TRACK_IDLE_MEM and config.MEM_IDLE_DELAY > 0:
             idlemem.logger = self.logger
             idlemem.start_background_scan(config.MEM_IDLE_DELAY,
                                           config.MEM_IDLE_SAMPLING_RATIO,
