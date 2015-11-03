@@ -134,11 +134,14 @@ class MemCg(AbstractLoadEntity):
     def update(self):
         self.mem_usage = self.__read_mem_usage()
 
+        idle_stat = idlemem.last_idle_stat.pop(self.id, None)
+        if not idle_stat:
+            return
+
         stat = self.__read_stat()
         anon = stat['total_inactive_anon'] + stat['total_active_anon']
         file = stat['total_inactive_file'] + stat['total_active_file']
 
-        idle_stat = idlemem.get_idle_stat(self.id)
         idle_anon = (anon * idle_stat[idlemem.ANON][1] /
                      (idle_stat[idlemem.ANON][0] + 1))
         idle_file = (file * idle_stat[idlemem.FILE][1] /

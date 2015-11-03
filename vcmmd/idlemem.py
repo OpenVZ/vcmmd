@@ -21,6 +21,11 @@ NR_MEM_TYPES = 2
 
 logger = logging.getLogger(__name__)
 
+##
+# Dict: cg id -> idle stat (as returned by idlememscan.result)
+# Updated periodically by _Scanner.__update_idle_stat. Mutable.
+last_idle_stat = {}
+
 
 @util.SingletonDecorator
 class _Scanner:
@@ -37,7 +42,6 @@ class _Scanner:
     def __init__(self):
         self.interval = 0
         self.on_update = None
-        self.__idle_stat = {}
         self.__warned_lag = False
         self.__is_shut_down = threading.Event()
         self.__is_shut_down.set()
@@ -82,7 +86,8 @@ class _Scanner:
                 cnt = self.__sum_idle_stat(
                     cnt, result_raw.get(ino, self.IDLE_STAT_ZERO))
             result[name] = cnt
-        self.__idle_stat = result
+        global last_idle_stat
+        last_idle_stat = result
 
     def __scan_done(self):
         self.__update_idle_stat()
@@ -138,9 +143,6 @@ class _Scanner:
         self.__should_shut_down.set()
         self.__is_shut_down.wait()
 
-    def get_idle_stat(self, cg):
-        return self.__idle_stat.get(cg, self.IDLE_STAT_ZERO)
-
 
 def start_background_scan(interval, sampling, on_update=None):
     if not AVAILABLE:
@@ -156,7 +158,3 @@ def start_background_scan(interval, sampling, on_update=None):
 
 def stop_background_scan():
     _Scanner().shutdown()
-
-
-def get_idle_stat(cg):
-    return _Scanner().get_idle_stat(cg)
