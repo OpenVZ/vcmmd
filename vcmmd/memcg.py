@@ -179,7 +179,8 @@ class BaseMemCgManager(AbstractLoadManager):
         if self.TRACK_UNUSED_MEM:
             idlemem.logger = self.logger
             idlemem.start_background_scan(config.MEM_IDLE_DELAY,
-                                          self.update)
+                                          config.MEM_IDLE_SAMPLING_RATIO,
+                                          on_update=self.update)
         AbstractLoadManager.serve_forever(self)
 
     def shutdown(self):

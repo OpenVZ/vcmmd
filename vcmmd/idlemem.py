@@ -119,6 +119,7 @@ class _Scanner:
     def serve_forever(self):
         self.__is_shut_down.clear()
         try:
+            idlememscan.set_sampling(self.sampling)
             self.__init_scan()
             while not self.__should_shut_down.is_set():
                 if self.__scan_iter():
@@ -141,13 +142,14 @@ class _Scanner:
         return self.__idle_stat.get(cg, self.IDLE_STAT_ZERO)
 
 
-def start_background_scan(interval, on_update=None):
+def start_background_scan(interval, sampling, on_update=None):
     if not AVAILABLE:
         logger.error("Failed to activate idle memory estimator: "
                      "Not supported by the kernel")
         return
     scanner = _Scanner()
     scanner.interval = interval
+    scanner.sampling = sampling
     scanner.on_update = on_update
     threading.Thread(target=scanner.serve_forever).start()
 

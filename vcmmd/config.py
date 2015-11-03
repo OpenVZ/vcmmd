@@ -12,6 +12,10 @@ _OPTIONS = {
     'HIGH_WMARK_RATIO':                 0.02,
     'HIGH_WMARK_MAX':                   16777216,
 
+    # Determines the portion of memory to scan for estimating idle memory size,
+    # inverse ratio
+    'MEM_IDLE_SAMPLING_RATIO':          20,
+
     # Minimal time after which to treat a memory page as unused, in seconds
     'MEM_IDLE_DELAY':                   300,
 
