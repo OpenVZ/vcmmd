@@ -38,8 +38,8 @@ def load_from_file(filename, section='DEFAULT', logger=None):
     if not logger:
         logger = logging.getLogger(__name__)
 
-    logger.debug("Loading config from file '%s' section '%s'" %
-                 (filename, section))
+    logger.info("Loading config from file '%s' section '%s'" %
+                (filename, section))
 
     parser = ConfigParser.RawConfigParser()
     try:
