@@ -5,6 +5,7 @@ import os.path
 import config
 from core import Error, LoadConfig, AbstractLoadEntity, AbstractLoadManager
 import idlemem
+from idlemem import ANON, FILE, NR_MEM_TYPES, MAX_AGE
 import sysinfo
 import util
 
@@ -25,10 +26,6 @@ class MemCg(AbstractLoadEntity):
         # check that the cgroup exists
         if not os.path.exists(self.__path()):
             raise Error(errno.ENOENT, "Entity does not exist")
-
-        self.mem_usage = 0
-        self.mem_unused = 0
-        self.mem_reservation = 0
 
     def __path(self):
         return os.path.join(sysinfo.MEMCG_MOUNT, self.id)
@@ -130,26 +127,41 @@ class MemCg(AbstractLoadEntity):
             self.__do_set_config(self.config)
             raise
         self.config = cfg
+        self.__reset_wss_hist()
 
-    def update(self):
-        self.mem_usage = self.__read_mem_usage()
+    def __reset_wss_hist(self):
+        self.wss_hist = (self.config.limit, ) * MAX_AGE
 
+    def __update_wss_hist(self):
         idle_stat = idlemem.last_idle_stat.pop(self.id, None)
         if not idle_stat:
             return
 
         stat = self.__read_stat()
-        anon = stat['total_inactive_anon'] + stat['total_active_anon']
-        file = stat['total_inactive_file'] + stat['total_active_file']
-
-        idle_anon = (anon * idle_stat[idlemem.ANON][1] /
-                     (idle_stat[idlemem.ANON][0] + 1))
-        idle_file = (file * idle_stat[idlemem.FILE][1] /
-                     (idle_stat[idlemem.FILE][0] + 1))
-
+        total = {
+            ANON: stat['total_inactive_anon'] + stat['total_active_anon'],
+            FILE: stat['total_inactive_file'] + stat['total_active_file'],
+        }
         # TODO: do not count anon if there is no swap
-        total_idle = idle_anon + idle_file
-        self.mem_unused = min(self.mem_usage, total_idle)
+        idle_hist = tuple(
+            sum(total[t] * idle_stat[t][i] / (idle_stat[t][0] + 1)
+                for t in xrange(NR_MEM_TYPES))
+            for i in xrange(1, MAX_AGE + 1)
+        )
+
+        idle_thresh = int(self.mem_usage * config.MEM_IDLE_THRESH)
+        self.wss_hist = tuple(
+            # if memcg does not have much idle memory, assume its wss to be
+            # maximal possible - this will give it a chance to increase its
+            # share
+            max(self.mem_usage - idle_hist[i], 0)
+            if idle_hist[i] >= idle_thresh else self.config.limit
+            for i in xrange(MAX_AGE)
+        )
+
+    def update(self):
+        self.mem_usage = self.__read_mem_usage()
+        self.__update_wss_hist()
 
     def sync(self):
         self.__write_mem_low(self.mem_reservation)
@@ -193,37 +205,23 @@ class DefaultMemCgManager(BaseMemCgManager):
 
     TRACK_IDLE_MEM = True
 
-    def _estimate_wss(self, e):
-        if e.mem_unused < e.mem_usage * config.MEM_IDLE_THRESH:
-            # memcg does not seem to have much idle memory, so give it a chance
-            # to increase its share
-            wss = min(e.config.limit, sysinfo.MEM_TOTAL)
-        else:
-            wss = e.mem_usage - e.mem_unused
-        return wss
-
-    def _calc_reservation(self):
-        mem_avail = max(sysinfo.MEM_TOTAL - config.SYSTEM_MEM, 0)
-
-        # Reservations are calculated by dividing the available memory among
-        # entities proportionally to the memory demand.
-
-        demand = {e: self._estimate_wss(e) for e in self._entity_iter()}
-
-        demand_scale = min(float(mem_avail) / (sum(demand.values()) + 1), 1.0)
-
-        for e in self._entity_iter():
-            e.mem_reservation = int(demand[e] * demand_scale)
-
     def _do_update(self):
         BaseMemCgManager._do_update(self)
 
-        self._calc_reservation()
+        mem_avail = max(sysinfo.MEM_TOTAL - config.SYSTEM_MEM, 0)
+        for age in xrange(MAX_AGE, 0, -1):
+            sum_demand = sum(e.wss_hist[age - 1] for e in self._entity_iter())
+            if sum_demand <= mem_avail:
+                break
 
-        self.logger.debug("Memory consumption/unused/reservation: %s" %
-                          "; ".join('%s: %s/%s/%s' %
+        overcommit_ratio = float(sum_demand) / (mem_avail + 1)
+        for e in self._entity_iter():
+            e.mem_reservation = int(e.wss_hist[age - 1] /
+                                    max(overcommit_ratio, 1))
+
+        self.logger.debug("Memory consumption/reservation: %s" %
+                          "; ".join('%s: %s/%s' %
                                     (e.id,
                                      util.strmemsize(e.mem_usage),
-                                     util.strmemsize(e.mem_unused),
                                      util.strmemsize(e.mem_reservation))
                                     for e in self._entity_iter()))
