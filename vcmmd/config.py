@@ -16,8 +16,9 @@ _OPTIONS = {
     # inverse ratio
     'MEM_IDLE_SAMPLING_RATIO':          20,
 
-    # Minimal time after which to treat a memory page as unused, in seconds
-    'MEM_IDLE_DELAY':                   300,
+    # The interval between successive updates of idle memory size estimate,
+    # in seconds
+    'MEM_IDLE_DELAY':                   5,
 
     # Do not take into account memory that is not used by a container if its
     # relative portion is less than
