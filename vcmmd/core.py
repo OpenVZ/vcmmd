@@ -36,16 +36,16 @@ class LoadConfig:
         self.swap_limit = self.__sanitize(swap_limit)
 
     @staticmethod
-    def __strmemsize(val):
+    def strmemsize(val):
         if val == LoadConfig.MAX_LIMIT:
             return "unlim"
         return util.strmemsize(val)
 
     def __str__(self):
         return ("guar:%s mem:%s swp:%s" %
-                (self.__strmemsize(self.guarantee),
-                 self.__strmemsize(self.limit),
-                 self.__strmemsize(self.swap_limit)))
+                (self.strmemsize(self.guarantee),
+                 self.strmemsize(self.limit),
+                 self.strmemsize(self.swap_limit)))
 
 
 class AbstractLoadEntity:
@@ -206,9 +206,7 @@ class AbstractLoadManager:
     # May be overridden. Must not raise exceptions.
 
     def _do_update(self):
-        self.logger.debug("Managed entities: %s" %
-                          "; ".join('%s <%s>' % (e.id, e.config)
-                                    for e in self._entity_iter()))
+        pass
 
     ##
     # Handle requests until shutdown.

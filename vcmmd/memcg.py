@@ -219,9 +219,24 @@ class DefaultMemCgManager(BaseMemCgManager):
             e.mem_reservation = int(e.wss_hist[age - 1] /
                                     max(overcommit_ratio, 1))
 
-        self.logger.debug("Memory consumption/reservation: %s" %
-                          "; ".join('%s: %s/%s' %
-                                    (e.id,
-                                     util.strmemsize(e.mem_usage),
-                                     util.strmemsize(e.mem_reservation))
-                                    for e in self._entity_iter()))
+        if self.logger.isEnabledFor(logging.DEBUG):
+            self.logger.debug("entities %d avail %s demand %s "
+                              "overcommit %.2f age %ds" %
+                              (sum(1 for e in self._entity_iter()),
+                               util.strmemsize(mem_avail),
+                               util.strmemsize(sum_demand),
+                               overcommit_ratio, age * config.MEM_IDLE_DELAY))
+            fmt = "%36s : %6s %6s %6s : %6s %6s"
+            hdr = True
+            for e in self._entity_iter():
+                if hdr:
+                    self.logger.debug(fmt % ("id", "guar", "mem", "swp",
+                                             "usage", "rsrv"))
+                    hdr = False
+                self.logger.debug(fmt %
+                                  (e.id,
+                                   LoadConfig.strmemsize(e.config.guarantee),
+                                   LoadConfig.strmemsize(e.config.limit),
+                                   LoadConfig.strmemsize(e.config.swap_limit),
+                                   util.strmemsize(e.mem_usage),
+                                   util.strmemsize(e.mem_reservation)))
