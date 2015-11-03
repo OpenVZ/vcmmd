@@ -204,23 +204,23 @@ class DefaultMemCgManager(BaseMemCgManager):
             wss = e.mem_usage - e.mem_unused
         return wss
 
-    def _calc_reservation(self, entities):
+    def _calc_reservation(self):
         mem_avail = max(sysinfo.MEM_TOTAL - config.SYSTEM_MEM, 0)
 
         # Reservations are calculated by dividing the available memory among
         # entities proportionally to the memory demand.
 
-        demand = {e: self._estimate_wss(e) for e in entities}
+        demand = {e: self._estimate_wss(e) for e in self._entity_iter()}
 
         demand_scale = min(float(mem_avail) / (sum(demand.values()) + 1), 1.0)
 
-        for e in entities:
+        for e in self._entity_iter():
             e.mem_reservation = int(demand[e] * demand_scale)
 
-    def _do_update(self, entities):
-        BaseMemCgManager._do_update(self, entities)
+    def _do_update(self):
+        BaseMemCgManager._do_update(self)
 
-        self._calc_reservation(entities)
+        self._calc_reservation()
 
         self.logger.debug("Memory consumption/unused/reservation: %s" %
                           "; ".join('%s: %s/%s/%s' %
@@ -228,4 +228,4 @@ class DefaultMemCgManager(BaseMemCgManager):
                                      util.strmemsize(e.mem_usage),
                                      util.strmemsize(e.mem_unused),
                                      util.strmemsize(e.mem_reservation))
-                                    for e in entities))
+                                    for e in self._entity_iter()))

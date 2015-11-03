@@ -184,8 +184,15 @@ class AbstractLoadManager:
             n += 1
         self.logger.info("%s entity(s) restored" % n)
 
+    ##
+    # Returns an iterator over all registered entities. It is only safe to be
+    # called under the load manager lock.
+
+    def _entity_iter(self):
+        return self.__entities.itervalues()
+
     def __for_each_entity(self, method, errmsg):
-        for e in self.__entities.values():
+        for e in self._entity_iter():
             try:
                 method(e)
             except Error as err:
@@ -195,14 +202,13 @@ class AbstractLoadManager:
     ##
     # Placeholder for the load manager logic. It is supposed to set load
     # entities' internal parameters in accordance with their current demands
-    # and the load manager policy. It is called under the load manager lock and
-    # passed the list of registered entities. May be overridden. Must not raise
-    # exceptions.
+    # and the load manager policy. It is called under the load manager lock.
+    # May be overridden. Must not raise exceptions.
 
-    def _do_update(self, entities):
+    def _do_update(self):
         self.logger.debug("Managed entities: %s" %
                           "; ".join('%s <%s>' % (e.id, e.config)
-                                    for e in entities))
+                                    for e in self._entity_iter()))
 
     ##
     # Handle requests until shutdown.
@@ -215,7 +221,7 @@ class AbstractLoadManager:
             while not self.__shutdown_request:
                 self.__for_each_entity(self.LoadEntityClass.update,
                                        "Failed to update entity %s")
-                self._do_update(self.__entities.values())
+                self._do_update()
                 self.__for_each_entity(self.LoadEntityClass.sync,
                                        "Failed to sync entity %s")
                 self.__need_update.wait()
@@ -312,5 +318,5 @@ class AbstractLoadManager:
 
     def get_entities(self):
         with self.__lock:
-            lst = [(e.id, e.config) for e in self.__entities.values()]
+            lst = [(e.id, e.config) for e in self._entity_iter()]
         return lst
