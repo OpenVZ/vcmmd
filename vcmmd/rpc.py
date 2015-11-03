@@ -106,9 +106,6 @@ class RPCRequestHandler(BaseRequestHandler):
                 logger.warning("Invalid request")
                 break
 
-            logger.debug("Received request:\n" + "-" * 8 +
-                         "\n%s" % req + "-" * 8)
-
             handler = self.__handlers.get(req.type)
 
             try:
@@ -128,8 +125,6 @@ class RPCRequestHandler(BaseRequestHandler):
 
             try:
                 for resp in resp_list:
-                    logger.debug("Sending response:\n" + "-" * 8 +
-                                 "\n%s" % resp + "-" * 8)
                     self.request.send(resp.SerializeToString())
             except socket.error as err:
                 logger.warning("Failed to send response: %s" % err)
