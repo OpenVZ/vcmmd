@@ -55,7 +55,7 @@ def _run():
 
     logger.info("Started")
 
-    config.load_from_file(config_filename=CONFIG_FILE, logger=logger)
+    config.load_from_file(filename=CONFIG_FILE, logger=logger)
 
     tmem.logger = logger
     tmem.initialize()
