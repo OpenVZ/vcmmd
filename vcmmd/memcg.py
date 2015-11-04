@@ -209,7 +209,9 @@ class DefaultMemCgManager(BaseMemCgManager):
         BaseMemCgManager._do_update(self)
 
         mem_avail = max(sysinfo.MEM_TOTAL - config.SYSTEM_MEM, 0)
-        for age in xrange(MAX_AGE, 0, -1):
+        age_max = min(MAX_AGE, max(config.MEM_STALE_AGE /
+                                   config.MEM_IDLE_DELAY, 1))
+        for age in xrange(age_max, 0, -1):
             sum_demand = sum(e.wss_hist[age - 1] for e in self._entity_iter())
             if sum_demand <= mem_avail:
                 break

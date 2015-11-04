@@ -24,6 +24,10 @@ _OPTIONS = {
     # relative portion is less than
     'MEM_IDLE_THRESH':                  0.1,
 
+    # Assume a memory page is very unlikely to be used again if it has not been
+    # touched for more than MEM_STALE_AGE seconds
+    'MEM_STALE_AGE':                    300,
+
     # Enable tcache/tswap?
     'USE_TCACHE':                       True,
     'USE_TSWAP':                        True,
