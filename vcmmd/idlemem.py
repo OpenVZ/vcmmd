@@ -99,11 +99,11 @@ class _Scanner:
         time_left = self.interval - (self.__time() - self.__scan_start)
         time_required = iters_left * self.__scan_time / self.__iter
         if time_required > time_left:
-            # only warn about significant lags (> 0.1% of interval)
+            # only warn about significant lags (> 1% of interval)
             if not self.__warned_lag and \
-                    time_required - time_left > self.interval / 1000.0:
+                    time_required - time_left > self.interval / 100.0:
                 logger.warning("Memory scanner is lagging behind "
-                               "(%s s left, %s s required)" %
+                               "(%.2f s left, %s s required)" %
                                (time_left, time_required))
                 self.__warned_lag = True
             return
