@@ -53,7 +53,7 @@ public:
 // extra byte per tracked page for storing age. We could use 4 bits or even 2
 // bits, so that 2 or 4 pages would share the same byte, but it would
 // complicate the code and shorten the history significantly.
-#define MAX_IDLE_AGE		255
+#define MAX_AGE			256
 
 static int PAGE_SIZE;
 static long END_PFN;
@@ -65,12 +65,10 @@ static int sampling = 1;
 // how many pages one iterages spans
 static int iter_span = SCAN_CHUNK;
 
-#define IDLE_STAT_BUCKETS	(MAX_IDLE_AGE + 1)
-
 // bucket i (0 <= i < 255) -> nr idle for exactly (i + 1) intervals
 // bucket 255 -> nr idle for >= last 256 intervals
 struct idle_stat_buckets_array {
-	long count[IDLE_STAT_BUCKETS];
+	long count[MAX_AGE];
 };
 
 enum mem_type {
@@ -88,18 +86,18 @@ public:
 	{
 		for (int i = 0; i < NR_MEM_TYPES; ++i) {
 			total_[i] = 0;
-			for (int j = 0; j < IDLE_STAT_BUCKETS; j++)
+			for (int j = 0; j < MAX_AGE; j++)
 				idle_[i].count[j] = 0;
 		}
 	}
 
 	// idle_by_age[i] equals nr pages that have been idle for > i intervals
 	// (cf. idle_stat_buckets_array)
-	void get_nr_idle(mem_type type, long idle_by_age[IDLE_STAT_BUCKETS])
+	void get_nr_idle(mem_type type, long idle_by_age[MAX_AGE])
 	{
 		long sum = 0;
 
-		for (int i = IDLE_STAT_BUCKETS - 1; i >= 0; i--) {
+		for (int i = MAX_AGE - 1; i >= 0; i--) {
 			sum += idle_[type].count[i];
 			idle_by_age[i] = sum;
 		}
@@ -241,7 +239,7 @@ static void count_idle_pages(long start_pfn, long end_pfn) throw(error)
 
 		if (head_idle) {
 			int age = idle_page_age[pfn];
-			if (age < MAX_IDLE_AGE)
+			if (age + 1 < MAX_AGE)
 				idle_page_age[pfn] = age + 1;
 			stat.inc_nr_idle(type, age);
 		} else
@@ -304,7 +302,7 @@ static PyObject *py_iter(PyObject *self, PyObject *args)
 //
 // Anon/file stats are represented by tuple:
 //
-// (total, idle[1], idle[2], ..., idle[IDLE_STAT_BUCKETS])
+// (total, idle[1], idle[2], ..., idle[MAX_AGE])
 //
 // where @total is the total number of ageable pages scanned, @idle[i] is the
 // number of pages that have been idle for >= i last intervals.
@@ -324,16 +322,16 @@ static PyObject *py_result(PyObject *self, PyObject *args)
 		for (int i = 0; i < NR_MEM_TYPES; i++) {
 			mem_type t = static_cast<mem_type>(i);
 
-			long idle_stat[IDLE_STAT_BUCKETS + 1];
+			long idle_stat[MAX_AGE + 1];
 			idle_stat[0] = kv.second.get_nr_total(t);
 			kv.second.get_nr_idle(t, idle_stat + 1);
 
 			py_ref idle_stat_tuple =
-				PyTuple_New(IDLE_STAT_BUCKETS + 1);
+				PyTuple_New(MAX_AGE + 1);
 			if (!idle_stat_tuple)
 				return PyErr_NoMemory();
 
-			for (int j = 0; j <= IDLE_STAT_BUCKETS; j++) {
+			for (int j = 0; j <= MAX_AGE; j++) {
 				PyObject *p = PyInt_FromLong(idle_stat[j] *
 							     PAGE_SIZE);
 				if (!p)
@@ -443,5 +441,5 @@ initidlememscan(void)
 	if (!m)
 		return;
 
-	PyModule_AddIntConstant(m, "MAX_AGE", MAX_IDLE_AGE + 1);
+	PyModule_AddIntConstant(m, "MAX_AGE", MAX_AGE);
 }
