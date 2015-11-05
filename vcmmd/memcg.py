@@ -142,9 +142,14 @@ class MemCg(AbstractLoadEntity):
             ANON: stat['total_inactive_anon'] + stat['total_active_anon'],
             FILE: stat['total_inactive_file'] + stat['total_active_file'],
         }
+        idle_age = {
+            ANON: util.divroundup(config.ANON_IDLE_AGE, config.MEM_IDLE_DELAY),
+            FILE: util.divroundup(config.FILE_IDLE_AGE, config.MEM_IDLE_DELAY),
+        }
         # TODO: do not count anon if there is no swap
         idle_hist = tuple(
             sum(total[t] * idle_stat[t][i] / (idle_stat[t][0] + 1)
+                if i >= idle_age[t] else 0
                 for t in xrange(NR_MEM_TYPES))
             for i in xrange(1, MAX_AGE + 1)
         )

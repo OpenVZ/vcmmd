@@ -6,6 +6,10 @@ def strmemsize(val):
     return str(val)
 
 
+def divroundup(n, d):
+    return (n + d - 1) / d
+
+
 class LoggerWriter:
     ##
     # Helper for redirecting stdout/stderr to a logger.

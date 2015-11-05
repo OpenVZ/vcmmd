@@ -28,6 +28,11 @@ _OPTIONS = {
     # touched for more than MEM_STALE_AGE seconds
     'MEM_STALE_AGE':                    300,
 
+    # Start to account an anon/file page as idle if it has not been used for
+    # this long, in seconds
+    'ANON_IDLE_AGE':                    30,
+    'FILE_IDLE_AGE':                    5,
+
     # Enable tcache/tswap?
     'USE_TCACHE':                       True,
     'USE_TSWAP':                        True,
