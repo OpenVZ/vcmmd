@@ -4,20 +4,15 @@ import stat
 import threading
 import time
 
+import idlememscan
 import sysinfo
 import util
-
-try:
-    import idlememscan
-    AVAILABLE = True
-    MAX_AGE = idlememscan.MAX_AGE
-except Exception as _IDLEMEMSCAN_IMPORT_ERROR:
-    AVAILABLE = False
-    MAX_AGE = 1
 
 ANON = 0
 FILE = 1
 NR_MEM_TYPES = 2
+
+MAX_AGE = idlememscan.MAX_AGE
 
 logger = logging.getLogger(__name__)
 
@@ -145,10 +140,6 @@ class _Scanner:
 
 
 def start_background_scan(interval, sampling, on_update=None):
-    if not AVAILABLE:
-        logger.error("Failed to activate idle memory estimator: %s" %
-                     _IDLEMEMSCAN_IMPORT_ERROR)
-        return
     scanner = _Scanner()
     scanner.interval = interval
     scanner.sampling = sampling

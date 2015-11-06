@@ -154,6 +154,20 @@ static void do_write(fstream &f, long pos, int n, const char *path,
 
 }
 
+static void open_files()
+{
+	static bool opened;
+
+	if (opened)
+		return;
+
+	do_open(KPAGEFLAGS_PATH, ios::in, f_flags);
+	do_open(KPAGECGROUP_PATH, ios::in, f_cg);
+	do_open(IDLE_PAGE_BITMAP_PATH, ios::in | ios::out, f_idle);
+
+	opened = true;
+}
+
 // Marks pages in range [start_pfn, end_pfn) idle.
 static void set_idle_pages(long start_pfn, long end_pfn) throw(error)
 {
@@ -285,6 +299,7 @@ static PyObject *py_iter(PyObject *self, PyObject *args)
 		scan_iter++;
 
 	try {
+		open_files();
 		count_idle_pages(start_pfn, end_pfn);
 		set_idle_pages(start_pfn, end_pfn);
 	} catch (error &e) {
@@ -417,13 +432,6 @@ static void init_idle_page_age_array()
 		throw error("Failed to allocate idle_page_age array");
 }
 
-static void init_files()
-{
-	do_open(KPAGEFLAGS_PATH, ios::in, f_flags);
-	do_open(KPAGECGROUP_PATH, ios::in, f_cg);
-	do_open(IDLE_PAGE_BITMAP_PATH, ios::in | ios::out, f_idle);
-}
-
 PyMODINIT_FUNC
 initidlememscan(void)
 {
@@ -431,7 +439,6 @@ initidlememscan(void)
 		init_PAGE_SIZE();
 		init_END_PFN();
 		init_idle_page_age_array();
-		init_files();
 	} catch (error &e) {
 		e.set_py_err();
 		return;
