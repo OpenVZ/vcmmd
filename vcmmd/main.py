@@ -28,22 +28,29 @@ def _sighandler(signum, frame):
     _shutdown_request = True
 
 
-def _serve_forever(ldmgr, rpcsrv):
+def _serve_forever(ldmgr, rpcsrv, logger):
     rpcsrv_thread = threading.Thread(target=rpcsrv.serve_forever)
     rpcsrv_thread.start()
 
     ldmgr_thread = threading.Thread(target=ldmgr.serve_forever)
     ldmgr_thread.start()
 
+    fail_reason = None
     while not _shutdown_request:
         if not rpcsrv_thread.isAlive():
+            fail_reason = "RPC thread crashed"
             break
         if not ldmgr_thread.isAlive():
+            fail_reason = "Load manager thread crashed"
             break
         time.sleep(1)
 
     rpcsrv.shutdown()
     ldmgr.shutdown()
+
+    if fail_reason:
+        logger.critical(fail_reason)
+        sys.exit(1)
 
 
 def _run():
@@ -68,7 +75,7 @@ def _run():
     except socket.error as err:
         logger.critical("Failed to activate RPC server: %s" % err)
     else:
-        _serve_forever(ldmgr, rpcsrv)
+        _serve_forever(ldmgr, rpcsrv, logger)
 
     tmem.finilize()
 
