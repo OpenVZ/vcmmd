@@ -192,12 +192,15 @@ class AbstractLoadManager:
         return self.__entities.itervalues()
 
     def __for_each_entity(self, method, errmsg):
+        stale = []
         for e in self._entity_iter():
             try:
                 method(e)
             except Error as err:
                 self.logger.error((errmsg + ": %s") % (e.id, err))
-                self.unregister_entity(e.id)
+                stale.append(e)
+        for e in stale:
+            self.unregister_entity(e.id)
 
     ##
     # Placeholder for the load manager logic. It is supposed to set load
