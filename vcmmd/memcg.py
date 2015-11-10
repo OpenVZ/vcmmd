@@ -18,17 +18,14 @@ class MemCg(AbstractLoadEntity):
         AbstractLoadEntity.__init__(self, id)
 
         # exclude the root to avoid confusion
-        if not self.id:
+        if self.id == os.path.sep:
             raise Error(errno.EINVAL, "Invalid ID")
-        # explicitly exclude nested cgroups, because we do not support them
-        if "/" in self.id:
-            raise Error(errno.EINVAL, "Nested entities are not supported")
         # check that the cgroup exists
         if not os.path.exists(self.__path()):
             raise Error(errno.ENOENT, "Entity does not exist")
 
     def __path(self):
-        return os.path.join(sysinfo.MEMCG_MOUNT, self.id)
+        return os.path.join(sysinfo.MEMCG_MOUNT, self.id.lstrip(os.path.sep))
 
     def __read(self, name):
         filepath = os.path.join(self.__path(), name)
@@ -133,7 +130,7 @@ class MemCg(AbstractLoadEntity):
         self.wss_hist = (self.config.limit, ) * MAX_AGE
 
     def __update_wss_hist(self):
-        idle_stat = idlemem.last_idle_stat.pop(os.path.sep + self.id, None)
+        idle_stat = idlemem.last_idle_stat.pop(self.id, None)
         if not idle_stat:
             return
 
@@ -233,7 +230,7 @@ class DefaultMemCgManager(BaseMemCgManager):
                                util.strmemsize(mem_avail),
                                util.strmemsize(sum_demand),
                                overcommit_ratio, age * config.MEM_IDLE_DELAY))
-            fmt = "%36s : %6s %6s %6s : %6s %6s"
+            fmt = "%-38s : %6s %6s %6s : %6s %6s"
             hdr = True
             for e in self._entity_iter():
                 if hdr:

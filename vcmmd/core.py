@@ -55,6 +55,14 @@ class AbstractLoadEntity:
         self.config = None
 
     ##
+    # Normalize entity id.
+
+    @staticmethod
+    def normid(id):
+        # normpath does not remove double slash in the beginning of the string
+        return os.path.normpath(os.path.sep + str(id).lstrip(os.path.sep))
+
+    ##
     # Set config. May be overridden. May raise Error.
 
     def set_config(self, cfg):
@@ -175,6 +183,7 @@ class AbstractLoadManager:
         self.logger.info("Restoring entities from the previous run:")
         n = 0
         for id, cfg in entities:
+            id = self.LoadEntityClass.normid(id)
             try:
                 self.__do_register_entity(id, cfg)
             except Error as err:
@@ -262,7 +271,7 @@ class AbstractLoadManager:
     # Register and configure a load entity.
 
     def register_entity(self, id, cfg):
-        id = str(id)
+        id = self.LoadEntityClass.normid(id)
         with self.__lock:
             self.__do_register_entity(id, cfg)
             self.__save_state()
@@ -272,7 +281,7 @@ class AbstractLoadManager:
     # Unregister a load entity.
 
     def unregister_entity(self, id):
-        id = str(id)
+        id = self.LoadEntityClass.normid(id)
         with self.__lock:
             e = self.__entities.get(id)
             if not e:
@@ -291,7 +300,7 @@ class AbstractLoadManager:
     # Update a load entity's config.
 
     def set_entity_config(self, id, cfg):
-        id = str(id)
+        id = self.LoadEntityClass.normid(id)
         with self.__lock:
             e = self.__entities.get(id)
             if not e:
@@ -305,7 +314,7 @@ class AbstractLoadManager:
     # Get a load entity's config.
 
     def get_entity_config(self, id):
-        id = str(id)
+        id = self.LoadEntityClass.normid(id)
         with self.__lock:
             e = self.__entities.get(id)
             if not e:
