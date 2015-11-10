@@ -8,8 +8,12 @@
 #include <unordered_map>
 
 #include <unistd.h>
+#include <dirent.h>
+#include <sys/types.h>
 #include <sys/mman.h>
 #include <linux/kernel-page-flags.h>
+
+#define MTAB_PATH		"/etc/mtab"
 
 #define ZONEINFO_PATH		"/proc/zoneinfo"
 
@@ -58,6 +62,8 @@ public:
 static int PAGE_SIZE;
 static long END_PFN;
 static unsigned char *idle_page_age;
+
+static const char *MEMCG_MNT;
 
 // scan 1/sampling pages
 static int sampling = 1;
@@ -116,6 +122,16 @@ public:
 	void inc_nr_total(mem_type type)
 	{
 		++total_[type];
+	}
+
+	idle_mem_stat &operator +=(const idle_mem_stat &other)
+	{
+		for (int i = 0; i < NR_MEM_TYPES; ++i) {
+			total_[i] += other.total_[i];
+			for (int j = 0; j < MAX_AGE; ++j)
+				idle_[i].count[j] += other.idle_[i].count[j];
+		}
+		return *this;
 	}
 };
 
@@ -313,7 +329,54 @@ static PyObject *py_iter(PyObject *self, PyObject *args)
 		Py_RETURN_FALSE;
 }
 
-// Returns dict: cg ino -> (anon stats, file stats).
+static idle_mem_stat &__get_result(const string &path, ino_t ino,
+				   unordered_map<string, idle_mem_stat> &result)
+{
+	DIR *d = opendir((MEMCG_MNT + path).c_str());
+	if (!d)
+		throw error(string("Failed to read dir '") + path + '\'');
+
+	auto &my_result = result[path];
+	if (ino) // not interested in root
+		my_result = cg_idle_mem_stat[ino];
+
+	dirent *entry;
+	while ((entry = readdir(d)) != NULL) {
+		// we are only interested in cgroup directories
+		if (!(entry->d_type & DT_DIR))
+			continue;
+
+		// filter out . and ..
+		if (entry->d_name[0] == '.') {
+			if (entry->d_name[1] == '\0')
+				continue;
+			if (entry->d_name[1] == '.' &&
+			    entry->d_name[2] == '\0')
+				continue;
+		}
+
+		string child_path = path;
+		if (ino)
+			child_path += '/';
+		child_path += entry->d_name;
+
+		auto &child_result = __get_result(child_path,
+						  entry->d_ino, result);
+		if (ino) // not interested in root
+			my_result += child_result;
+	}
+	closedir(d);
+	return my_result;
+}
+
+static unordered_map<string, idle_mem_stat> get_result()
+{
+	unordered_map<string, idle_mem_stat> result;
+	__get_result("/", 0, result);
+	return result;
+}
+
+// Returns dict: cg path -> (anon stats, file stats).
 //
 // Anon/file stats are represented by tuple:
 //
@@ -328,8 +391,9 @@ static PyObject *py_result(PyObject *self, PyObject *args)
 	if (!dict)
 		return PyErr_NoMemory();
 
-	for (auto &kv : cg_idle_mem_stat) {
-		py_ref key = PyInt_FromLong(kv.first);
+	auto result = get_result();
+	for (auto &kv : result) {
+		py_ref key = PyString_FromString(kv.first.c_str());
 		py_ref val = PyTuple_New(NR_MEM_TYPES);
 		if (!key || !val)
 			return PyErr_NoMemory();
@@ -424,6 +488,28 @@ static void init_END_PFN()
 		throw error("Failed to parse zoneinfo");
 }
 
+static void init_MEMCG_MNT()
+{
+	fstream f(MTAB_PATH, ios::in);
+	string line;
+	while (!MEMCG_MNT && getline(f, line)) {
+		stringstream ss(line);
+		string s, path, type, opts;
+		ss >> s >> path >> type >> opts;
+		if (type != "cgroup")
+			continue;
+		stringstream opts_ss(opts);
+		while (getline(opts_ss, s, ',')) {
+			if (s == "memory") {
+				MEMCG_MNT = strdup(path.c_str());
+				break;
+			}
+		}
+	}
+	if (!MEMCG_MNT)
+		throw error("Failed to get memory cgroup mount point");
+}
+
 static void init_idle_page_age_array()
 {
 	idle_page_age = (unsigned char *)mmap(NULL, END_PFN,
@@ -438,6 +524,7 @@ initidlememscan(void)
 	try {
 		init_PAGE_SIZE();
 		init_END_PFN();
+		init_MEMCG_MNT();
 		init_idle_page_age_array();
 	} catch (error &e) {
 		e.set_py_err();

@@ -1,11 +1,8 @@
 import logging
-import os
-import stat
 import threading
 import time
 
 import idlememscan
-import sysinfo
 import util
 
 ANON = 0
@@ -17,8 +14,8 @@ MAX_AGE = idlememscan.MAX_AGE
 logger = logging.getLogger(__name__)
 
 ##
-# Dict: cg id -> idle stat (as returned by idlememscan.result)
-# Updated periodically by _Scanner.__update_idle_stat. Mutable.
+# Dict: cg path -> idle stat (as returned by idlememscan.result)
+# Updated periodically by _Scanner.__scan_done. Mutable.
 last_idle_stat = {}
 
 
@@ -57,35 +54,9 @@ class _Scanner:
         self.__scan_time = 0.0
         self.__scan_start = self.__time()
 
-    @staticmethod
-    def __sum_idle_stat(a, b):
-        return tuple(map(sum, zip(a[i], b[i]))
-                     for i in xrange(NR_MEM_TYPES))
-
-    # idlememscan.result uses cgroup ino as a key in the resulting dictionary
-    # while we want it to be referenced by cgroup name. This functions does the
-    # conversion.
-    def __update_idle_stat(self):
-        result = {}
-        result_raw = idlememscan.result()
-        for name in os.listdir(sysinfo.MEMCG_MOUNT):
-            path = os.path.join(sysinfo.MEMCG_MOUNT, name)
-            if not os.path.isdir(path):
-                continue
-            cnt = self.IDLE_STAT_ZERO
-            for root, subdirs, files in os.walk(path):
-                try:
-                    ino = os.stat(root)[stat.ST_INO]
-                except OSError:  # cgroup dir removed?
-                    continue
-                cnt = self.__sum_idle_stat(
-                    cnt, result_raw.get(ino, self.IDLE_STAT_ZERO))
-            result[name] = cnt
-        global last_idle_stat
-        last_idle_stat = result
-
     def __scan_done(self):
-        self.__update_idle_stat()
+        global last_idle_stat
+        last_idle_stat = idlememscan.result()
         if self.on_update:
             self.on_update()
 

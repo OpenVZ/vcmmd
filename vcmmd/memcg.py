@@ -133,7 +133,7 @@ class MemCg(AbstractLoadEntity):
         self.wss_hist = (self.config.limit, ) * MAX_AGE
 
     def __update_wss_hist(self):
-        idle_stat = idlemem.last_idle_stat.pop(self.id, None)
+        idle_stat = idlemem.last_idle_stat.pop(os.path.sep + self.id, None)
         if not idle_stat:
             return
 
