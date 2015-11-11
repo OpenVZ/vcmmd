@@ -7,7 +7,7 @@ from core import Error, LoadConfig, AbstractLoadEntity, AbstractLoadManager
 import idlemem
 from idlemem import ANON, FILE, NR_MEM_TYPES, MAX_AGE
 import sysinfo
-import util
+from util import divroundup, clamp, strmemsize
 
 
 class MemCg(AbstractLoadEntity):
@@ -130,27 +130,44 @@ class MemCg(AbstractLoadEntity):
         self.wss_hist = (self.config.limit, ) * MAX_AGE
 
     def __update_wss_hist(self):
+        # Update idle stats
         idle_stat = idlemem.last_idle_stat.pop(self.id, None)
         if not idle_stat:
             return
 
+        # Normalize idle stats
         stat = self.__read_stat()
         total = {
             ANON: stat['total_inactive_anon'] + stat['total_active_anon'],
             FILE: stat['total_inactive_file'] + stat['total_active_file'],
         }
-        idle_age = {
-            ANON: util.divroundup(config.ANON_IDLE_AGE, config.MEM_IDLE_DELAY),
-            FILE: util.divroundup(config.FILE_IDLE_AGE, config.MEM_IDLE_DELAY),
+        idle_stat = {
+            t: map(lambda x: x * total[t] / (idle_stat[t][0] + 1),
+                   idle_stat[t][1:])
+            for t in xrange(NR_MEM_TYPES)
         }
-        # TODO: do not count anon if there is no swap
-        idle_hist = tuple(
-            sum(total[t] * idle_stat[t][i] / (idle_stat[t][0] + 1)
-                if i >= idle_age[t] else 0
-                for t in xrange(NR_MEM_TYPES))
-            for i in xrange(1, MAX_AGE + 1)
-        )
 
+        # Shift idle stat arrays according to config parameters
+        idle_age = {
+            ANON: config.ANON_IDLE_AGE,
+            FILE: config.FILE_IDLE_AGE,
+        }
+        idle_shift = {
+            t: clamp(divroundup(idle_age[t], config.MEM_IDLE_DELAY) - 1,
+                     0, MAX_AGE)
+            for t in xrange(NR_MEM_TYPES)
+        }
+        idle_stat = {
+            t: (idle_stat[t][idle_shift[t]:] +
+                [idle_stat[t][-1], ] * idle_shift[t])
+            for t in xrange(NR_MEM_TYPES)
+        }
+
+        # Calculate total idle memory size
+        # TODO: do not count anon if there is no swap
+        idle_hist = map(sum, zip(*idle_stat.values()))
+
+        # Update wss
         idle_thresh = int(self.mem_usage * config.MEM_IDLE_THRESH)
         self.wss_hist = tuple(
             # if memcg does not have much idle memory, assume its wss to be
@@ -211,8 +228,8 @@ class DefaultMemCgManager(BaseMemCgManager):
         BaseMemCgManager._do_update(self)
 
         mem_avail = max(sysinfo.MEM_TOTAL - config.SYSTEM_MEM, 0)
-        age_max = min(MAX_AGE, max(config.MEM_STALE_AGE /
-                                   config.MEM_IDLE_DELAY, 1))
+        age_max = clamp(config.MEM_STALE_AGE / config.MEM_IDLE_DELAY,
+                        1, MAX_AGE)
         for age in xrange(age_max, 0, -1):
             sum_demand = sum(e.wss_hist[age - 1] for e in self._entity_iter())
             if sum_demand <= mem_avail:
@@ -227,8 +244,8 @@ class DefaultMemCgManager(BaseMemCgManager):
             self.logger.debug("entities %d avail %s demand %s "
                               "overcommit %.2f age %ds" %
                               (sum(1 for e in self._entity_iter()),
-                               util.strmemsize(mem_avail),
-                               util.strmemsize(sum_demand),
+                               strmemsize(mem_avail),
+                               strmemsize(sum_demand),
                                overcommit_ratio, age * config.MEM_IDLE_DELAY))
             fmt = "%-38s : %6s %6s %6s : %6s %6s"
             hdr = True
@@ -242,5 +259,5 @@ class DefaultMemCgManager(BaseMemCgManager):
                                    LoadConfig.strmemsize(e.config.guarantee),
                                    LoadConfig.strmemsize(e.config.limit),
                                    LoadConfig.strmemsize(e.config.swap_limit),
-                                   util.strmemsize(e.mem_usage),
-                                   util.strmemsize(e.mem_reservation)))
+                                   strmemsize(e.mem_usage),
+                                   strmemsize(e.mem_reservation)))

@@ -10,6 +10,10 @@ def divroundup(n, d):
     return (n + d - 1) / d
 
 
+def clamp(val, min_, max_):
+    return min(max(val, min_), max_)
+
+
 class LoggerWriter:
     ##
     # Helper for redirecting stdout/stderr to a logger.
