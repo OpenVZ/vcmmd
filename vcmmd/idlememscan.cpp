@@ -377,6 +377,7 @@ static unordered_map<string, idle_mem_stat> get_result()
 {
 	unordered_map<string, idle_mem_stat> result;
 	__get_result("/", 0, result);
+	result.erase("/"); // not interested in root
 	return result;
 }
 
