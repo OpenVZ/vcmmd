@@ -401,7 +401,7 @@ static PyObject *py_result(PyObject *self, PyObject *args)
 	auto result = get_result();
 	for (auto &kv : result) {
 		py_ref key = PyString_FromString(kv.first.c_str());
-		py_ref val = PyList_New(NR_MEM_TYPES);
+		py_ref val = PyTuple_New(NR_MEM_TYPES);
 		if (!key || !val)
 			return PyErr_NoMemory();
 
@@ -423,7 +423,7 @@ static PyObject *py_result(PyObject *self, PyObject *args)
 				return PyErr_NoMemory();
 			}
 
-			PyList_SET_ITEM(static_cast<PyObject *>(val), i, arr);
+			PyTuple_SET_ITEM(static_cast<PyObject *>(val), i, arr);
 		}
 
 		if (PyDict_SetItem(dict, key, val) < 0)
