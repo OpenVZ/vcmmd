@@ -21,15 +21,16 @@ class MemCg(AbstractLoadEntity):
         # exclude the root to avoid confusion
         if self.id == os.path.sep:
             raise Error(errno.EINVAL, "Invalid ID")
+
+        self.__path = os.path.join(sysinfo.MEMCG_MOUNT,
+                                   self.id.lstrip(os.path.sep))
+
         # check that the cgroup exists
-        if not os.path.exists(self.__path()):
+        if not os.path.exists(self.__path):
             raise Error(errno.ENOENT, "Entity does not exist")
 
-    def __path(self):
-        return os.path.join(sysinfo.MEMCG_MOUNT, self.id.lstrip(os.path.sep))
-
     def __read(self, name):
-        filepath = os.path.join(self.__path(), name)
+        filepath = os.path.join(self.__path, name)
         try:
             with open(filepath, 'r') as f:
                 ret = f.read()
@@ -44,7 +45,7 @@ class MemCg(AbstractLoadEntity):
             raise Error(errno.EIO, "Failed to parse %s: %s" % (name, err))
 
     def __write(self, name, val):
-        filepath = os.path.join(self.__path(), name)
+        filepath = os.path.join(self.__path, name)
         try:
             with open(filepath, 'w') as f:
                 f.write(str(val))
