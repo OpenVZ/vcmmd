@@ -10,7 +10,6 @@
 #include <algorithm>
 #include <unordered_map>
 
-#include <stdlib.h>
 #include <unistd.h>
 #include <dirent.h>
 #include <sys/types.h>
@@ -409,7 +408,7 @@ static PyObject *py_result(PyObject *self, PyObject *args)
 			mem_type t = static_cast<mem_type>(i);
 
 			long *arr_raw = static_cast<long *>(
-					calloc(MAX_AGE + 1, sizeof(long)));
+				PyArray_malloc((MAX_AGE + 1) * sizeof(long)));
 			if (!arr_raw)
 				return PyErr_NoMemory();
 
@@ -419,9 +418,13 @@ static PyObject *py_result(PyObject *self, PyObject *args)
 			PyObject *arr = PyArray_SimpleNewFromData(
 					1, arr_dims, NPY_LONG, arr_raw);
 			if (!arr) {
-				free(arr_raw);
+				PyArray_free(arr_raw);
 				return PyErr_NoMemory();
 			}
+
+			PyArray_ENABLEFLAGS(
+				reinterpret_cast<PyArrayObject *>(arr),
+				NPY_ARRAY_OWNDATA);
 
 			PyTuple_SET_ITEM(static_cast<PyObject *>(val), i, arr);
 		}
