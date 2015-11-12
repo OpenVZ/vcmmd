@@ -7,12 +7,12 @@ from core import Error, LoadConfig, AbstractLoadEntity, AbstractLoadManager
 import idlemem
 from idlemem import ANON, FILE, NR_MEM_TYPES, MAX_AGE
 import sysinfo
-from util import divroundup, clamp, strmemsize
+from util import INT64_MAX, divroundup, clamp, strmemsize
 
 
 class MemCg(AbstractLoadEntity):
 
-    MAX_LIMIT = 9223372036854775807  # int64
+    MAX_LIMIT = INT64_MAX
 
     def __init__(self, id):
         AbstractLoadEntity.__init__(self, id)

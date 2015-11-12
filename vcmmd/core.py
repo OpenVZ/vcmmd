@@ -21,7 +21,7 @@ class Error(Exception):
 
 class LoadConfig:
 
-    MAX_LIMIT = 18446744073709547520
+    MAX_LIMIT = util.UINT64_MAX
 
     @staticmethod
     def __sanitize(val):

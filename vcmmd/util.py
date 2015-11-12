@@ -1,3 +1,7 @@
+INT64_MAX = 2**63-1
+UINT64_MAX = 2**64-1
+
+
 def strmemsize(val):
     if val > 10 * 1024 * 1024:
         return str(val / (1024 * 1024)) + 'M'
