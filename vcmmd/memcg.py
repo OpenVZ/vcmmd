@@ -1,5 +1,6 @@
 import errno
 import logging
+import numpy as np
 import os.path
 
 import config
@@ -127,12 +128,13 @@ class MemCg(AbstractLoadEntity):
         self.__reset_wss_hist()
 
     def __reset_wss_hist(self):
-        self.wss_hist = (self.config.limit, ) * MAX_AGE
+        self.wss_hist = np.empty(MAX_AGE, dtype=np.int64)
+        self.wss_hist.fill(min(self.config.limit, INT64_MAX))
 
     def __update_wss_hist(self):
         # Update idle stats
-        idle_stat = idlemem.last_idle_stat.pop(self.id, None)
-        if not idle_stat:
+        idle_stat_raw = idlemem.last_idle_stat.pop(self.id, None)
+        if not idle_stat_raw:
             return
 
         # Normalize idle stats
@@ -141,11 +143,14 @@ class MemCg(AbstractLoadEntity):
             ANON: stat['total_inactive_anon'] + stat['total_active_anon'],
             FILE: stat['total_inactive_file'] + stat['total_active_file'],
         }
-        idle_stat = {
-            t: map(lambda x: x * total[t] / (idle_stat[t][0] + 1),
-                   idle_stat[t][1:])
+        scale = {
+            t: total[t] / (idle_stat_raw[t][0] + 1.0)
             for t in xrange(NR_MEM_TYPES)
         }
+        idle_stat = {}
+        for t in xrange(NR_MEM_TYPES):
+            idle_stat[t] = np.empty(MAX_AGE, dtype=np.int64)
+            idle_stat[t][:] = idle_stat_raw[t][1:] * scale[t]
 
         # Shift idle stat arrays according to config parameters
         idle_age = {
@@ -157,26 +162,31 @@ class MemCg(AbstractLoadEntity):
                      0, MAX_AGE)
             for t in xrange(NR_MEM_TYPES)
         }
-        idle_stat = {
-            t: (idle_stat[t][idle_shift[t]:] +
-                [idle_stat[t][-1], ] * idle_shift[t])
-            for t in xrange(NR_MEM_TYPES)
-        }
+        for t in xrange(NR_MEM_TYPES):
+            shift = idle_shift[t]
+            if shift > 0:
+                a = idle_stat[t]
+                a[:-shift] = a[shift:]
+                a[-shift:] = a[-1]
 
         # Calculate total idle memory size
         # TODO: do not count anon if there is no swap
-        idle_hist = map(sum, zip(*idle_stat.values()))
+        idle_hist = idle_stat[ANON] + idle_stat[FILE]
 
-        # Update wss
-        idle_thresh = int(self.mem_usage * config.MEM_IDLE_THRESH)
-        self.wss_hist = tuple(
-            # if memcg does not have much idle memory, assume its wss to be
-            # maximal possible - this will give it a chance to increase its
-            # share
-            max(self.mem_usage - idle_hist[i], 0)
-            if idle_hist[i] >= idle_thresh else self.config.limit
-            for i in xrange(MAX_AGE)
-        )
+        # Filter too large results
+        np.clip(idle_hist, 0, self.mem_usage, out=idle_hist)
+
+        # Update wss estimate
+        #
+        # If relative share of idle memory is below the threshold, assume the
+        # wss to be maximal possible. This will give the memcg a chance to
+        # increase its share.
+        #
+        idle_low = idle_hist < self.mem_usage * config.MEM_IDLE_THRESH
+        wss_hist = (self.mem_usage - idle_hist) * ~idle_low
+        wss_hist += idle_low * min(self.config.limit, INT64_MAX)
+
+        self.wss_hist = wss_hist
 
     def update(self):
         self.mem_usage = self.__read_mem_usage()

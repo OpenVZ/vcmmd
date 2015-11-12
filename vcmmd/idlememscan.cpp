@@ -1,5 +1,8 @@
 #include <Python.h>
 
+#define NPY_NO_DEPRECATED_API NPY_1_7_API_VERSION
+#include <numpy/arrayobject.h>
+
 #include <fstream>
 #include <sstream>
 #include <string>
@@ -7,6 +10,7 @@
 #include <algorithm>
 #include <unordered_map>
 
+#include <stdlib.h>
 #include <unistd.h>
 #include <dirent.h>
 #include <sys/types.h>
@@ -378,14 +382,16 @@ static unordered_map<string, idle_mem_stat> get_result()
 
 // Returns dict: cg path -> (anon stats, file stats).
 //
-// Anon/file stats are represented by tuple:
+// Anon/file stats are represented by numpy.array:
 //
-// (total, idle[1], idle[2], ..., idle[MAX_AGE])
+// numpy.array((total, idle[1], idle[2], ..., idle[MAX_AGE]))
 //
 // where @total is the total number of ageable pages scanned, @idle[i] is the
 // number of pages that have been idle for >= i last intervals.
 static PyObject *py_result(PyObject *self, PyObject *args)
 {
+	static npy_intp arr_dims[] = {MAX_AGE + 1};
+
 	// map the result to a PyDict
 	py_ref dict = PyDict_New();
 	if (!dict)
@@ -394,35 +400,29 @@ static PyObject *py_result(PyObject *self, PyObject *args)
 	auto result = get_result();
 	for (auto &kv : result) {
 		py_ref key = PyString_FromString(kv.first.c_str());
-		py_ref val = PyTuple_New(NR_MEM_TYPES);
+		py_ref val = PyList_New(NR_MEM_TYPES);
 		if (!key || !val)
 			return PyErr_NoMemory();
 
 		for (int i = 0; i < NR_MEM_TYPES; i++) {
 			mem_type t = static_cast<mem_type>(i);
 
-			long idle_stat[MAX_AGE + 1];
-			idle_stat[0] = kv.second.get_nr_total(t);
-			kv.second.get_nr_idle(t, idle_stat + 1);
-
-			py_ref idle_stat_tuple =
-				PyTuple_New(MAX_AGE + 1);
-			if (!idle_stat_tuple)
+			long *arr_raw = static_cast<long *>(
+					calloc(MAX_AGE + 1, sizeof(long)));
+			if (!arr_raw)
 				return PyErr_NoMemory();
 
-			for (int j = 0; j <= MAX_AGE; j++) {
-				PyObject *p = PyInt_FromLong(idle_stat[j] *
-							     PAGE_SIZE);
-				if (!p)
-					return PyErr_NoMemory();
-				PyTuple_SET_ITEM(static_cast<PyObject *>
-						 (idle_stat_tuple), j, p);
+			arr_raw[0] = kv.second.get_nr_total(t);
+			kv.second.get_nr_idle(t, arr_raw + 1);
+
+			PyObject *arr = PyArray_SimpleNewFromData(
+					1, arr_dims, NPY_LONG, arr_raw);
+			if (!arr) {
+				free(arr_raw);
+				return PyErr_NoMemory();
 			}
 
-			// PyTuple_SET_ITEM steals reference
-			Py_INCREF(idle_stat_tuple);
-			PyTuple_SET_ITEM(static_cast<PyObject *>(val),
-					 i, idle_stat_tuple);
+			PyList_SET_ITEM(static_cast<PyObject *>(val), i, arr);
 		}
 
 		if (PyDict_SetItem(dict, key, val) < 0)
@@ -536,4 +536,7 @@ initidlememscan(void)
 		return;
 
 	PyModule_AddIntConstant(m, "MAX_AGE", MAX_AGE);
+
+	// Load numpy functionality
+	import_array();
 }
