@@ -1,3 +1,6 @@
+import os
+
+
 def _parse_meminfo():
     meminfo = {}
     with open('/proc/meminfo', 'r') as f:
@@ -18,5 +21,6 @@ def _lookup_memcg_mount():
                 return m[1]
     raise RuntimeError("Memory cgroup not mounted")
 
+PAGE_SIZE = os.sysconf("SC_PAGE_SIZE")
 MEM_TOTAL = _parse_meminfo()["MemTotal"]
 MEMCG_MOUNT = _lookup_memcg_mount()
