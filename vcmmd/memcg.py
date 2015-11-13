@@ -8,12 +8,13 @@ from core import Error, LoadConfig, AbstractLoadEntity, AbstractLoadManager
 import idlemem
 from idlemem import ANON, FILE, NR_MEM_TYPES, MAX_AGE
 import sysinfo
-from util import INT64_MAX, strmemsize
+import util
+from util import strmemsize
 
 
 class MemCg(AbstractLoadEntity):
 
-    MAX_LIMIT = INT64_MAX
+    MAX_LIMIT = util.INT64_MAX
 
     def __init__(self, id):
         AbstractLoadEntity.__init__(self, id)
@@ -132,7 +133,7 @@ class MemCg(AbstractLoadEntity):
 
     def __reset_demand(self):
         self.demand = np.empty(MAX_AGE, dtype=np.int64)
-        self.demand.fill(min(self.config.limit, INT64_MAX))
+        self.demand.fill(min(self.config.limit, config.MEM_AVAIL))
 
     def __update_demand(self):
         # Update idle stats
@@ -185,7 +186,8 @@ class MemCg(AbstractLoadEntity):
                               np.arange(1, len(demand) + 1) * pgpgin)
 
         # Filter too large and too small results
-        np.clip(demand, 0, min(self.config.limit, INT64_MAX), out=demand)
+        np.clip(demand, 0, min(self.config.limit, config.MEM_AVAIL),
+                out=demand)
 
         self.demand = demand
 
