@@ -128,13 +128,13 @@ class MemCg(AbstractLoadEntity):
             self.__do_set_config(self.config)
             raise
         self.config = cfg
-        self.__reset_wss_hist()
+        self.__reset_demand()
 
-    def __reset_wss_hist(self):
-        self.wss_hist = np.empty(MAX_AGE, dtype=np.int64)
-        self.wss_hist.fill(min(self.config.limit, INT64_MAX))
+    def __reset_demand(self):
+        self.demand = np.empty(MAX_AGE, dtype=np.int64)
+        self.demand.fill(min(self.config.limit, INT64_MAX))
 
-    def __update_wss_hist(self):
+    def __update_demand(self):
         # Update idle stats
         idle_stat_raw = idlemem.last_idle_stat.pop(self.id, None)
         if not idle_stat_raw:
@@ -180,30 +180,30 @@ class MemCg(AbstractLoadEntity):
 
         # Calculate total idle memory size
         # TODO: do not count anon if there is no swap
-        idle_hist = idle_stat[ANON] + idle_stat[FILE]
+        idle_stat_total = idle_stat[ANON] + idle_stat[FILE]
 
-        # Update wss estimate
+        # Update demand estimate
         #
         # If relative share of idle memory is below the threshold, assume the
-        # wss to be increased by pgpgin each update interval. This will give
+        # demand to be increased by pgpgin each update interval. This will give
         # the memcg a chance to increase its share.
         #
-        idle_low = idle_hist < self.mem_usage * config.MEM_IDLE_THRESH
-        wss_hist = (self.mem_usage - idle_hist) * ~idle_low
-        wss_hist += idle_low * (self.mem_usage +
-                                np.arange(1, len(wss_hist) + 1) * pgpgin)
+        idle_low = idle_stat_total < self.mem_usage * config.MEM_IDLE_THRESH
+        demand = (self.mem_usage - idle_stat_total) * ~idle_low
+        demand += idle_low * (self.mem_usage +
+                              np.arange(1, len(demand) + 1) * pgpgin)
 
         # Filter too large and too small results
-        np.clip(wss_hist, 0, min(self.config.limit, INT64_MAX), out=wss_hist)
+        np.clip(demand, 0, min(self.config.limit, INT64_MAX), out=demand)
 
-        self.wss_hist = wss_hist
+        self.demand = demand
 
     def update(self):
         self.mem_usage = self.__read_mem_usage()
-        self.__update_wss_hist()
+        self.__update_demand()
 
     def sync(self):
-        self.__write_mem_low(self.mem_reservation)
+        self.__write_mem_low(self.reservation)
 
     def reset(self):
         self.__write_mem_low(0)
@@ -251,14 +251,14 @@ class DefaultMemCgManager(BaseMemCgManager):
         age_max = clamp(config.MEM_STALE_AGE / config.MEM_IDLE_DELAY,
                         1, MAX_AGE)
         for age in xrange(age_max, 0, -1):
-            sum_demand = sum(e.wss_hist[age - 1] for e in self._entity_iter())
+            sum_demand = sum(e.demand[age - 1] for e in self._entity_iter())
             if sum_demand <= mem_avail:
                 break
 
         overcommit_ratio = float(sum_demand) / (mem_avail + 1)
         for e in self._entity_iter():
-            e.mem_reservation = int(e.wss_hist[age - 1] /
-                                    max(overcommit_ratio, 1))
+            e.reservation = int(e.demand[age - 1] /
+                                max(overcommit_ratio, 1))
 
         if self.logger.isEnabledFor(logging.DEBUG):
             self.logger.debug("entities %d avail %s demand %s "
@@ -280,4 +280,4 @@ class DefaultMemCgManager(BaseMemCgManager):
                                    LoadConfig.strmemsize(e.config.limit),
                                    LoadConfig.strmemsize(e.config.swap_limit),
                                    strmemsize(e.mem_usage),
-                                   strmemsize(e.mem_reservation)))
+                                   strmemsize(e.reservation)))
