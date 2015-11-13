@@ -5,6 +5,7 @@ import os.path
 import struct
 import threading
 
+import sysinfo
 import util
 
 
@@ -22,6 +23,7 @@ class Error(Exception):
 class LoadConfig:
 
     MAX_LIMIT = util.UINT64_MAX
+    _MAX_PAGES = MAX_LIMIT & ~(sysinfo.PAGE_SIZE - 1)
 
     @staticmethod
     def __sanitize(val):
@@ -37,7 +39,7 @@ class LoadConfig:
 
     @staticmethod
     def strmemsize(val):
-        if val == LoadConfig.MAX_LIMIT:
+        if val >= LoadConfig._MAX_PAGES:
             return "unlim"
         return util.strmemsize(val)
 
