@@ -8,7 +8,7 @@ from core import Error, LoadConfig, AbstractLoadEntity, AbstractLoadManager
 import idlemem
 from idlemem import ANON, FILE, NR_MEM_TYPES, MAX_AGE
 import sysinfo
-from util import INT64_MAX, divroundup, clamp, strmemsize
+from util import INT64_MAX, strmemsize
 
 
 class MemCg(AbstractLoadEntity):
@@ -162,17 +162,8 @@ class MemCg(AbstractLoadEntity):
             idle_stat[t][:] = idle_stat_raw[t][1:] * scale[t]
 
         # Shift idle stat arrays according to config parameters
-        idle_age = {
-            ANON: config.ANON_IDLE_AGE,
-            FILE: config.FILE_IDLE_AGE,
-        }
-        idle_shift = {
-            t: clamp(divroundup(idle_age[t], config.MEM_IDLE_DELAY) - 1,
-                     0, MAX_AGE)
-            for t in xrange(NR_MEM_TYPES)
-        }
         for t in xrange(NR_MEM_TYPES):
-            shift = idle_shift[t]
+            shift = config.MEM_IDLE_SHIFT[t]
             if shift > 0:
                 a = idle_stat[t]
                 a[:-shift] = a[shift:]
@@ -247,15 +238,12 @@ class DefaultMemCgManager(BaseMemCgManager):
     def _do_update(self):
         BaseMemCgManager._do_update(self)
 
-        mem_avail = max(sysinfo.MEM_TOTAL - config.SYSTEM_MEM, 0)
-        age_max = clamp(config.MEM_STALE_AGE / config.MEM_IDLE_DELAY,
-                        1, MAX_AGE)
-        for age in xrange(age_max, 0, -1):
+        for age in xrange(config.MEM_STALE_SHIFT, 0, -1):
             sum_demand = sum(e.demand[age - 1] for e in self._entity_iter())
-            if sum_demand <= mem_avail:
+            if sum_demand <= config.MEM_AVAIL:
                 break
 
-        overcommit_ratio = float(sum_demand) / (mem_avail + 1)
+        overcommit_ratio = float(sum_demand) / config.MEM_AVAIL
         for e in self._entity_iter():
             e.reservation = int(e.demand[age - 1] /
                                 max(overcommit_ratio, 1))
@@ -264,7 +252,7 @@ class DefaultMemCgManager(BaseMemCgManager):
             self.logger.debug("entities %d avail %s demand %s "
                               "overcommit %.2f age %ds" %
                               (sum(1 for e in self._entity_iter()),
-                               strmemsize(mem_avail),
+                               strmemsize(config.MEM_AVAIL),
                                strmemsize(sum_demand),
                                overcommit_ratio, age * config.MEM_IDLE_DELAY))
             fmt = "%-38s : %6s %6s %6s : %6s %6s"

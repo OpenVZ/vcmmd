@@ -1,6 +1,10 @@
 import ConfigParser
 import logging
 
+from sysinfo import MEM_TOTAL
+from idlemem import ANON, FILE, NR_MEM_TYPES, MAX_AGE
+from util import divroundup, clamp
+
 _OPTIONS = {
     # name                              default
 
@@ -41,6 +45,20 @@ _OPTIONS = {
 
 def _update_options():
     globals().update(_OPTIONS)
+
+    globals()['MEM_AVAIL'] = max(MEM_TOTAL - SYSTEM_MEM, 1)
+    globals()['MEM_STALE_SHIFT'] = clamp(MEM_STALE_AGE / MEM_IDLE_DELAY,
+                                         1, MAX_AGE)
+    globals()['MEM_IDLE_SHIFT'] = {
+        t: clamp(
+            divroundup(
+                {
+                    ANON: ANON_IDLE_AGE,
+                    FILE: FILE_IDLE_AGE,
+                }[t], MEM_IDLE_DELAY) - 1,
+            0, MAX_AGE)
+        for t in xrange(NR_MEM_TYPES)
+    }
 
 
 def load_from_file(filename, section='DEFAULT', logger=None):
