@@ -3,11 +3,11 @@ UINT64_MAX = 2**64-1
 
 
 def strmemsize(val):
-    if val > (10 << 30):
+    if val >= 10 ** 10:
         return str(val >> 30) + 'G'
-    if val > (10 << 20):
+    if val >= 10 ** 7:
         return str(val >> 20) + 'M'
-    if val > (10 << 10):
+    if val >= 10 ** 4:
         return str(val >> 10) + 'K'
     return str(val)
 
