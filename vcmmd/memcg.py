@@ -237,26 +237,67 @@ class DefaultMemCgManager(BaseMemCgManager):
 
     TRACK_IDLE_MEM = True
 
+    def __calc_quotas(self):
+        sum_limit = sum(min(e.config.limit, config.MEM_AVAIL)
+                        for e in self._entity_iter())
+        for e in self._entity_iter():
+            e.quota = (min(e.config.limit, config.MEM_AVAIL) *
+                       config.MEM_AVAIL / sum_limit)
+
+    def __calc_sum_demand(self):
+        self.__sum_demand = np.empty(MAX_AGE, dtype=np.int64)
+        self.__sum_demand.fill(0)
+        for e in self._entity_iter():
+            self.__sum_demand += e.demand
+
+    def __find_min_age(self):
+        for age in xrange(config.MEM_STALE_SHIFT - 1, -1, -1):
+            if self.__sum_demand[age] <= config.MEM_AVAIL:
+                return age
+
+    def __handle_overcommit(self):
+        memory_left = 0
+        demand_over_quota = 0
+        want_more = []
+        for e in self._entity_iter():
+            if e.demand[0] <= e.quota:
+                e.reservation = e.demand[0]
+                memory_left += e.quota - e.demand[0]
+            else:
+                e.reservation = e.quota
+                demand_over_quota += e.demand[0] - e.quota
+                want_more.append(e)
+        for e in want_more:
+            e.reservation += ((e.demand[0] - e.quota) *
+                              memory_left / demand_over_quota)
+
+    def __handle_undercommit(self, age):
+        for e in self._entity_iter():
+            e.reservation = e.demand[age]
+
     def _do_update(self):
         BaseMemCgManager._do_update(self)
 
-        for age in xrange(config.MEM_STALE_SHIFT, 0, -1):
-            sum_demand = sum(e.demand[age - 1] for e in self._entity_iter())
-            if sum_demand <= config.MEM_AVAIL:
-                break
+        self.__calc_quotas()
+        self.__calc_sum_demand()
 
-        overcommit_ratio = float(sum_demand) / config.MEM_AVAIL
-        for e in self._entity_iter():
-            e.reservation = int(e.demand[age - 1] /
-                                max(overcommit_ratio, 1))
+        age = self.__find_min_age()
+        if age:
+            self.__handle_undercommit(age)
+        else:
+            self.__handle_overcommit()
 
         if self.logger.isEnabledFor(logging.DEBUG):
+            age = age or 0
+            sum_demand = self.__sum_demand[age]
+            overcommit_ratio = float(sum_demand) / config.MEM_AVAIL
             self.logger.debug("entities %d avail %s demand %s "
                               "overcommit %.2f age %ds" %
                               (sum(1 for e in self._entity_iter()),
                                strmemsize(config.MEM_AVAIL),
                                strmemsize(sum_demand),
-                               overcommit_ratio, age * config.MEM_IDLE_DELAY))
+                               overcommit_ratio,
+                               (age + 1) * config.MEM_IDLE_DELAY))
             fmt = "%-38s : %6s %6s %6s : %6s %6s"
             hdr = True
             for e in self._entity_iter():
