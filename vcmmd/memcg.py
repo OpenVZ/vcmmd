@@ -1,5 +1,6 @@
 import errno
 import logging
+import math
 import numpy as np
 import os.path
 
@@ -252,8 +253,13 @@ class DefaultMemCgManager(BaseMemCgManager):
 
     def __find_min_age(self):
         for age in xrange(config.MEM_STALE_SHIFT - 1, -1, -1):
-            if self.__sum_demand[age] <= config.MEM_AVAIL:
+            if self.__sum_demand[age] > config.MEM_AVAIL:
+                continue
+            if age == config.MEM_STALE_SHIFT - 1:
                 return age
+            age += (float(config.MEM_AVAIL - self.__sum_demand[age]) /
+                    (self.__sum_demand[age + 1] - self.__sum_demand[age]))
+            return age
 
     def __handle_overcommit(self):
         memory_left = 0
@@ -272,8 +278,13 @@ class DefaultMemCgManager(BaseMemCgManager):
                               memory_left / demand_over_quota)
 
     def __handle_undercommit(self, age):
+        age_int = int(age)
+        age_frac = math.modf(age)[0]
         for e in self._entity_iter():
-            e.reservation = e.demand[age]
+            e.reservation = e.demand[age_int]
+            if age_frac:
+                e.reservation += int(age_frac * (e.demand[age_int + 1] -
+                                                 e.demand[age_int]))
 
     def _do_update(self):
         BaseMemCgManager._do_update(self)
