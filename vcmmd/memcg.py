@@ -39,14 +39,14 @@ class MemCg(AbstractLoadEntity):
             with open(filepath, 'r') as f:
                 ret = f.read()
         except IOError as err:
-            raise Error(errno.EIO, "Failed to read %s: %s" % (name, err))
+            raise Error(err.errno, "Failed to read %s: %s" % (name, err))
         return ret
 
     def __read_int(self, name):
         try:
             return int(self.__read(name))
         except ValueError as err:
-            raise Error(errno.EIO, "Failed to parse %s: %s" % (name, err))
+            raise Error(errno.EINVAL, "Failed to parse %s: %s" % (name, err))
 
     def __write(self, name, val):
         filepath = os.path.join(self.__path, name)
@@ -54,7 +54,7 @@ class MemCg(AbstractLoadEntity):
             with open(filepath, 'w') as f:
                 f.write(str(val))
         except IOError as err:
-            raise Error(errno.EIO, "Failed to write %s: %s" % (name, err))
+            raise Error(err.errno, "Failed to write %s: %s" % (name, err))
 
     def __write_limit(self, name, val):
         val = min(val, self.MAX_LIMIT)
