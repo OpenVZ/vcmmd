@@ -129,12 +129,10 @@ def main():
 
     try:
         handler.handle()
-    except socket.error as err:
-        _error("Transport error: %s" % err)
-    except RPCError as err:
-        _error("Protocol error: %s" % err)
+    except (socket.error, RPCError) as err:
+        _error("Failed to connect to vcmmd service: %s" % err)
     except Error as err:
-        _error("Command failed: %s" % err)
+        _error("vcmmd service returned error: %s" % err)
 
 if __name__ == "__main__":
     main()
