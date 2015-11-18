@@ -17,7 +17,7 @@ class Error(Exception):
         self.errmsg = errmsg
 
     def __str__(self):
-        return "%s (errcode %d)" % (self.errmsg, self.errcode)
+        return self.errmsg
 
 
 class LoadConfig:
