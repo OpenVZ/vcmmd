@@ -37,28 +37,40 @@ _OPTIONS = {
     'ANON_IDLE_AGE':                    120,
     'FILE_IDLE_AGE':                    10,
 
+    # An interval back in time to consider while estimating a decrease in a
+    # working set of anon/file pages, in seconds. In other words, this defines
+    # how fast a working set slacks off if being untouched.
+    'ANON_WS_SLACK':                    180,
+    'FILE_WS_SLACK':                    120,
+
     # Enable tcache/tswap?
     'USE_TCACHE':                       True,
     'USE_TSWAP':                        True,
 }
 
 
+def _age_to_shift(age):
+    return clamp(divroundup(age, MEM_IDLE_DELAY) - 1, 0, MAX_AGE)
+
+
 def _update_options():
     globals().update(_OPTIONS)
 
     globals()['MEM_AVAIL'] = max(MEM_TOTAL - SYSTEM_MEM, 1)
-    globals()['MEM_STALE_SHIFT'] = clamp(MEM_STALE_AGE / MEM_IDLE_DELAY,
-                                         1, MAX_AGE)
-    globals()['MEM_IDLE_SHIFT'] = {
-        t: clamp(
-            divroundup(
-                {
-                    ANON: ANON_IDLE_AGE,
-                    FILE: FILE_IDLE_AGE,
-                }[t], MEM_IDLE_DELAY) - 1,
-            0, MAX_AGE)
-        for t in xrange(NR_MEM_TYPES)
-    }
+    globals()['MEM_STALE_SHIFT'] = _age_to_shift(MEM_STALE_AGE)
+    globals()['MEM_IDLE_SHIFT'] = {}
+    globals()['MEM_SLACK_SHIFT'] = {}
+    for t in xrange(NR_MEM_TYPES):
+        MEM_IDLE_SHIFT[t] = _age_to_shift(
+            {
+                ANON: ANON_IDLE_AGE,
+                FILE: FILE_IDLE_AGE,
+            }[t])
+        MEM_SLACK_SHIFT[t] = _age_to_shift(
+            {
+                ANON: ANON_WS_SLACK,
+                FILE: FILE_WS_SLACK,
+            }[t])
 
 
 def load_from_file(filename, section='DEFAULT', logger=None):

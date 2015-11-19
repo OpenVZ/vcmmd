@@ -32,6 +32,7 @@ class MemCg(AbstractLoadEntity):
             raise Error(errno.ENOENT, "Entity does not exist")
 
         self.__last_stat = None
+        self.__last_demand = {}
 
     def __read(self, name):
         filepath = os.path.join(self.__path, name)
@@ -167,6 +168,17 @@ class MemCg(AbstractLoadEntity):
                 a[:-shift] = a[shift:]
                 a[-shift:] = a[-1]
 
+            # Calculate cumulative moving average (CMA)
+            slack = config.MEM_SLACK_SHIFT[t]
+            b = (a + self.__last_demand.get(t, a) * slack) / (slack + 1)
+
+            # Do not take into account CMA, when the demand grows, because
+            # this means memcg experiences a memory shortage right now and
+            # we should not be lazy about satisfying its demand.
+            np.maximum(a, b, out=a)
+
+            self.__last_demand[t] = a
+
             demand += a
 
         # We do not need per mem type stats any longer
@@ -244,10 +256,10 @@ class DefaultMemCgManager(BaseMemCgManager):
             self.__sum_demand += e.demand
 
     def __find_min_age(self):
-        for age in xrange(config.MEM_STALE_SHIFT - 1, -1, -1):
+        for age in xrange(config.MEM_STALE_SHIFT, -1, -1):
             if self.__sum_demand[age] > config.MEM_AVAIL:
                 continue
-            if age == config.MEM_STALE_SHIFT - 1:
+            if age == config.MEM_STALE_SHIFT:
                 return age
             age += (float(config.MEM_AVAIL - self.__sum_demand[age]) /
                     (self.__sum_demand[age + 1] - self.__sum_demand[age]))
