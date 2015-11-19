@@ -30,11 +30,11 @@ _OPTIONS = {
 
     # Assume a memory page is very unlikely to be used again if it has not been
     # touched for more than MEM_STALE_AGE seconds
-    'MEM_STALE_AGE':                    360,
+    'MEM_STALE_AGE':                    300,
 
     # Start to account an anon/file page as idle if it has not been used for
     # this long, in seconds
-    'ANON_IDLE_AGE':                    120,
+    'ANON_IDLE_AGE':                    60,
     'FILE_IDLE_AGE':                    10,
 
     # An interval back in time to consider while estimating a decrease in a
