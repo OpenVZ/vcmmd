@@ -138,8 +138,8 @@ class MemCg(AbstractLoadEntity):
 
     def __update_demand(self):
         # Update idle stats
-        idle_stat_raw = idlemem.last_idle_stat.pop(self.id, None)
-        if not idle_stat_raw:
+        idle_stat = idlemem.last_idle_stat.pop(self.id, None)
+        if not idle_stat:
             return
 
         # Read memcg stats
@@ -153,44 +153,36 @@ class MemCg(AbstractLoadEntity):
         pgpgin *= sysinfo.PAGE_SIZE
         self.__last_stat = stat
 
-        # Normalize idle stats
-        scale = {
-            t: total[t] / (idle_stat_raw[t][0] + 1.0)
-            for t in xrange(NR_MEM_TYPES)
-        }
-        idle_stat = {}
+        # Estimate demand for reclaimable memory
+        # TODO: do not count idle anon if there is no swap
+        demand = np.empty(MAX_AGE, dtype=np.int64)
+        demand.fill(0)
         for t in xrange(NR_MEM_TYPES):
-            idle_stat[t] = np.empty(MAX_AGE, dtype=np.int64)
-            idle_stat[t][:] = idle_stat_raw[t][1:] * scale[t]
+            # idle_stat needs to be scaled
+            a = total[t] - total[t] * idle_stat[t][1:] / (idle_stat[t][0] + 1)
 
-        # Shift idle stat arrays according to config parameters
-        for t in xrange(NR_MEM_TYPES):
+            # Shift stat arrays according to config parameters
             shift = config.MEM_IDLE_SHIFT[t]
             if shift > 0:
-                a = idle_stat[t]
                 a[:-shift] = a[shift:]
                 a[-shift:] = a[-1]
 
-        # Calculate total idle memory size
-        # TODO: do not count anon if there is no swap
-        idle_stat_total = idle_stat[ANON] + idle_stat[FILE]
+            demand += a
 
-        # Update demand estimate
-        #
+        # We do not need per mem type stats any longer
+        total = sum(total.itervalues())
+
         # If relative share of idle memory is below the threshold, assume the
         # demand to be increased by pgpgin each update interval. This will give
         # the memcg a chance to increase its share.
-        #
-        idle_low = idle_stat_total < self.mem_usage * config.MEM_IDLE_THRESH
-        demand = (self.mem_usage - idle_stat_total) * ~idle_low
-        demand += idle_low * (self.mem_usage +
-                              np.arange(1, len(demand) + 1) * pgpgin)
+        demand_high = demand > total * (1 - config.MEM_IDLE_THRESH)
+        demand = demand * ~demand_high
+        demand += demand_high * (total + np.arange(1, MAX_AGE + 1) * pgpgin)
 
-        # Filter too large and too small results
-        np.clip(demand, 0, min(self.config.limit, config.MEM_AVAIL),
-                out=demand)
+        self.demand = demand + (self.mem_usage - total)
 
-        self.demand = demand
+        np.clip(self.demand, 0, min(self.config.limit, config.MEM_AVAIL),
+                out=self.demand)
 
     def update(self):
         self.mem_usage = self.__read_mem_usage()
