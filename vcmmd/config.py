@@ -56,8 +56,15 @@ def _age_to_shift(age):
 def _update_options():
     globals().update(_OPTIONS)
 
-    globals()['MEM_AVAIL'] = max(MEM_TOTAL - SYSTEM_MEM, 0)
-    globals()['MEM_STALE_SHIFT'] = _age_to_shift(MEM_STALE_AGE)
+    globals()['SYSTEM_MEM'] = clamp(SYSTEM_MEM, 0, MEM_TOTAL)
+    globals()['MEM_AVAIL'] = MEM_TOTAL - SYSTEM_MEM
+    globals()['HIGH_WMARK_RATIO'] = clamp(HIGH_WMARK_RATIO, 0., 1.)
+    globals()['HIGH_WMARK_MAX'] = max(HIGH_WMARK_MAX, 0)
+    globals()['MEM_IDLE_SAMPLING_RATIO'] = max(MEM_IDLE_SAMPLING_RATIO, 1)
+    globals()['MEM_IDLE_DELAY'] = max(MEM_IDLE_DELAY, 1)
+    globals()['MEM_IDLE_THRESH'] = clamp(MEM_IDLE_THRESH, 0., 1.)
+    globals()['MEM_STALE_SHIFT'] = clamp(MEM_STALE_AGE / MEM_IDLE_DELAY,
+                                         1, MAX_AGE)
     globals()['MEM_IDLE_SHIFT'] = {}
     globals()['MEM_SLACK_SHIFT'] = {}
     for t in xrange(NR_MEM_TYPES):
