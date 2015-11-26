@@ -131,11 +131,12 @@ class MemCg(AbstractLoadEntity):
             self.__do_set_config(self.config)
             raise
         self.config = cfg
+        self.limit = min(cfg.limit, config.MEM_AVAIL)
         self.__reset_demand()
 
     def __reset_demand(self):
         self.demand = np.empty(MAX_AGE, dtype=np.int64)
-        self.demand.fill(min(self.config.limit, config.MEM_AVAIL))
+        self.demand.fill(self.limit)
 
     def __update_demand(self):
         # Update idle stats
@@ -193,8 +194,7 @@ class MemCg(AbstractLoadEntity):
 
         self.demand = demand + (self.mem_usage - total)
 
-        np.clip(self.demand, 0, min(self.config.limit, config.MEM_AVAIL),
-                out=self.demand)
+        np.clip(self.demand, 0, self.limit, out=self.demand)
 
     def update(self):
         self.mem_usage = self.__read_mem_usage()
@@ -243,11 +243,9 @@ class DefaultMemCgManager(BaseMemCgManager):
     TRACK_IDLE_MEM = True
 
     def __calc_quotas(self):
-        sum_limit = sum(min(e.config.limit, config.MEM_AVAIL)
-                        for e in self._entity_iter())
+        sum_limit = sum(e.limit for e in self._entity_iter())
         for e in self._entity_iter():
-            e.quota = (min(e.config.limit, config.MEM_AVAIL) *
-                       config.MEM_AVAIL / sum_limit)
+            e.quota = (e.limit * config.MEM_AVAIL / sum_limit)
 
     def __calc_sum_demand(self):
         self.__sum_demand = np.empty(MAX_AGE, dtype=np.int64)
