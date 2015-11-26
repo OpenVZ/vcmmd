@@ -56,7 +56,7 @@ def _age_to_shift(age):
 def _update_options():
     globals().update(_OPTIONS)
 
-    globals()['MEM_AVAIL'] = max(MEM_TOTAL - SYSTEM_MEM, 1)
+    globals()['MEM_AVAIL'] = max(MEM_TOTAL - SYSTEM_MEM, 0)
     globals()['MEM_STALE_SHIFT'] = _age_to_shift(MEM_STALE_AGE)
     globals()['MEM_IDLE_SHIFT'] = {}
     globals()['MEM_SLACK_SHIFT'] = {}

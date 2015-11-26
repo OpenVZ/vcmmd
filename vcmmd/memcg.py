@@ -131,7 +131,7 @@ class MemCg(AbstractLoadEntity):
             self.__do_set_config(self.config)
             raise
         self.config = cfg
-        self.limit = min(cfg.limit, config.MEM_AVAIL)
+        self.limit = min(cfg.limit, config.MEM_TOTAL)
         self.__reset_demand()
 
     def __reset_demand(self):
@@ -292,7 +292,8 @@ class DefaultMemCgManager(BaseMemCgManager):
         nr_entities = sum(1 for e in self._entity_iter())
         sum_demand = sum(e.reservation if age else e.demand[0]
                          for e in self._entity_iter())
-        overcommit_ratio = float(sum_demand) / config.MEM_AVAIL
+        overcommit_ratio = (float(sum_demand) / config.MEM_AVAIL
+                            if config.MEM_AVAIL > 0 else float('inf'))
         age_sec = ((age or 0) + 1) * config.MEM_IDLE_DELAY
         self.logger.debug("entities %d avail %s demand %s "
                           "overcommit %.2f age %.1fs" %
