@@ -106,6 +106,10 @@ def load_from_file(filename, section='DEFAULT', logger=None):
         logger.error("Error reading config: %s" % err)
         return
 
+    if section != 'DEFAULT' and not parser.has_section(section):
+        logger.error("No section '%s' found in config file" % section)
+        return
+
     for name in _OPTIONS:
         try:
             _OPTIONS[name] = {
