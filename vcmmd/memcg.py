@@ -13,7 +13,7 @@ import util
 from util import strmemsize
 
 
-class MemCg(AbstractLoadEntity):
+class _MemCg(AbstractLoadEntity):
 
     MAX_LIMIT = util.INT64_MAX
 
@@ -210,7 +210,7 @@ class MemCg(AbstractLoadEntity):
 
 class BaseMemCgManager(AbstractLoadManager):
 
-    LoadEntityClass = MemCg
+    LoadEntityClass = _MemCg
 
     # Do we take into account memory guarantees?
     SUPPORTS_GUARANTEES = False
@@ -234,7 +234,7 @@ class BaseMemCgManager(AbstractLoadManager):
         idlemem.stop_background_scan()
         AbstractLoadManager.shutdown(self)
 
-    # Minimal logic is implemented in MemCg.set_config.
+    # Minimal logic is implemented in _MemCg.set_config.
     # No need to override _do_update.
 
 
