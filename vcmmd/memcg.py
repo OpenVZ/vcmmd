@@ -5,7 +5,7 @@ import numpy as np
 import os.path
 
 import config
-from core import Error, LoadConfig, AbstractLoadEntity, AbstractLoadManager
+from base import Error, LoadConfig, AbstractLoadEntity, AbstractLoadManager
 import idlemem
 from idlemem import ANON, FILE, NR_MEM_TYPES, MAX_AGE
 import sysinfo

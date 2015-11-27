@@ -3,7 +3,7 @@ import optparse
 import sys
 import socket
 
-from core import Error, LoadConfig
+from base import Error, LoadConfig
 from rpc import RPCError, RPCProxy
 
 DEFAULT_SOCKET = "/var/run/vcmmd.socket"

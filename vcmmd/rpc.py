@@ -5,7 +5,7 @@ import socket
 from SocketServer import UnixStreamServer, ThreadingMixIn, BaseRequestHandler
 
 import rpc_pb2 as rpc_proto
-from core import Error, LoadConfig
+from base import Error, LoadConfig
 
 MAX_MSG_SIZE = 8192
 
