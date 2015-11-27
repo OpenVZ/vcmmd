@@ -96,9 +96,13 @@ def load_from_file(filename, section='DEFAULT', logger=None):
     logger.info("Loading config from file '%s' section '%s'" %
                 (filename, section))
 
+    class MyConfigParser(ConfigParser.RawConfigParser):
+        def optionxform(self, option):
+            return str.upper(option)
+
     # 'defaults' wants strings for values, so we cannot just pass _OPTIONS
-    parser = ConfigParser.RawConfigParser(defaults={k: str(v) for (k, v) in
-                                                    _OPTIONS.iteritems()})
+    parser = MyConfigParser(defaults={k: str(v) for (k, v) in
+                                      _OPTIONS.iteritems()})
     try:
         with open(filename, 'r') as fp:
             parser.readfp(fp)
@@ -110,7 +114,10 @@ def load_from_file(filename, section='DEFAULT', logger=None):
         logger.error("No section '%s' found in config file" % section)
         return
 
-    for name in _OPTIONS:
+    for (name, val) in parser.items(section):
+        if name not in _OPTIONS:
+            logger.warning("Unknown config option '%s'" % name)
+            continue
         try:
             _OPTIONS[name] = {
                 int: parser.getint,
