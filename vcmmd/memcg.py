@@ -254,10 +254,10 @@ class DefaultMemCgManager(BaseMemCgManager):
             self.__sum_demand += e.demand
 
     def __find_min_age(self):
-        for age in xrange(config.MEM_STALE_SHIFT, -1, -1):
+        for age in xrange(config.MEM_STALE_SHIFT - 1, -1, -1):
             if self.__sum_demand[age] > config.MEM_AVAIL:
                 continue
-            if age == config.MEM_STALE_SHIFT:
+            if age == config.MEM_STALE_SHIFT - 1:
                 return age
             age += (float(config.MEM_AVAIL - self.__sum_demand[age]) /
                     (self.__sum_demand[age + 1] - self.__sum_demand[age]))
