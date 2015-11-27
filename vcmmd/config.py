@@ -96,7 +96,9 @@ def load_from_file(filename, section='DEFAULT', logger=None):
     logger.info("Loading config from file '%s' section '%s'" %
                 (filename, section))
 
-    parser = ConfigParser.RawConfigParser()
+    # 'defaults' wants strings for values, so we cannot just pass _OPTIONS
+    parser = ConfigParser.RawConfigParser(defaults={k: str(v) for (k, v) in
+                                                    _OPTIONS.iteritems()})
     try:
         with open(filename, 'r') as fp:
             parser.readfp(fp)
