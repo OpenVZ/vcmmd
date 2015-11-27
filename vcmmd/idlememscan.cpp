@@ -155,12 +155,21 @@ static void do_open(const char *path, ios_base::openmode mode,
 		throw error(string("Open '") + path + "' failed");
 }
 
+static void throw_rw_error(const char *path, bool write,
+			   long off, long sz) throw(error)
+{
+	ostringstream ss;
+	ss << (write ? "Write" : "Read") << " '" << path << "' " <<
+		sz << '@' << off << " failed";
+	throw error(ss.str());
+}
+
 static void do_read(fstream &f, long pos, int n, const char *path,
 		     uint64_t *buf) throw(error)
 {
 	f.seekg(pos * 8);
 	if (!f.read(reinterpret_cast<char *>(buf), n * 8))
-		throw error(string("Read '") + path + "' failed");
+		throw_rw_error(path, false, pos * 8, n * 8);
 
 }
 
@@ -169,7 +178,7 @@ static void do_write(fstream &f, long pos, int n, const char *path,
 {
 	f.seekg(pos * 8);
 	if (!f.write(reinterpret_cast<const char *>(buf), n * 8))
-		throw error(string("Write '") + path + "' failed");
+		throw_rw_error(path, true, pos * 8, n * 8);
 
 }
 
