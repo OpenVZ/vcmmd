@@ -34,7 +34,6 @@ class _Scanner:
     def __init__(self):
         self.interval = 0
         self.on_update = None
-        self.__warned_lag = False
         self.__is_shut_down = threading.Event()
         self.__is_shut_down.set()
         self.__should_shut_down = threading.Event()
@@ -54,27 +53,27 @@ class _Scanner:
         self.__scan_time = 0.0
         self.__scan_start = self.__time()
 
+    def __check_lag(self):
+        time_spent = self.__time() - self.__scan_start
+        # only warn about significant lags (> 10% of interval)
+        if time_spent > 1.1 * self.interval:
+            logger.warning("Memory scan took longer than expected: "
+                           "%.1fs > %ds" % (time_spent, self.interval))
+
     def __scan_done(self):
         global last_idle_stat
         last_idle_stat = idlememscan.result()
         if self.on_update:
             self.on_update()
+        self.__check_lag()
 
     def __throttle(self):
         iters_left = self.__scan_iters - self.__iter
         time_left = self.interval - (self.__time() - self.__scan_start)
         time_required = iters_left * self.__scan_time / self.__iter
-        if time_required > time_left:
-            # only warn about significant lags (> 1% of interval)
-            if not self.__warned_lag and \
-                    time_required - time_left > self.interval / 100.0:
-                logger.warning("Memory scanner is lagging behind "
-                               "(%.2f s left, %s s required)" %
-                               (time_left, time_required))
-                self.__warned_lag = True
-            return
-        self.__sleep((time_left - time_required) / iters_left
-                     if iters_left > 0 else time_left)
+        if time_required < time_left:
+            self.__sleep((time_left - time_required) / iters_left
+                         if iters_left > 0 else time_left)
 
     def __scan_iter(self):
         start = self.__time()
