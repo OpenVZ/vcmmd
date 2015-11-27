@@ -62,7 +62,8 @@ def _run():
 
     logger.info("Started")
 
-    config.load_from_file(filename=CONFIG_FILE, logger=logger)
+    config.load_from_file(filename=CONFIG_FILE,
+                          section=_cmd_opts.config_section, logger=logger)
 
     tmem.logger = logger
     tmem.initialize()
@@ -90,21 +91,25 @@ def main():
                       help="run interactive (not a daemon)")
     parser.add_option("-d", action="store_true", dest="debug",
                       help="increase verbosity to debug level")
+    parser.add_option("-c", type="string", default="DEFAULT",
+                      dest="config_section",
+                      help="specify config section to load")
 
-    (options, args) = parser.parse_args()
+    global _cmd_opts
+    (_cmd_opts, args) = parser.parse_args()
     if args:
         parser.error("incorrect number of arguments")
 
     logger = logging.getLogger()
-    logger.setLevel(logging.DEBUG if options.debug else logging.INFO)
+    logger.setLevel(logging.DEBUG if _cmd_opts.debug else logging.INFO)
     fmt = logging.Formatter("%(asctime)s %(levelname)s %(message)s",
                             "%Y-%m-%d %H:%M:%S")
-    fh = logging.StreamHandler() if options.interactive else \
+    fh = logging.StreamHandler() if _cmd_opts.interactive else \
         logging.FileHandler(LOG_FILE)
     fh.setFormatter(fmt)
     logger.addHandler(fh)
 
-    if options.interactive:
+    if _cmd_opts.interactive:
         signal.signal(signal.SIGINT, _sighandler)
         _run()
     else:
