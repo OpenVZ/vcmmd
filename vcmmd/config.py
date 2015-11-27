@@ -103,7 +103,7 @@ def load_from_file(filename, section='DEFAULT', logger=None):
         with open(filename, 'r') as fp:
             parser.readfp(fp)
     except (IOError, ConfigParser.Error) as err:
-        logger.warning("Error reading config: %s" % err)
+        logger.error("Error reading config: %s" % err)
         return
 
     for name in _OPTIONS:
@@ -114,8 +114,7 @@ def load_from_file(filename, section='DEFAULT', logger=None):
                 bool: parser.getboolean,
             }[type(_OPTIONS[name])](section, name)
         except (ValueError, ConfigParser.Error) as err:
-            logger.warning("Error parsing config option '%s': %s" %
-                           (name, err))
+            logger.error("Error parsing config option '%s': %s" % (name, err))
             continue
 
     _update_options()
