@@ -8,6 +8,10 @@ from util import divroundup, clamp
 _OPTIONS = {
     # name                              default
 
+    # Enable tcache/tswap?
+    'USE_TCACHE':                       True,
+    'USE_TSWAP':                        True,
+
     # Amount of memory to reserve for the host, in bytes
     'SYSTEM_MEM':                       536870912,
 
@@ -15,6 +19,15 @@ _OPTIONS = {
     # min(<container RAM size> * HIGH_WMARK_RATIO, HIGH_WMARK_MAX)
     'HIGH_WMARK_RATIO':                 0.02,
     'HIGH_WMARK_MAX':                   16777216,
+
+    # If this option is enabled, the daemon will attempt to estimate working
+    # set size of containers dynamically as they are running and adjust their
+    # memory allocation quotas accordingly.
+    'DYNAMIC_BALANCING':                True,
+
+    ##
+    # Remaining options are used only if DYNAMIC_BALANCING is enabled
+    ##
 
     # Determines the portion of memory to scan for estimating idle memory size,
     # inverse ratio
@@ -42,10 +55,6 @@ _OPTIONS = {
     # how fast a working set slacks off if being untouched.
     'ANON_WS_SLACK':                    180,
     'FILE_WS_SLACK':                    120,
-
-    # Enable tcache/tswap?
-    'USE_TCACHE':                       True,
-    'USE_TSWAP':                        True,
 }
 
 

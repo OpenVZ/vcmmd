@@ -135,6 +135,8 @@ class _MemCg(AbstractLoadEntity):
         self.__reset_demand()
 
     def __reset_demand(self):
+        # We don't have any info about how the memcg is using its memory yet,
+        # so assume it wants as much as it can take
         self.demand = np.empty(MAX_AGE, dtype=np.int64)
         self.demand.fill(self.limit)
 
@@ -208,7 +210,7 @@ class _MemCg(AbstractLoadEntity):
         self.__write_mem_high(self.MAX_LIMIT)
 
 
-class BaseMemCgManager(AbstractLoadManager):
+class _BaseMemCgManager(AbstractLoadManager):
 
     LoadEntityClass = _MemCg
 
@@ -223,7 +225,7 @@ class BaseMemCgManager(AbstractLoadManager):
             self.logger.warning("Memory guarantees are not supported by "
                                 "the load manager and will be ignored")
 
-        if self.TRACK_IDLE_MEM and config.MEM_IDLE_DELAY > 0:
+        if self.TRACK_IDLE_MEM:
             idlemem.logger = self.logger
             idlemem.start_background_scan(config.MEM_IDLE_DELAY,
                                           config.MEM_IDLE_SAMPLING_RATIO,
@@ -234,11 +236,50 @@ class BaseMemCgManager(AbstractLoadManager):
         idlemem.stop_background_scan()
         AbstractLoadManager.shutdown(self)
 
-    # Minimal logic is implemented in _MemCg.set_config.
-    # No need to override _do_update.
+    def _dump_entities(self, age=0):
+        if not self.logger.isEnabledFor(logging.DEBUG):
+            return
+
+        nr_entities = sum(1 for e in self._entity_iter())
+        sum_demand = sum(e.reservation if age else e.demand[0]
+                         for e in self._entity_iter())
+        overcommit_ratio = (float(sum_demand) / config.MEM_AVAIL
+                            if config.MEM_AVAIL > 0 else float('inf'))
+        age_sec = ((age or 0) + 1) * config.MEM_IDLE_DELAY
+        self.logger.debug("entities %d avail %s demand %s "
+                          "overcommit %.2f age %.1fs" %
+                          (nr_entities,
+                           strmemsize(config.MEM_AVAIL),
+                           strmemsize(sum_demand),
+                           overcommit_ratio, age_sec))
+        fmt = "%-38s : %5s %5s %5s : %5s %5s %5s"
+        hdr = True
+        for e in self._entity_iter():
+            if hdr:
+                self.logger.debug(fmt % ("id", "guar", "mem", "swp",
+                                         "usage", "dmnd", "rsrv"))
+                hdr = False
+            self.logger.debug(fmt %
+                              (e.id,
+                               LoadConfig.strmemsize(e.config.guarantee),
+                               LoadConfig.strmemsize(e.config.limit),
+                               LoadConfig.strmemsize(e.config.swap_limit),
+                               strmemsize(e.mem_usage),
+                               strmemsize(e.demand[0]),
+                               strmemsize(e.reservation)))
+
+    def _do_update(self):
+        for e in self._entity_iter():
+            e.reservation = 0
+
+        self._dump_entities()
 
 
-class DefaultMemCgManager(BaseMemCgManager):
+class StaticMemCgManager(_BaseMemCgManager):
+    pass
+
+
+class DynamicMemCgManager(_BaseMemCgManager):
 
     TRACK_IDLE_MEM = True
 
@@ -288,38 +329,7 @@ class DefaultMemCgManager(BaseMemCgManager):
                 e.reservation += int(age_frac * (e.demand[age_int + 1] -
                                                  e.demand[age_int]))
 
-    def __print_debug(self, age):
-        nr_entities = sum(1 for e in self._entity_iter())
-        sum_demand = sum(e.reservation if age else e.demand[0]
-                         for e in self._entity_iter())
-        overcommit_ratio = (float(sum_demand) / config.MEM_AVAIL
-                            if config.MEM_AVAIL > 0 else float('inf'))
-        age_sec = ((age or 0) + 1) * config.MEM_IDLE_DELAY
-        self.logger.debug("entities %d avail %s demand %s "
-                          "overcommit %.2f age %.1fs" %
-                          (nr_entities,
-                           strmemsize(config.MEM_AVAIL),
-                           strmemsize(sum_demand),
-                           overcommit_ratio, age_sec))
-        fmt = "%-38s : %5s %5s %5s : %5s %5s %5s"
-        hdr = True
-        for e in self._entity_iter():
-            if hdr:
-                self.logger.debug(fmt % ("id", "guar", "mem", "swp",
-                                         "usage", "dmnd", "rsrv"))
-                hdr = False
-            self.logger.debug(fmt %
-                              (e.id,
-                               LoadConfig.strmemsize(e.config.guarantee),
-                               LoadConfig.strmemsize(e.config.limit),
-                               LoadConfig.strmemsize(e.config.swap_limit),
-                               strmemsize(e.mem_usage),
-                               strmemsize(e.demand[0]),
-                               strmemsize(e.reservation)))
-
     def _do_update(self):
-        BaseMemCgManager._do_update(self)
-
         self.__calc_quotas()
         self.__calc_sum_demand()
 
@@ -329,5 +339,4 @@ class DefaultMemCgManager(BaseMemCgManager):
         else:
             self.__handle_overcommit()
 
-        if self.logger.isEnabledFor(logging.DEBUG):
-            self.__print_debug(age)
+        self._dump_entities(age)

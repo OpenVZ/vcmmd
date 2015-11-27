@@ -67,7 +67,9 @@ def _run():
     tmem.logger = logger
     tmem.initialize()
 
-    ldmgr = memcg.DefaultMemCgManager(state_filename=STATE_FILE, logger=logger)
+    ldmgr_class = (memcg.DynamicMemCgManager if config.DYNAMIC_BALANCING else
+                   memcg.StaticMemCgManager)
+    ldmgr = ldmgr_class(state_filename=STATE_FILE, logger=logger)
 
     try:
         rpcsrv = rpc.RPCServer(server_address=RPC_SOCKET,
