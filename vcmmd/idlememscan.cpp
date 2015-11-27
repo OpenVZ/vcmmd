@@ -230,10 +230,6 @@ static inline long __next_pfn(long pfn, long buf_index)
 // Returns map: cg ino -> idle_mem_stat.
 static void count_idle_pages(long start_pfn, long end_pfn) throw(error)
 {
-	// idle page bitmap requires pfn to be aligned by 64
-	long start_pfn2 = start_pfn & ~63UL;
-	long end_pfn2 = (end_pfn + 63) & ~63UL;
-
 	uint64_t buf_flags[BATCH_SIZE],
 		 buf_cg[BATCH_SIZE],
 		 buf_idle[BATCH_SIZE / 64];
@@ -243,14 +239,15 @@ static void count_idle_pages(long start_pfn, long end_pfn) throw(error)
 	     head_unevictable = false, head_idle = false;
 	int buf_index = BATCH_SIZE;
 
-	for (long pfn = start_pfn2; pfn < end_pfn;
+	// idle page bitmap requires pfn to be aligned by 64
+	for (long pfn = (start_pfn & ~63UL); pfn < end_pfn;
 	     pfn = __next_pfn(pfn, ++buf_index)) {
 		if (buf_index >= BATCH_SIZE) {
 			// buffer is empty - refill
-			int n = min((long)BATCH_SIZE, end_pfn2 - pfn);
+			int n = min((long)BATCH_SIZE, end_pfn - pfn);
 			do_read(f_flags, pfn, n, KPAGEFLAGS_PATH, buf_flags);
 			do_read(f_cg, pfn, n, KPAGECGROUP_PATH, buf_cg);
-			do_read(f_idle, pfn / 64, n / 64,
+			do_read(f_idle, pfn / 64, (n + 63) / 64,
 				IDLE_PAGE_BITMAP_PATH, buf_idle);
 			buf_index = 0;
 		}
