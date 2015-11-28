@@ -15,11 +15,6 @@ _OPTIONS = {
     # Amount of memory to reserve for the host, in bytes
     'SYSTEM_MEM':                       536870912,
 
-    # Start reclaim in a container if the amount of free memory is less than
-    # min(<container RAM size> * HIGH_WMARK_RATIO, HIGH_WMARK_MAX)
-    'HIGH_WMARK_RATIO':                 0.02,
-    'HIGH_WMARK_MAX':                   16777216,
-
     # If this option is enabled, the daemon will attempt to estimate working
     # set size of containers dynamically as they are running and adjust their
     # memory allocation quotas accordingly.
@@ -67,8 +62,6 @@ def _update_options():
 
     globals()['SYSTEM_MEM'] = clamp(SYSTEM_MEM, 0, MEM_TOTAL)
     globals()['MEM_AVAIL'] = MEM_TOTAL - SYSTEM_MEM
-    globals()['HIGH_WMARK_RATIO'] = clamp(HIGH_WMARK_RATIO, 0., 1.)
-    globals()['HIGH_WMARK_MAX'] = max(HIGH_WMARK_MAX, 0)
     globals()['MEM_IDLE_SAMPLING_RATIO'] = max(MEM_IDLE_SAMPLING_RATIO, 1)
     globals()['MEM_IDLE_DELAY'] = max(MEM_IDLE_DELAY, 1)
     globals()['MEM_IDLE_THRESH'] = clamp(MEM_IDLE_THRESH, 0., 1.)

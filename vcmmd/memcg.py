@@ -109,9 +109,8 @@ class _MemCg(AbstractLoadEntity):
             self.__write_memsw_limit(memsw_limit)
 
         if cfg.limit < cfg.MAX_LIMIT:
-            high = int(cfg.limit * config.HIGH_WMARK_RATIO)
-            high = min(high, config.HIGH_WMARK_MAX)
-            high = max(cfg.limit - high, 0)
+            # Set high wmark to 2%, but not more than 16MB
+            high = cfg.limit - min(cfg.limit / 50, 16777216)
         else:
             high = cfg.MAX_LIMIT
         self.__write_mem_high(high)
