@@ -12,8 +12,12 @@ _OPTIONS = {
     'USE_TCACHE':                       True,
     'USE_TSWAP':                        True,
 
-    # Amount of memory to reserve for the host, in bytes
-    'SYSTEM_MEM':                       536870912,
+    # Amount of memory to reserve for system.slice and user.slice, in bytes
+    'SYSTEM_MEM':                       268435456,
+    'USER_MEM':                         67108864,
+
+    # Amount of memory to be left for the system, in bytes
+    'RESERVED_MEM':                     134217728,
 
     # If this option is enabled, the daemon will attempt to estimate working
     # set size of containers dynamically as they are running and adjust their
@@ -56,8 +60,12 @@ def _age_to_shift(age):
 def _update_options():
     globals().update(_OPTIONS)
 
-    globals()['SYSTEM_MEM'] = clamp(SYSTEM_MEM, 0, MEM_TOTAL)
-    globals()['MEM_AVAIL'] = MEM_TOTAL - SYSTEM_MEM
+    # Do not allow to use too much memory for the system
+    globals()['SYSTEM_MEM'] = clamp(SYSTEM_MEM, 0, MEM_TOTAL / 16)
+    globals()['USER_MEM'] = clamp(USER_MEM, 0, MEM_TOTAL / 16)
+    globals()['RESERVED_MEM'] = clamp(RESERVED_MEM, 0, MEM_TOTAL / 16)
+    globals()['MEM_AVAIL'] = MEM_TOTAL - SYSTEM_MEM - USER_MEM - RESERVED_MEM
+
     globals()['MEM_IDLE_SAMPLING'] = max(MEM_IDLE_SAMPLING, 1)
     globals()['MEM_IDLE_DELAY'] = max(MEM_IDLE_DELAY, 1)
     globals()['MEM_STALE_SHIFT'] = clamp(MEM_STALE_AGE / MEM_IDLE_DELAY,

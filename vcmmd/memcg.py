@@ -219,6 +219,22 @@ class _BaseMemCgManager(AbstractLoadManager):
     # Start idle memory estimator?
     TRACK_IDLE_MEM = False
 
+    def __set_mem_reservation(self, name, val):
+        if val is not None:
+            infmsg = "Reserving %s for '%%s'" % strmemsize(val)
+            errmsg = "Failed to reserve memory for '%s': %s"
+        else:
+            infmsg = "Resetting '%s' reservation"
+            errmsg = "Failed to reset '%s' reservation: %s"
+            val = 0
+        self.logger.info(infmsg % name)
+        try:
+            with open(os.path.join(sysinfo.MEMCG_MOUNT, name,
+                                   'memory.low'), 'w') as f:
+                f.write(str(val))
+        except IOError as err:
+            self.logger.error(errmsg % (name, err))
+
     def serve_forever(self):
         if not self.SUPPORTS_GUARANTEES:
             self.logger.warning("Memory guarantees are not supported by "
@@ -229,11 +245,15 @@ class _BaseMemCgManager(AbstractLoadManager):
             idlemem.start_background_scan(config.MEM_IDLE_DELAY,
                                           config.MEM_IDLE_SAMPLING,
                                           on_update=self.update)
+        self.__set_mem_reservation('system.slice', config.SYSTEM_MEM)
+        self.__set_mem_reservation('user.slice', config.USER_MEM)
         AbstractLoadManager.serve_forever(self)
 
     def shutdown(self):
         idlemem.stop_background_scan()
         AbstractLoadManager.shutdown(self)
+        self.__set_mem_reservation('system.slice', None)
+        self.__set_mem_reservation('user.slice', None)
 
     def _dump_entities(self, age=0):
         if not self.logger.isEnabledFor(logging.DEBUG):
