@@ -189,7 +189,7 @@ class _MemCg(AbstractLoadEntity):
         # Neglect idle memory if there is too little of it (<16MB). In this
         # case we assume that the demand will increase by pgpgin each update
         # interval. This should give the memcg a chance to increase its share.
-        demand_high = demand > 16777216
+        demand_high = demand > total - 16777216
         demand = demand * ~demand_high
         demand += demand_high * (total + np.arange(1, MAX_AGE + 1) * pgpgin)
 
