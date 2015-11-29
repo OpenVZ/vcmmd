@@ -26,7 +26,7 @@ _OPTIONS = {
 
     # Determines the portion of memory to scan for estimating idle memory size,
     # inverse ratio
-    'MEM_IDLE_SAMPLING_RATIO':          20,
+    'MEM_IDLE_SAMPLING':                20,
 
     # The interval between successive updates of idle memory size estimate,
     # in seconds
@@ -58,7 +58,7 @@ def _update_options():
 
     globals()['SYSTEM_MEM'] = clamp(SYSTEM_MEM, 0, MEM_TOTAL)
     globals()['MEM_AVAIL'] = MEM_TOTAL - SYSTEM_MEM
-    globals()['MEM_IDLE_SAMPLING_RATIO'] = max(MEM_IDLE_SAMPLING_RATIO, 1)
+    globals()['MEM_IDLE_SAMPLING'] = max(MEM_IDLE_SAMPLING, 1)
     globals()['MEM_IDLE_DELAY'] = max(MEM_IDLE_DELAY, 1)
     globals()['MEM_STALE_SHIFT'] = clamp(MEM_STALE_AGE / MEM_IDLE_DELAY,
                                          1, MAX_AGE)

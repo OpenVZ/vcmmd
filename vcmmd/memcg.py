@@ -227,7 +227,7 @@ class _BaseMemCgManager(AbstractLoadManager):
         if self.TRACK_IDLE_MEM:
             idlemem.logger = self.logger
             idlemem.start_background_scan(config.MEM_IDLE_DELAY,
-                                          config.MEM_IDLE_SAMPLING_RATIO,
+                                          config.MEM_IDLE_SAMPLING,
                                           on_update=self.update)
         AbstractLoadManager.serve_forever(self)
 
