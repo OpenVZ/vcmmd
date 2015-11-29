@@ -32,10 +32,6 @@ _OPTIONS = {
     # in seconds
     'MEM_IDLE_DELAY':                   5,
 
-    # Do not take into account memory that is not used by a container if its
-    # relative portion is less than
-    'MEM_IDLE_THRESH':                  0.1,
-
     # Assume a memory page is very unlikely to be used again if it has not been
     # touched for more than MEM_STALE_AGE seconds
     'MEM_STALE_AGE':                    300,
@@ -64,7 +60,6 @@ def _update_options():
     globals()['MEM_AVAIL'] = MEM_TOTAL - SYSTEM_MEM
     globals()['MEM_IDLE_SAMPLING_RATIO'] = max(MEM_IDLE_SAMPLING_RATIO, 1)
     globals()['MEM_IDLE_DELAY'] = max(MEM_IDLE_DELAY, 1)
-    globals()['MEM_IDLE_THRESH'] = clamp(MEM_IDLE_THRESH, 0., 1.)
     globals()['MEM_STALE_SHIFT'] = clamp(MEM_STALE_AGE / MEM_IDLE_DELAY,
                                          1, MAX_AGE)
     globals()['MEM_IDLE_SHIFT'] = {}
