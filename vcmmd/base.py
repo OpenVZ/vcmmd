@@ -138,7 +138,7 @@ class AbstractLoadManager:
         filename = self.state_filename
         if not filename:
             return
-        self.logger.info("Saving manager state to file '%s'" % filename)
+        self.logger.debug("Saving manager state to file '%s'" % filename)
         try:
             # We can die while writing the state file. To avoid losing the
             # state in this case, save the new state to a temporary file, then
@@ -166,7 +166,7 @@ class AbstractLoadManager:
                 os.rename(tmpfile, filename)
             except OSError:  # no tmpfile?
                 return
-        self.logger.info("Loading manager state from file '%s'" % filename)
+        self.logger.debug("Loading manager state from file '%s'" % filename)
         entities = []
         try:
             with open(filename, 'rb') as fp:
