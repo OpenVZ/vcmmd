@@ -12,7 +12,7 @@ from vcmmd.ldmgr.policies import DefaultPolicy
 
 class LoadManager(object):
 
-    def __init__(self, policy=DefaultPolicy, logger=None):
+    def __init__(self, policy=DefaultPolicy(), logger=None):
         self.policy = policy
         self.logger = logger or logging.getLogger(__name__)
 
@@ -86,6 +86,17 @@ class LoadManager(object):
         self._do_shutdown()
         self._worker.join()
 
+    def _balance_ves(self):
+        policy_setting = self.policy.balance(self._registered_ves.values())
+        for ve, (low, high) in policy_setting.iteritems():
+            if not ve.committed:
+                continue
+            try:
+                ve.set_mem_range(low, high)
+            except Exception as err:
+                self.logger.error('Failed to apply policy setting for %s: %s' %
+                                  (ve, err))
+
     @_request()
     def register_ve(self, ve_name, ve_type, ve_config):
         try:
@@ -123,6 +134,8 @@ class LoadManager(object):
 
         self.logger.info('Committed %s' % ve)
 
+        self._balance_ves()
+
     @_request()
     def update_ve(self, ve_name, ve_config):
         try:
@@ -142,6 +155,8 @@ class LoadManager(object):
 
         self.logger.info('Updated %s %s' % (ve, ve_config))
 
+        self._balance_ves()
+
     @_request()
     def unregister_ve(self, ve_name):
         with self._registered_ves_lock:
@@ -153,6 +168,8 @@ class LoadManager(object):
             self._committed_ves.remove(ve)
 
         self.logger.info("Unregistered %s" % ve)
+
+        self._balance_ves()
 
     def get_all_registered_ves(self):
         result = []

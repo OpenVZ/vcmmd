@@ -1,1 +1,3 @@
-from vcmmd.ldmgr.policies.default import DefaultPolicy
+from vcmmd.ldmgr.policies.elementary import ElementaryPolicy
+
+DefaultPolicy = ElementaryPolicy

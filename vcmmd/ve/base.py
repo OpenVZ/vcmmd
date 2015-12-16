@@ -60,6 +60,10 @@ class VE(object):
         self._apply_config(self.config)
         self.__committed = True
 
+    def set_mem_range(self, low, high):
+        self.set_mem_low(low)
+        self.set_mem_high(high)
+
     def __str__(self):
         return "%s '%s'" % (self.VE_TYPE_NAME, self.name)
 
