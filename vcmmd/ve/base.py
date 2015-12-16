@@ -41,8 +41,14 @@ class VE(object):
     def config(self):
         return self.__config
 
+    def _apply_config(self, config):
+        self.set_mem_max(config.max_limit)
+        self.set_swap_max(config.swap)
+
     def set_config(self, config):
         assert isinstance(config, Config)
+        if self.committed:
+            self._apply_config(config)
         self.__config = config
 
     @property
@@ -50,6 +56,8 @@ class VE(object):
         return self.__committed
 
     def commit(self):
+        assert self.config is not None
+        self._apply_config(self.config)
         self.__committed = True
 
     def __str__(self):

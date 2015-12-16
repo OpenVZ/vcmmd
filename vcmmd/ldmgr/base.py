@@ -113,7 +113,12 @@ class LoadManager(object):
         if ve.committed:
             raise Error(_errno.VE_ALREADY_COMMITTED)
 
-        ve.commit()
+        try:
+            ve.commit()
+        except Exception as err:
+            self.logger.error('Failed to commit %s: %s' % (ve, err))
+            raise Error(_errno.VE_OPERATION_FAILED)
+
         self._committed_ves.append(ve)
 
         self.logger.info('Committed %s' % ve)
@@ -129,7 +134,11 @@ class LoadManager(object):
         if ve is None:
             raise Error(_errno.VE_NOT_REGISTERED)
 
-        ve.set_config(ve_config)
+        try:
+            ve.set_config(ve_config)
+        except Exception as err:
+            self.logger.error('Failed to update %s: %s' % (ve, err))
+            raise Error(_errno.VE_OPERATION_FAILED)
 
         self.logger.info('Updated %s %s' % (ve, ve_config))
 
