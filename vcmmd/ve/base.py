@@ -54,3 +54,42 @@ class VE(object):
 
     def __str__(self):
         return "%s '%s'" % (self.VE_TYPE_NAME, self.name)
+
+    def set_mem_low(self, value):
+        '''Set best-effort memory protection.
+
+        If the memory usage of a VE is below its low boundary, the VE's memory
+        shouldn't be reclaimed if memory can be reclaimed from unprotected VEs.
+
+        This function is supposed to be overwritten in sub-class.
+        '''
+        pass
+
+    def set_mem_high(self, value):
+        '''Set memory usage throttle limit.
+
+        If VE's memory usage goes over the high boundary, it should be
+        throttled and put under heavy reclaim pressure. Going over the high
+        limit never invokes the OOM killer and under extreme conditions the
+        limit may be breached.
+
+        This function is supposed to be overwritten in sub-class.
+        '''
+        pass
+
+    def set_mem_max(self, value):
+        '''Set hard memory limit.
+
+        This is the final protection mechanism. If a VE's memory usage reaches
+        this limit and can't be reduced, the OOM killer is invoked in the VE.
+
+        This function is supposed to be overwritten in sub-class.
+        '''
+        pass
+
+    def set_swap_max(self, value):
+        '''Set hard swap limit.
+
+        This function is supposed to be overwritten in sub-class.
+        '''
+        pass
