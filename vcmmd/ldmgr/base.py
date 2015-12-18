@@ -6,7 +6,9 @@ import threading
 from vcmmd import Error
 from vcmmd import errno as _errno
 from vcmmd.ve import Config as VEConfig, Error as VEError
-from vcmmd.ve.make import make as make_ve
+from vcmmd.ve.make import (make as make_ve,
+                           InvalidVENameError,
+                           InvalidVETypeError)
 from vcmmd.ldmgr.policies import DefaultPolicy
 
 
@@ -107,7 +109,13 @@ class LoadManager(object):
         if ve_name in self._registered_ves:
             raise Error(_errno.VE_NAME_ALREADY_IN_USE)
 
-        ve = make_ve(ve_name, ve_type)
+        try:
+            ve = make_ve(ve_name, ve_type)
+        except InvalidVENameError:
+            raise Error(_errno.INVALID_VE_NAME)
+        except InvalidVETypeError:
+            raise Error(_errno.INVALID_VE_TYPE)
+
         ve.set_config(ve_config)
 
         with self._registered_ves_lock:
