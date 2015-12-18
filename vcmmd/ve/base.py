@@ -9,6 +9,10 @@ _CONFIG_FIELDS = (
 )
 
 
+class Error(Exception):
+    pass
+
+
 class Config(namedtuple('Config', _CONFIG_FIELDS)):
 
     def __init__(self, *args, **kwargs):
@@ -73,6 +77,8 @@ class VE(object):
         If the memory usage of a VE is below its low boundary, the VE's memory
         shouldn't be reclaimed if memory can be reclaimed from unprotected VEs.
 
+        May raise Error.
+
         This function is supposed to be overwritten in sub-class.
         '''
         pass
@@ -85,6 +91,8 @@ class VE(object):
         limit never invokes the OOM killer and under extreme conditions the
         limit may be breached.
 
+        May raise Error.
+
         This function is supposed to be overwritten in sub-class.
         '''
         pass
@@ -95,12 +103,16 @@ class VE(object):
         This is the final protection mechanism. If a VE's memory usage reaches
         this limit and can't be reduced, the OOM killer is invoked in the VE.
 
+        May raise Error.
+
         This function is supposed to be overwritten in sub-class.
         '''
         pass
 
     def set_swap_max(self, value):
         '''Set hard swap limit.
+
+        May raise Error.
 
         This function is supposed to be overwritten in sub-class.
         '''

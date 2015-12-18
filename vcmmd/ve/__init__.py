@@ -1,1 +1,1 @@
-from vcmmd.ve.base import VE, Config
+from vcmmd.ve.base import VE, Config, Error

@@ -5,7 +5,7 @@ import threading
 
 from vcmmd import Error
 from vcmmd import errno as _errno
-from vcmmd.ve import Config as VEConfig
+from vcmmd.ve import Config as VEConfig, Error as VEError
 from vcmmd.ve.make import make as make_ve
 from vcmmd.ldmgr.policies import DefaultPolicy
 
@@ -93,7 +93,7 @@ class LoadManager(object):
                 continue
             try:
                 ve.set_mem_range(low, high)
-            except Exception as err:
+            except VEError as err:
                 self.logger.error('Failed to apply policy setting for %s: %s' %
                                   (ve, err))
 
@@ -126,7 +126,7 @@ class LoadManager(object):
 
         try:
             ve.commit()
-        except Exception as err:
+        except VEError as err:
             self.logger.error('Failed to commit %s: %s' % (ve, err))
             raise Error(_errno.VE_OPERATION_FAILED)
 
@@ -149,7 +149,7 @@ class LoadManager(object):
 
         try:
             ve.set_config(ve_config)
-        except Exception as err:
+        except VEError as err:
             self.logger.error('Failed to update %s: %s' % (ve, err))
             raise Error(_errno.VE_OPERATION_FAILED)
 
