@@ -6,15 +6,6 @@ import gobject
 from vcmmd.ldmgr import Error as LoadManagerError
 
 
-def _handle_error(fn, *args, **kwargs):
-    try:
-        fn(*args, **kwargs)
-    except LoadManagerError as err:
-        return err.errno
-    else:
-        return 0
-
-
 class _LoadManagerObject(dbus.service.Object):
 
     PATH = '/LoadManager'
@@ -30,20 +21,39 @@ class _LoadManagerObject(dbus.service.Object):
 
     @dbus.service.method(IFACE, in_signature='si(tttt)', out_signature='i')
     def RegisterVE(self, ve_name, ve_type, ve_config):
-        return _handle_error(self.ldmgr.register_ve,
-                             ve_name, ve_type, ve_config)
+        try:
+            self.ldmgr.register_ve(ve_name, ve_type, ve_config)
+        except LoadManagerError as err:
+            return err.errno
+        else:
+            return 0
 
     @dbus.service.method(IFACE, in_signature='s', out_signature='i')
     def CommitVE(self, ve_name):
-        return _handle_error(self.ldmgr.commit_ve, ve_name)
+        try:
+            self.ldmgr.commit_ve(ve_name)
+        except LoadManagerError as err:
+            return err.errno
+        else:
+            return 0
 
     @dbus.service.method(IFACE, in_signature='s(tttt)', out_signature='i')
     def UpdateVE(self, ve_name, ve_config):
-        return _handle_error(self.ldmgr.update_ve, ve_name, ve_config)
+        try:
+            self.ldmgr.update_ve(ve_name, ve_config)
+        except LoadManagerError as err:
+            return err.errno
+        else:
+            return 0
 
     @dbus.service.method(IFACE, in_signature='s', out_signature='i')
     def UnregisterVE(self, ve_name):
-        return _handle_error(self.ldmgr.unregister_ve, ve_name)
+        try:
+            self.ldmgr.unregister_ve(ve_name)
+        except LoadManagerError as err:
+            return err.errno
+        else:
+            return 0
 
     @dbus.service.method(IFACE, in_signature='', out_signature='a(sib(tttt))')
     def GetAllRegisteredVEs(self):
