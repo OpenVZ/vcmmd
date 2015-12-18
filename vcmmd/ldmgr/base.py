@@ -3,13 +3,22 @@ import Queue
 import logging
 import threading
 
-from vcmmd import Error
-from vcmmd import errno as _errno
 from vcmmd.ve import Config as VEConfig, Error as VEError
 from vcmmd.ve.make import (make as make_ve,
                            InvalidVENameError,
                            InvalidVETypeError)
+from vcmmd.ldmgr import errno as _errno
 from vcmmd.ldmgr.policies import DefaultPolicy
+
+
+class Error(Exception):
+    '''VCMMD service error.
+
+    Possible values of self.errno are defined in vcmmd.ldmgr.errno.
+    '''
+
+    def __init__(self, errno):
+        self.errno = errno
 
 
 class LoadManager(object):

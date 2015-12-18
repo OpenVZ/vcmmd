@@ -3,13 +3,13 @@ import dbus.service
 import dbus.mainloop.glib
 import gobject
 
-from vcmmd import Error
+from vcmmd.ldmgr import Error as LoadManagerError
 
 
 def _handle_error(fn, *args, **kwargs):
     try:
         fn(*args, **kwargs)
-    except Error as err:
+    except LoadManagerError as err:
         return err.errno
     else:
         return 0
