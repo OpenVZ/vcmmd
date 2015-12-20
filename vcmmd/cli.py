@@ -35,22 +35,39 @@ class _ArgParser:
                 self._next_int('max_limit'),
                 self._next_int('swap'),)
 
+    def _parse_flags(self, flags_list):
+        flags_dict = {flg: False for flg in flags_list}
+        while self._idx < len(self.args):
+            arg = self.args[self._idx]
+            if not arg.startswith('--'):
+                break
+            flg = arg[2:]
+            if flg not in flags_dict:
+                self._error('unknown flag: %s' % arg)
+            flags_dict[flg] = True
+            self._idx += 1
+        return flags_dict
+
     def _handle_register(self):
-        self._helpmsg = ('Usage: %s register <name> <type> '
+        self._helpmsg = ('Usage: %s register [--force] <name> <type> '
                          '<guarantee> <limit> <max_limit> <swap>')
+        flags = self._parse_flags(['force'])
         return (self._next_str('name'),
                 self._next_int('type'),
-                self._next_config(),)
+                self._next_config(),
+                flags['force'])
 
     def _handle_commit(self):
         self._helpmsg = 'Usage: %s commit <name>'
         return (self._next_str('name'),)
 
     def _handle_update(self):
-        self._helpmsg = ('Usage: %s update <name>'
+        self._helpmsg = ('Usage: %s update [--force] <name>'
                          '<guarantee> <limit> <max_limit> <swap>')
+        flags = self._parse_flags(['force'])
         return (self._next_str('name'),
-                self._next_config(),)
+                self._next_config(),
+                flags['force'])
 
     def _handle_unregister(self):
         self._helpmsg = 'Usage: %s unregister <name>'

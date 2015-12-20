@@ -116,7 +116,7 @@ class LoadManager(object):
                                   (ve, err))
 
     @_request()
-    def register_ve(self, ve_name, ve_type, ve_config):
+    def register_ve(self, ve_name, ve_type, ve_config, force=False):
         try:
             ve_config = VEConfig(*ve_config)
         except ValueError:
@@ -134,7 +134,7 @@ class LoadManager(object):
 
         ve.set_config(ve_config)
 
-        if not self._may_register_ve(ve):
+        if not force and not self._may_register_ve(ve):
             raise Error(_errno.NO_SPACE)
 
         with self._registered_ves_lock:
@@ -164,7 +164,7 @@ class LoadManager(object):
         self._balance_ves()
 
     @_request()
-    def update_ve(self, ve_name, ve_config):
+    def update_ve(self, ve_name, ve_config, force=False):
         try:
             ve_config = VEConfig(*ve_config)
         except ValueError:
@@ -174,7 +174,7 @@ class LoadManager(object):
         if ve is None:
             raise Error(_errno.VE_NOT_REGISTERED)
 
-        if not self._may_update_ve(ve, ve_config):
+        if not force and not self._may_update_ve(ve, ve_config):
             raise Error(_errno.NO_SPACE)
 
         try:
