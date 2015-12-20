@@ -97,6 +97,13 @@ class LoadManager(object):
         self._do_shutdown()
         self._worker.join()
 
+    def _may_register_ve(self, ve):
+        return self.policy.may_register(ve, self._registered_ves.values())
+
+    def _may_update_ve(self, ve, new_config):
+        return self.policy.may_update(ve, new_config,
+                                      self._registered_ves.values())
+
     def _balance_ves(self):
         policy_setting = self.policy.balance(self._registered_ves.values())
         for ve, (low, high) in policy_setting.iteritems():
@@ -126,6 +133,9 @@ class LoadManager(object):
             raise Error(_errno.INVALID_VE_TYPE)
 
         ve.set_config(ve_config)
+
+        if not self._may_register_ve(ve):
+            raise Error(_errno.NO_SPACE)
 
         with self._registered_ves_lock:
             self._registered_ves[ve_name] = ve
@@ -163,6 +173,9 @@ class LoadManager(object):
         ve = self._registered_ves.get(ve_name)
         if ve is None:
             raise Error(_errno.VE_NOT_REGISTERED)
+
+        if not self._may_update_ve(ve, ve_config):
+            raise Error(_errno.NO_SPACE)
 
         try:
             ve.set_config(ve_config)

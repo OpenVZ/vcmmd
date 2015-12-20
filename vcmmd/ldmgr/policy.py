@@ -2,6 +2,23 @@ class Policy(object):
     '''Load manager policy interface.
     '''
 
+    def may_register(self, ve, all_ves):
+        '''Check if a VE may be started.
+
+        A sub-class may overwrite this function to forbid starting a VE if it
+        finds that this will result in overloading the host.
+        '''
+        return True
+
+    def may_update(self, ve, new_config, all_ves):
+        '''Check if a VE configuration may be updated.
+
+        A sub-class may overwrite this function to forbid updating a VE's
+        configuration if it finds that this will result in overloading the
+        host.
+        '''
+        return True
+
     def balance(self, all_ves):
         '''Calculate optimal memory consumption range for VEs.
 
