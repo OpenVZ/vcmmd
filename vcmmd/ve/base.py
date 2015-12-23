@@ -38,6 +38,22 @@ DEFAULT_CONFIG = Config(guarantee=0,
                         swap=UINT64_MAX)
 
 
+# All memory values are in bytes
+_MEM_STATS_FIELDS = (
+    'actual',           # actual allocation size
+    'rss',              # resident set size
+    'used',             # in use by guest OS
+    'minflt',           # total # of minor page faults
+    'majflt',           # total # of major page faults
+)
+
+
+class MemStats(namedtuple('Stats', _MEM_STATS_FIELDS)):
+    pass
+
+MemStats.__new__.__defaults__ = (0, ) * len(_MEM_STATS_FIELDS)
+
+
 class VE(object):
 
     VE_TYPE = -1
@@ -47,6 +63,11 @@ class VE(object):
         self.__name = name
         self.__config = None
         self.__committed = False
+
+        self.__mem_stats = MemStats()
+
+    def __str__(self):
+        return "%s '%s'" % (self.VE_TYPE_NAME, self.name)
 
     @property
     def name(self):
@@ -75,12 +96,27 @@ class VE(object):
         self._apply_config(self.config)
         self.__committed = True
 
+    @property
+    def mem_stats(self):
+        return self.__mem_stats
+
+    def _fetch_mem_stats(self):
+        '''Fetch memory statistics for this VE.
+
+        Returns an object of Stats class.
+
+        May raise Error.
+
+        This function is supposed to be overwritten in sub-class.
+        '''
+        return self.__mem_stats
+
+    def update_stats(self):
+        self.__mem_stats = self._fetch_mem_stats()
+
     def set_mem_range(self, low, high):
         self.set_mem_low(low)
         self.set_mem_high(high)
-
-    def __str__(self):
-        return "%s '%s'" % (self.VE_TYPE_NAME, self.name)
 
     def set_mem_low(self, value):
         '''Set best-effort memory protection.

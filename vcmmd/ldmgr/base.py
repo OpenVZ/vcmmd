@@ -103,10 +103,22 @@ class LoadManager(object):
                                       self._registered_ves.values())
 
     def _balance_ves(self):
-        policy_setting = self.policy.balance(self._registered_ves.values())
-        for ve, (low, high) in policy_setting.iteritems():
+        all_ves = []
+
+        for ve in self._registered_ves.itervalues():
             if not ve.committed:
                 continue
+            try:
+                ve.update_stats()
+            except VEError as err:
+                self.logger.error('Failed to update stats for %s: %s' %
+                                  (ve, err))
+            else:
+                all_ves.append(ve)
+
+        policy_setting = self.policy.balance(all_ves)
+
+        for ve, (low, high) in policy_setting.iteritems():
             try:
                 ve.set_mem_range(low, high)
             except VEError as err:
