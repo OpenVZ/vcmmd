@@ -4,6 +4,25 @@ import dbus.mainloop.glib
 import gobject
 
 from vcmmd.ldmgr import Error as LoadManagerError
+from vcmmd.ve import Config as VEConfig
+
+
+def _config_dict_from_kv_array(kv_array):
+    '''Convert an array of key-value tuples where key is an index of a config
+    parameter in the VEConfig struct to key-value dictionary in which key is
+    the name of the corresponding struct entry. Used to convert the input from
+    dbus to the form accepted by the LoadManager class.
+    '''
+    dict_ = {}
+    for k, v in kv_array:
+        try:
+            field_name = VEConfig._fields[k]
+        except IndexError:
+            # Silently ignore unknown fields in case the config is extended in
+            # future
+            continue
+        dict_[field_name] = v
+    return dict_
 
 
 class _LoadManagerObject(dbus.service.Object):
@@ -19,8 +38,9 @@ class _LoadManagerObject(dbus.service.Object):
         bus_name = dbus.service.BusName(self.BUS_NAME, bus)
         super(_LoadManagerObject, self).__init__(bus_name, self.PATH)
 
-    @dbus.service.method(IFACE, in_signature='si(tttt)b', out_signature='i')
+    @dbus.service.method(IFACE, in_signature='sia(qt)b', out_signature='i')
     def RegisterVE(self, ve_name, ve_type, ve_config, force):
+        ve_config = _config_dict_from_kv_array(ve_config)
         try:
             self.ldmgr.register_ve(ve_name, ve_type, ve_config, force)
         except LoadManagerError as err:
@@ -37,8 +57,9 @@ class _LoadManagerObject(dbus.service.Object):
         else:
             return 0
 
-    @dbus.service.method(IFACE, in_signature='s(tttt)b', out_signature='i')
+    @dbus.service.method(IFACE, in_signature='sa(qt)b', out_signature='i')
     def UpdateVE(self, ve_name, ve_config, force):
+        ve_config = _config_dict_from_kv_array(ve_config)
         try:
             self.ldmgr.update_ve(ve_name, ve_config, force)
         except LoadManagerError as err:
@@ -55,7 +76,7 @@ class _LoadManagerObject(dbus.service.Object):
         else:
             return 0
 
-    @dbus.service.method(IFACE, in_signature='', out_signature='a(sib(tttt))')
+    @dbus.service.method(IFACE, in_signature='', out_signature='a(sibat)')
     def GetAllRegisteredVEs(self):
         return self.ldmgr.get_all_registered_ves()
 

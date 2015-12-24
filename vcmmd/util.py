@@ -1,3 +1,6 @@
+UINT64_MAX = int(2**64-1)
+
+
 class LoggerWriter:
     ##
     # Helper for redirecting stdout/stderr to a logger.

@@ -1,5 +1,7 @@
 from collections import namedtuple
 
+from vcmmd.util import UINT64_MAX
+
 
 _CONFIG_FIELDS = (
     'guarantee',
@@ -25,6 +27,19 @@ class Config(namedtuple('Config', _CONFIG_FIELDS)):
 
     def __str__(self):
         return '(guarantee=%s, limit=%s, max_limit=%s, swap=%s)' % self
+
+    @staticmethod
+    def from_dict(dict_, default=None):
+        if default is None:
+            default = DEFAULT_CONFIG
+        kv = default._asdict()
+        kv.update(dict_)
+        return Config(**kv)
+
+DEFAULT_CONFIG = Config(guarantee=0,
+                        limit=UINT64_MAX,
+                        max_limit=UINT64_MAX,
+                        swap=UINT64_MAX)
 
 
 class VE(object):

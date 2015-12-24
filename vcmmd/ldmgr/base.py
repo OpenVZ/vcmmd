@@ -115,11 +115,6 @@ class LoadManager(object):
 
     @_request()
     def register_ve(self, ve_name, ve_type, ve_config, force=False):
-        try:
-            ve_config = VEConfig(*ve_config)
-        except ValueError:
-            raise Error(_errno.INVALID_VE_CONFIG)
-
         if ve_name in self._registered_ves:
             raise Error(_errno.VE_NAME_ALREADY_IN_USE)
 
@@ -129,6 +124,11 @@ class LoadManager(object):
             raise Error(_errno.INVALID_VE_NAME)
         except InvalidVETypeError:
             raise Error(_errno.INVALID_VE_TYPE)
+
+        try:
+            ve_config = VEConfig.from_dict(ve_config)
+        except ValueError:
+            raise Error(_errno.VE_CONFIG_CONFLICT)
 
         ve.set_config(ve_config)
 
@@ -161,14 +161,14 @@ class LoadManager(object):
 
     @_request()
     def update_ve(self, ve_name, ve_config, force=False):
-        try:
-            ve_config = VEConfig(*ve_config)
-        except ValueError:
-            raise Error(_errno.INVALID_VE_CONFIG)
-
         ve = self._registered_ves.get(ve_name)
         if ve is None:
             raise Error(_errno.VE_NOT_REGISTERED)
+
+        try:
+            ve_config = VEConfig.from_dict(ve_config, default=ve.config)
+        except ValueError:
+            raise Error(_errno.VE_CONFIG_CONFLICT)
 
         if not force and not self._may_update_ve(ve, ve_config):
             raise Error(_errno.NO_SPACE)

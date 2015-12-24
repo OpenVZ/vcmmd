@@ -30,10 +30,10 @@ class _ArgParser:
             self._error('invalid value for <%s>' % argname)
 
     def _next_config(self):
-        return (self._next_int('guarantee'),
-                self._next_int('limit'),
-                self._next_int('max_limit'),
-                self._next_int('swap'),)
+        return ((0, self._next_int('guarantee')),
+                (1, self._next_int('limit')),
+                (2, self._next_int('max_limit')),
+                (3, self._next_int('swap')),)
 
     def _parse_flags(self, flags_list):
         flags_dict = {flg: False for flg in flags_list}
@@ -103,7 +103,8 @@ class _ArgParser:
 def _print_ves(ve_list):
     fmt = '%-16s %2s %2s : config %8s %8s %8s %8s'
     for name, type, committed, config in ve_list:
-        print fmt % ((name, type, 'c' if committed else '-') + config)
+        print fmt % (name, type, 'c' if committed else '-',
+                     config[0], config[1], config[2], config[3])
 
 
 def main():
