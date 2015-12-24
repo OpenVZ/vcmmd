@@ -30,8 +30,6 @@ class LoadManager(object):
         self._registered_ves = {}  # str -> VE
         self._registered_ves_lock = threading.Lock()
 
-        self._committed_ves = []
-
         self._req_queue = Queue.Queue()
 
         self._worker = threading.Thread(target=self._worker_thread_fn)
@@ -157,8 +155,6 @@ class LoadManager(object):
             self.logger.error('Failed to commit %s: %s' % (ve, err))
             raise Error(_errno.VE_OPERATION_FAILED)
 
-        self._committed_ves.append(ve)
-
         self.logger.info('Committed %s' % ve)
 
         self._balance_ves()
@@ -193,9 +189,6 @@ class LoadManager(object):
             ve = self._registered_ves.pop(ve_name, None)
         if ve is None:
             raise Error(_errno.VE_NOT_REGISTERED)
-
-        if ve.committed:
-            self._committed_ves.remove(ve)
 
         self.logger.info("Unregistered %s" % ve)
 
