@@ -1,8 +1,11 @@
 from distutils.core import setup
 
+with open('Makefile.version') as f:
+    version = f.read().strip()
+
 setup(name='vcmmd',
       description='Virtuozzo memory management daemon',
-      version='0.1',
+      version=version,
       license='GPLv2',
       packages=['vcmmd',
                 'vcmmd.ldmgr',
