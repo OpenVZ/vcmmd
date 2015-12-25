@@ -6,7 +6,6 @@ from vcmmd.util import UINT64_MAX
 _CONFIG_FIELDS = (
     'guarantee',
     'limit',
-    'max_limit',
     'swap',
 )
 
@@ -22,11 +21,9 @@ class Config(namedtuple('Config', _CONFIG_FIELDS)):
 
         if self.guarantee > self.limit:
             raise ValueError('guarantee must be <= limit')
-        if self.limit > self.max_limit:
-            raise ValueError('limit must be <= max_limit')
 
     def __str__(self):
-        return '(guarantee=%s, limit=%s, max_limit=%s, swap=%s)' % self
+        return '(guarantee=%s, limit=%s, swap=%s)' % self
 
     @staticmethod
     def from_dict(dict_, default=None):
@@ -38,7 +35,6 @@ class Config(namedtuple('Config', _CONFIG_FIELDS)):
 
 DEFAULT_CONFIG = Config(guarantee=0,
                         limit=UINT64_MAX,
-                        max_limit=UINT64_MAX,
                         swap=UINT64_MAX)
 
 
@@ -61,7 +57,7 @@ class VE(object):
         return self.__config
 
     def _apply_config(self, config):
-        self.set_mem_max(config.max_limit)
+        self.set_mem_max(config.limit)
         self.set_swap_max(config.swap)
 
     def set_config(self, config):

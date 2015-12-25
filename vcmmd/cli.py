@@ -32,8 +32,7 @@ class _ArgParser:
     def _next_config(self):
         return ((0, self._next_int('guarantee')),
                 (1, self._next_int('limit')),
-                (2, self._next_int('max_limit')),
-                (3, self._next_int('swap')),)
+                (2, self._next_int('swap')),)
 
     def _parse_flags(self, flags_list):
         flags_dict = {flg: False for flg in flags_list}
@@ -50,7 +49,7 @@ class _ArgParser:
 
     def _handle_register(self):
         self._helpmsg = ('Usage: %s register [--force] <name> <type> '
-                         '<guarantee> <limit> <max_limit> <swap>')
+                         '<guarantee> <limit> <swap>')
         flags = self._parse_flags(['force'])
         return (self._next_str('name'),
                 self._next_int('type'),
@@ -63,7 +62,7 @@ class _ArgParser:
 
     def _handle_update(self):
         self._helpmsg = ('Usage: %s update [--force] <name>'
-                         '<guarantee> <limit> <max_limit> <swap>')
+                         '<guarantee> <limit> <swap>')
         flags = self._parse_flags(['force'])
         return (self._next_str('name'),
                 self._next_config(),
