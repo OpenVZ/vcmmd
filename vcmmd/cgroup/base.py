@@ -25,3 +25,11 @@ class Cgroup(object):
 
     def write_file_int(self, filename, val):
         self.write_file_str(filename, str(val))
+
+    def read_file_kv(self, filename):
+        kv = {}
+        with open(self._file_path(filename), 'r') as f:
+            for l in f.readlines():
+                k, v = l.split()
+                kv[k] = int(v)
+        return kv

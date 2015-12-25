@@ -1,5 +1,5 @@
 from vcmmd.cgroup import MemoryCgroup
-from vcmmd.ve import VE, Error, types as ve_types
+from vcmmd.ve import VE, Error, types as ve_types, MemStats
 
 
 class CgroupError(Error):
@@ -17,6 +17,22 @@ class CT(VE):
         # Currently, containers' cgroups are located at the first level of the
         # cgroup hierarchy.
         self._memcg = MemoryCgroup(name)
+
+    def _fetch_mem_stats(self):
+        try:
+            current = self._memcg.read_mem_current()
+            high = self._memcg.read_mem_high()
+            stat = self._memcg.read_mem_stat()
+        except (IOError, ValueError) as err:
+            raise CgroupError(err)
+
+        # Since a container releases memory to the host immediately, 'rss'
+        # always equals 'used'
+        return MemStats(actual=max(current, high),
+                        rss=current,
+                        used=current,
+                        minflt=stat.get('pgfault', 0),
+                        majflt=stat.get('pgmajfault', 0))
 
     def set_mem_low(self, value):
         try:

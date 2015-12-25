@@ -54,3 +54,6 @@ class MemoryCgroup(Cgroup):
     def write_swap_max(self, val):
         mem = self.read_file_int('memory.limit_in_bytes')
         self._write_file_mem_val('memory.memsw.limit_in_bytes', mem + val)
+
+    def read_mem_stat(self):
+        return self.read_file_kv('memory.stat')
