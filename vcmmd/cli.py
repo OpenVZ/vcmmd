@@ -1,133 +1,218 @@
 import sys
 import dbus
+from optparse import OptionParser, OptionGroup
+
+from vcmmd.util import UINT64_MAX, OptionWithMemsize
 
 
-class _ArgParser:
-
-    def __init__(self, args):
-        self.args = args
-
-    def _error(self, errmsg):
-        progname = self.args[0]
-        sys.stderr.write('%s: %s\n' % (progname, errmsg))
-        if self._helpmsg:
-            sys.stderr.write((self._helpmsg % progname) + '\n')
-        sys.exit(1)
-
-    def _next_str(self, argname):
-        try:
-            val = self.args[self._idx]
-        except IndexError:
-            self._error('no value for <%s>' % argname)
-        self._idx += 1
-        return val
-
-    def _next_int(self, argname):
-        val = self._next_str(argname)
-        try:
-            return int(val)
-        except ValueError:
-            self._error('invalid value for <%s>' % argname)
-
-    def _next_config(self):
-        return ((0, self._next_int('guarantee')),
-                (1, self._next_int('limit')),
-                (2, self._next_int('swap')),)
-
-    def _parse_flags(self, flags_list):
-        flags_dict = {flg: False for flg in flags_list}
-        while self._idx < len(self.args):
-            arg = self.args[self._idx]
-            if not arg.startswith('--'):
-                break
-            flg = arg[2:]
-            if flg not in flags_dict:
-                self._error('unknown flag: %s' % arg)
-            flags_dict[flg] = True
-            self._idx += 1
-        return flags_dict
-
-    def _handle_register(self):
-        self._helpmsg = ('Usage: %s register [--force] <name> <type> '
-                         '<guarantee> <limit> <swap>')
-        flags = self._parse_flags(['force'])
-        return (self._next_str('name'),
-                self._next_int('type'),
-                self._next_config(),
-                flags['force'])
-
-    def _handle_commit(self):
-        self._helpmsg = 'Usage: %s commit <name>'
-        return (self._next_str('name'),)
-
-    def _handle_update(self):
-        self._helpmsg = ('Usage: %s update [--force] <name>'
-                         '<guarantee> <limit> <swap>')
-        flags = self._parse_flags(['force'])
-        return (self._next_str('name'),
-                self._next_config(),
-                flags['force'])
-
-    def _handle_unregister(self):
-        self._helpmsg = 'Usage: %s unregister <name>'
-        return (self._next_str('name'),)
-
-    def _handle_list(self):
-        self._helpmsg = 'Usage: %s list'
-        return ()
-
-    _command_handlers = {
-        'register':     _handle_register,
-        'commit':       _handle_commit,
-        'update':       _handle_update,
-        'unregister':   _handle_unregister,
-        'list':         _handle_list,
-    }
-
-    def parse(self):
-        self._idx = 1
-        self._helpmsg = ('Usage: %s <command> <args>...\n'
-                         'command := register | commit | update | '
-                         'unregister | list')
-        cmd = self._next_str('command')
-        handler = self._command_handlers.get(cmd)
-        if not handler:
-            self._error('unknown command')
-        args = handler(self)
-        if self._idx < len(self.args):
-            self._error('superfluous arguments')
-        return (cmd, args)
-
-
-def _print_ves(ve_list):
-    fmt = '%-16s %2s %2s : config %8s %8s %8s %8s'
-    for name, type, committed, config in ve_list:
-        print fmt % (name, type, 'c' if committed else '-',
-                     config[0], config[1], config[2], config[3])
-
-
-def main():
-    cmd, args = _ArgParser(sys.argv).parse()
-
+def _get_proxy():
     bus = dbus.SystemBus()
     obj = bus.get_object('com.virtuozzo.vcmmd', '/LoadManager')
     iface = dbus.Interface(obj, 'com.virtuozzo.vcmmd.LoadManager')
+    return iface
 
-    if cmd == 'register':
-        err = iface.RegisterVE(*args)
-    elif cmd == 'commit':
-        err = iface.CommitVE(*args)
-    elif cmd == 'update':
-        err = iface.UpdateVE(*args)
-    elif cmd == 'unregister':
-        err = iface.UnregisterVE(*args)
-    elif cmd == 'list':
-        ve_list = iface.GetAllRegisteredVEs()
-        _print_ves(ve_list)
-        err = 0
 
+def _report_service_error(err):
+    try:
+        errmsg = {
+            0: 'Success',
+            1: 'Invalid VE name',
+            2: 'Invalid VE type',
+            3: 'Conflicting VE config parameters',
+            4: 'VE name already in use',
+            5: 'VE not registered',
+            6: 'VE already committed',
+            7: 'VE operation failed',
+            8: 'Unable to meet VE requirements',
+        }[err]
+    except KeyError:
+        errmsg = 'Unknown error %d' % err
+
+    sys.stderr.write('VCMMD returned error: %s\n' % errmsg)
+    sys.exit(1)
+
+
+def _add_ve_config_options(parser):
+    group = OptionGroup(parser, 'VE config options')
+    group.add_option('--guar', type='memsize',
+                     help='VE memory guarantee')
+    group.add_option('--limit', type='memsize',
+                     help='Max memory allocation available to VE')
+    group.add_option('--swap', type='memsize',
+                     help='Size of host swap space that may be used by VE')
+    group.add_option('-f', '--force', action='store_true',
+                     help='Apply VE config even if there is not enough memory '
+                     'on the host to meet VE\'s requirements')
+    parser.add_option_group(group)
+
+
+def _ve_config_from_options(options):
+    ve_config = []
+    if options.guar is not None:
+        ve_config.append((0, options.guar))
+    if options.limit is not None:
+        ve_config.append((1, options.limit))
+    if options.swap is not None:
+        ve_config.append((2, options.swap))
+    return tuple(ve_config)
+
+
+def _handle_register(args):
+    parser = OptionParser('Usage: %prog register {CT|VM} <VE name> '
+                          '[VE config options]',
+                          description='Register a VE with the VCMMD service.',
+                          option_class=OptionWithMemsize)
+    _add_ve_config_options(parser)
+
+    (options, args) = parser.parse_args(args)
+    if len(args) > 2:
+        parser.error('superfluous arguments')
+
+    if len(args) < 1:
+        parser.error('VE type not specified')
+    try:
+        ve_type = {
+            'CT': 0,
+            'VM': 1,
+        }[args[0]]
+    except KeyError:
+        parser.error('VE type must be either CT or VM')
+
+    if len(args) < 2:
+        parser.error('VE name not specified')
+    ve_name = args[1]
+
+    proxy = _get_proxy()
+    err = proxy.RegisterVE(ve_name, ve_type, _ve_config_from_options(options),
+                           options.force)
     if err:
-        print 'vcmmd service returned error: %s' % err
+        _report_service_error(err)
+
+
+def _handle_commit(args):
+    parser = OptionParser('Usage: %prog commit <VE name>',
+                          description='Notify VCMMD that a registered VE '
+                          'has been started.')
+
+    (options, args) = parser.parse_args(args)
+    if len(args) > 1:
+        parser.error('superfluous arguments')
+
+    if len(args) < 1:
+        parser.error('VE name not specified')
+    ve_name = args[0]
+
+    proxy = _get_proxy()
+    err = proxy.CommitVE(ve_name)
+    if err:
+        _report_service_error(err)
+
+
+def _handle_update(args):
+    parser = OptionParser('Usage: %prog update <VE name> '
+                          '[VE config options]',
+                          description='Request VCMMD to update a VE\'s '
+                          'configuration.',
+                          option_class=OptionWithMemsize)
+    _add_ve_config_options(parser)
+
+    (options, args) = parser.parse_args(args)
+    if len(args) > 1:
+        parser.error('superfluous arguments')
+
+    if len(args) < 1:
+        parser.error('VE name not specified')
+    ve_name = args[0]
+
+    proxy = _get_proxy()
+    err = proxy.UpdateVE(ve_name, _ve_config_from_options(options),
+                         options.force)
+    if err:
+        _report_service_error(err)
+
+
+def _handle_unregister(args):
+    parser = OptionParser('Usage: %prog unregister <VE name>',
+                          description='Make VCMMD forget about a VE.')
+
+    (options, args) = parser.parse_args(args)
+    if len(args) > 1:
+        parser.error('superfluous arguments')
+
+    if len(args) < 1:
+        parser.error('VE name not specified')
+    ve_name = args[0]
+
+    proxy = _get_proxy()
+    err = proxy.UnregisterVE(ve_name)
+    if err:
+        _report_service_error(err)
+
+
+def _str_memval(val):
+    if val >= UINT64_MAX:
+        return 'max'
+    return str(val >> 10)
+
+
+def _handle_list(args):
+    parser = OptionParser('Usage: %prog list',
+                          description='List all VEs known to VCMMD along with '
+                          'their state and configuration. All memory values '
+                          'are reported in kB.')
+
+    (options, args) = parser.parse_args(args)
+    if len(args) > 0:
+        parser.error('superfluous arguments')
+
+    proxy = _get_proxy()
+    ve_list = proxy.GetAllRegisteredVEs()
+
+    fmt = '%-16s %4s %4s : %8s %8s %8s'
+    print fmt % ('name', 'type', 'cmtd', 'guar', 'limit', 'swap')
+    for ve_name, ve_type, ve_committed, ve_config in ve_list:
+        try:
+            ve_type_str = {
+                0: 'CT',
+                1: 'VM',
+            }[ve_type]
+        except KeyError:
+            ve_type_str = '?'
+        print fmt % (ve_name,
+                     ve_type_str,
+                     'yes' if ve_committed else 'no',
+                     _str_memval(ve_config[0]),
+                     _str_memval(ve_config[1]),
+                     _str_memval(ve_config[2]))
+
+
+def main():
+    parser = OptionParser('Usage: %prog <command> <args>...\n'
+                          'command := register | commit | update | '
+                          'unregister | list',
+                          description='Call a command on the VCMMD service. '
+                          'See \'%prog <command> --help\' to read about a '
+                          'specific subcommand.',
+                          option_class=OptionWithMemsize)
+    parser.disable_interspersed_args()
+
+    (options, args) = parser.parse_args()
+
+    if len(args) < 1:
+        parser.error('command not specified')
+
+    try:
+        handler = {
+            'register': _handle_register,
+            'commit': _handle_commit,
+            'update': _handle_update,
+            'unregister': _handle_unregister,
+            'list': _handle_list,
+        }[args[0]]
+    except KeyError:
+        parser.error('invalid command')
+
+    handler(args[1:])
 
 if __name__ == "__main__":
     main()
