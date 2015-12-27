@@ -2,6 +2,7 @@ import Queue
 
 import logging
 import threading
+import time
 
 from vcmmd.ve import Config as VEConfig, Error as VEError
 from vcmmd.ve.make import (make as make_ve,
@@ -32,6 +33,9 @@ class LoadManager(object):
 
         self._req_queue = Queue.Queue()
 
+        self._last_rebalance = None
+        self._next_rebalance = None
+
         self._worker = threading.Thread(target=self._worker_thread_fn)
         self._should_stop = False
 
@@ -41,9 +45,19 @@ class LoadManager(object):
         self._req_queue.put(req)
 
     def _process_request(self):
-        req = self._req_queue.get()
-        req()
-        self._req_queue.task_done()
+        if self._next_rebalance is not None:
+            timeout = self._next_rebalance - time.time()
+            block = timeout > 0
+        else:
+            block = True
+            timeout = None
+        try:
+            req = self._req_queue.get(block=block, timeout=timeout)
+        except Queue.Empty:
+            self._balance_ves()
+        else:
+            req()
+            self._req_queue.task_done()
 
     def _worker_thread_fn(self):
         while not self._should_stop:
@@ -116,7 +130,16 @@ class LoadManager(object):
             else:
                 all_ves.append(ve)
 
-        policy_setting = self.policy.balance(all_ves)
+        now = time.time()
+        timeout = (now - self._last_rebalance
+                   if self._last_rebalance is not None else None)
+
+        policy_setting = self.policy.balance(all_ves, timeout=timeout)
+        timeout = self.policy.timeout()
+
+        self._last_rebalance = now
+        self._next_rebalance = (now + timeout
+                                if timeout is not None else None)
 
         for ve, (low, high) in policy_setting.iteritems():
             try:

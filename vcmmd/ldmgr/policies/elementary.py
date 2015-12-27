@@ -8,7 +8,7 @@ class ElementaryPolicy(Policy):
     That's it, simple as that.
     '''
 
-    def balance(self, all_ves):
+    def balance(self, all_ves, timeout):
         result = {}
         for ve in all_ves:
             result[ve] = (ve.config.guarantee, ve.config.limit)
