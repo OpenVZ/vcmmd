@@ -1,9 +1,14 @@
+from vcmmd.cgroup import MemoryCgroup
 from vcmmd.ve import VE, Error, types as ve_types, MemStats
 
 import libvirt
 
 
 class LibvirtError(Error):
+    pass
+
+
+class CgroupError(Error):
     pass
 
 
@@ -18,7 +23,13 @@ class VM(VE):
 
     def __init__(self, name):
         super(VM, self).__init__(name)
+
         self._mem_stats_enabled = False
+
+        # QEMU places every virtual machine in its own memory cgroup under
+        # machine.slice
+        self._memcg = MemoryCgroup('machine.slice/machine-qemu\\x2d%s.scope' %
+                                   name)
 
     def commit(self):
         try:
@@ -53,6 +64,12 @@ class VM(VE):
                         used=used << 10,
                         minflt=stat.get('minor_fault', 0),
                         majflt=stat.get('major_fault', 0))
+
+    def set_mem_low(self, value):
+        try:
+            self._memcg.write_mem_low(value)
+        except IOError as err:
+            raise CgroupError(err)
 
     def set_mem_high(self, value):
         value >>= 10  # libvirt wants kB
