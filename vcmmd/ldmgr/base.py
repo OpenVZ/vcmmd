@@ -109,26 +109,29 @@ class LoadManager(object):
         self._do_shutdown()
         self._worker.join()
 
-    def _may_register_ve(self, ve):
-        return self.policy.may_register(ve, self._registered_ves.values())
-
-    def _may_update_ve(self, ve, new_config):
-        return self.policy.may_update(ve, new_config,
-                                      self._registered_ves.values())
-
-    def _balance_ves(self):
+    def _update_ve_stats(self):
         all_ves = []
-
         for ve in self._registered_ves.itervalues():
-            if not ve.committed:
-                continue
             try:
-                ve.update_stats()
+                if ve.committed:
+                    ve.update_stats()
             except VEError as err:
                 self.logger.error('Failed to update stats for %s: %s' %
                                   (ve, err))
             else:
                 all_ves.append(ve)
+        return all_ves
+
+    def _may_register_ve(self, ve):
+        all_ves = self._update_ve_stats()
+        return self.policy.may_register(ve, all_ves)
+
+    def _may_update_ve(self, ve, new_config):
+        all_ves = self._update_ve_stats()
+        return self.policy.may_update(ve, new_config, all_ves)
+
+    def _balance_ves(self):
+        all_ves = self._update_ve_stats()
 
         now = time.time()
         timeout = (now - self._last_rebalance
@@ -143,7 +146,8 @@ class LoadManager(object):
 
         for ve, (low, high) in policy_setting.iteritems():
             try:
-                ve.set_mem_range(low, high)
+                if ve.committed:
+                    ve.set_mem_range(low, high)
             except VEError as err:
                 self.logger.error('Failed to apply policy setting for %s: %s' %
                                   (ve, err))
