@@ -1,3 +1,3 @@
-from vcmmd.ldmgr.policies.elementary import ElementaryPolicy
+from vcmmd.ldmgr.policies.noop import NoOpPolicy
 
-DefaultPolicy = ElementaryPolicy
+DefaultPolicy = NoOpPolicy
