@@ -1,7 +1,7 @@
-from vcmmd.ldmgr import Policy
+from vcmmd.ldmgr import PolicyWithGuarantees
 
 
-class NoOpPolicy(Policy):
+class NoOpPolicy(PolicyWithGuarantees):
     '''No Operation load manager policy.
 
     Assume optimal memory consumption range for a VE is (guarantee, limit).

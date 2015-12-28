@@ -1,8 +1,11 @@
+import psutil
+
+
 class Policy(object):
     '''Load manager policy interface.
     '''
 
-    def may_register(self, ve, all_ves):
+    def may_register(self, ve_to_register, all_ves):
         '''Check if a VE may be started.
 
         A sub-class may override this function to forbid starting a VE if it
@@ -10,7 +13,7 @@ class Policy(object):
         '''
         return True
 
-    def may_update(self, ve, new_config, all_ves):
+    def may_update(self, ve_to_update, new_config, all_ves):
         '''Check if a VE configuration may be updated.
 
         A sub-class may override this function to forbid updating a VE's
@@ -52,3 +55,36 @@ class Policy(object):
         This function may be overridden in sub-class.
         '''
         return None
+
+
+class PolicyWithGuarantees(Policy):
+    '''This is an abstract sub-class of Policy that implements register and
+    update checks.
+    '''
+
+    _HOST_MEM_PCT = 5           # 5 %
+    _HOST_MEM_MIN = 128 << 20   # 128 MB
+    _HOST_MEM_MAX = 1 << 30     # 1 GB
+
+    def _mem_available(self):
+        '''Return size of memory, in bytes, available for VEs.
+        '''
+        mem = psutil.virtual_memory()
+
+        # We should leave some memory for the host. Give it some percentage of
+        # total memory, but never give too little or too much.
+        host_rsrv = mem.total * self._HOST_MEM_PCT / 100
+        host_rsrv = max(host_rsrv, self._HOST_MEM_MIN)
+        host_rsrv = min(host_rsrv, self._HOST_MEM_MAX)
+
+        return mem.total - host_rsrv
+
+    def may_register(self, ve_to_register, all_ves):
+        sum_guarantee = sum(ve.config.guarantee for ve in all_ves)
+        sum_guarantee += ve_to_register.config.guarantee
+        return sum_guarantee <= self._mem_available()
+
+    def may_update(self, ve_to_update, new_config, all_ves):
+        sum_guarantee = sum(ve.config.guarantee for ve in all_ves)
+        sum_guarantee += new_config.guarantee - ve_to_update.config.guarantee
+        return sum_guarantee <= self._mem_available()
