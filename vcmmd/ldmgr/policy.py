@@ -5,7 +5,7 @@ class Policy(object):
     def may_register(self, ve, all_ves):
         '''Check if a VE may be started.
 
-        A sub-class may overwrite this function to forbid starting a VE if it
+        A sub-class may override this function to forbid starting a VE if it
         finds that this will result in overloading the host.
         '''
         return True
@@ -13,7 +13,7 @@ class Policy(object):
     def may_update(self, ve, new_config, all_ves):
         '''Check if a VE configuration may be updated.
 
-        A sub-class may overwrite this function to forbid updating a VE's
+        A sub-class may override this function to forbid updating a VE's
         configuration if it finds that this will result in overloading the
         host.
         '''
@@ -32,7 +32,7 @@ class Policy(object):
         'timeout' is the time, in seconds, that has passed since the last call
         of this function or None if this function is called for the first time.
 
-        This function must be overwritten in sub-class.
+        This function must be overridden in sub-class.
         '''
         pass
 

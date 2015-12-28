@@ -107,7 +107,7 @@ class VE(object):
 
         May raise Error.
 
-        This function is supposed to be overwritten in sub-class.
+        This function is supposed to be overridden in sub-class.
         '''
         return self.__mem_stats
 
@@ -126,7 +126,7 @@ class VE(object):
 
         May raise Error.
 
-        This function is supposed to be overwritten in sub-class.
+        This function is supposed to be overridden in sub-class.
         '''
         pass
 
@@ -140,7 +140,7 @@ class VE(object):
 
         May raise Error.
 
-        This function is supposed to be overwritten in sub-class.
+        This function is supposed to be overridden in sub-class.
         '''
         pass
 
@@ -152,7 +152,7 @@ class VE(object):
 
         May raise Error.
 
-        This function is supposed to be overwritten in sub-class.
+        This function is supposed to be overridden in sub-class.
         '''
         pass
 
@@ -161,6 +161,6 @@ class VE(object):
 
         May raise Error.
 
-        This function is supposed to be overwritten in sub-class.
+        This function is supposed to be overridden in sub-class.
         '''
         pass
