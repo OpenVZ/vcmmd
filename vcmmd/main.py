@@ -6,7 +6,7 @@ import optparse
 import daemon
 import daemon.pidfile
 
-from vcmmd import rpc_dbus
+from vcmmd.rpc import dbus as rpc_dbus
 from vcmmd.ldmgr import LoadManager
 from vcmmd.util.logging import LoggerWriter
 
