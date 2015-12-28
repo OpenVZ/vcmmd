@@ -2,7 +2,8 @@ import sys
 import dbus
 from optparse import OptionParser, OptionGroup
 
-from vcmmd.util import UINT64_MAX, OptionWithMemsize
+from vcmmd.util.limits import UINT64_MAX
+from vcmmd.util.optparse import OptionWithMemsize
 
 
 def _get_proxy():

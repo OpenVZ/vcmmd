@@ -8,7 +8,7 @@ import daemon.pidfile
 
 from vcmmd import rpc_dbus
 from vcmmd.ldmgr import LoadManager
-from vcmmd.util import LoggerWriter
+from vcmmd.util.logging import LoggerWriter
 
 PID_FILE = '/var/run/vcmmd.pid'
 LOG_FILE = '/var/log/vcmmd.log'

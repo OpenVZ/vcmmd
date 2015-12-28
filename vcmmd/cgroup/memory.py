@@ -1,5 +1,5 @@
 from vcmmd.cgroup.base import Cgroup
-from vcmmd.util import INT64_MAX
+from vcmmd.util.limits import INT64_MAX
 
 
 class MemoryCgroup(Cgroup):

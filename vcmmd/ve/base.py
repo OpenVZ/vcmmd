@@ -1,6 +1,6 @@
 from collections import namedtuple
 
-from vcmmd.util import UINT64_MAX
+from vcmmd.util.limits import UINT64_MAX
 
 
 _CONFIG_FIELDS = (
