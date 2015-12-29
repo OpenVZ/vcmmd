@@ -64,20 +64,20 @@ class VM(VE):
                         minflt=stat.get('minor_fault', 0),
                         majflt=stat.get('major_fault', 0))
 
-    def set_mem_low(self, value):
+    def _set_mem_low(self, value):
         try:
             self._memcg.write_mem_low(value)
         except IOError as err:
             raise CgroupError(err)
 
-    def set_mem_high(self, value):
+    def _set_mem_high(self, value):
         value >>= 10  # libvirt wants kB
         try:
             self._libvirt_domain.setMemory(value)
         except libvirt.libvirtError as err:
             raise LibvirtError(err)
 
-    def set_mem_max(self, value):
+    def _set_mem_max(self, value):
         value >>= 10  # libvirt wants kB
         try:
             # If value is greater than MaxMemory, we have to initiate memory

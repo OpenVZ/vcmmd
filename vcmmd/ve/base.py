@@ -82,8 +82,8 @@ class VE(object):
         return self.__config
 
     def __apply_config(self, config):
-        self.set_mem_max(config.limit)
-        self.set_swap_max(config.swap)
+        self._set_mem_max(config.limit)
+        self._set_swap_max(config.swap)
         self.__need_apply_config = False
 
     def set_config(self, config):
@@ -154,10 +154,10 @@ class VE(object):
         self.__mem_stats = self._fetch_mem_stats()
 
     def set_mem_range(self, low, high):
-        self.set_mem_low(low)
-        self.set_mem_high(high)
+        self._set_mem_low(low)
+        self._set_mem_high(high)
 
-    def set_mem_low(self, value):
+    def _set_mem_low(self, value):
         '''Set best-effort memory protection.
 
         If the memory usage of a VE is below its low boundary, the VE's memory
@@ -169,7 +169,7 @@ class VE(object):
         '''
         pass
 
-    def set_mem_high(self, value):
+    def _set_mem_high(self, value):
         '''Set memory usage throttle limit.
 
         If VE's memory usage goes over the high boundary, it should be
@@ -183,7 +183,7 @@ class VE(object):
         '''
         pass
 
-    def set_mem_max(self, value):
+    def _set_mem_max(self, value):
         '''Set hard memory limit.
 
         This is the final protection mechanism. If a VE's memory usage reaches
@@ -195,7 +195,7 @@ class VE(object):
         '''
         pass
 
-    def set_swap_max(self, value):
+    def _set_swap_max(self, value):
         '''Set hard swap limit.
 
         May raise Error.

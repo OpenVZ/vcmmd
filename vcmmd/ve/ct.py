@@ -37,25 +37,25 @@ class CT(VE):
                         minflt=stat.get('pgfault', 0),
                         majflt=stat.get('pgmajfault', 0))
 
-    def set_mem_low(self, value):
+    def _set_mem_low(self, value):
         try:
             self._memcg.write_mem_low(value)
         except IOError as err:
             raise CgroupError(err)
 
-    def set_mem_high(self, value):
+    def _set_mem_high(self, value):
         try:
             self._memcg.write_mem_high(value)
         except IOError as err:
             raise CgroupError(err)
 
-    def set_mem_max(self, value):
+    def _set_mem_max(self, value):
         try:
             self._memcg.write_mem_max(value)
         except IOError as err:
             raise CgroupError(err)
 
-    def set_swap_max(self, value):
+    def _set_swap_max(self, value):
         try:
             self._memcg.write_swap_max(value)
         except IOError as err:
