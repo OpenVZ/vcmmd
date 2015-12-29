@@ -39,6 +39,9 @@ class VM(VE):
         self._memcg = MemoryCgroup('machine.slice/machine-qemu\\x2d%s.scope' %
                                    self._libvirt_domain.name())
 
+        if not self._memcg.exists():
+            raise CgroupError('VM memory cgroup does not exist')
+
         super(VM, self).activate()
 
     def _fetch_mem_stats(self):

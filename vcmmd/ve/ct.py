@@ -11,12 +11,15 @@ class CT(VE):
     VE_TYPE = ve_types.CT
     VE_TYPE_NAME = 'CT'
 
-    def __init__(self, name):
-        super(CT, self).__init__(name)
-
+    def activate(self):
         # Currently, containers' cgroups are located at the first level of the
         # cgroup hierarchy.
-        self._memcg = MemoryCgroup(name)
+        self._memcg = MemoryCgroup(self.name)
+
+        if not self._memcg.exists():
+            raise CgroupError('CT memory cgroup does not exist')
+
+        super(CT, self).activate()
 
     def _fetch_mem_stats(self):
         try:

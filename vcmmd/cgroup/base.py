@@ -1,3 +1,6 @@
+import os.path
+
+
 class Cgroup(object):
 
     _CGROUP_DIR = '/sys/fs/cgroup'
@@ -11,6 +14,9 @@ class Cgroup(object):
 
     def _file_path(self, name):
         return '/'.join([self.__abs_path, name])
+
+    def exists(self):
+        return os.path.isdir(self.__abs_path)
 
     def read_file_str(self, filename):
         with open(self._file_path(filename), 'r') as f:
