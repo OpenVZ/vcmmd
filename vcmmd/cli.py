@@ -189,7 +189,7 @@ def _handle_list(args):
     proxy = _get_proxy()
     ve_list = proxy.GetAllRegisteredVEs()
 
-    fmt = '%-16s %4s %6s : %8s %8s %8s'
+    fmt = '%-36s %4s %6s : %8s %8s %8s'
     print fmt % ('name', 'type', 'active', 'guar', 'limit', 'swap')
     for ve_name, ve_type, ve_active, ve_config in ve_list:
         try:
