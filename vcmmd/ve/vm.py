@@ -21,25 +21,23 @@ class VM(VE):
 
     _libvirt_conn = None
 
-    def __init__(self, name):
-        super(VM, self).__init__(name)
-
-        # QEMU places every virtual machine in its own memory cgroup under
-        # machine.slice
-        self._memcg = MemoryCgroup('machine.slice/machine-qemu\\x2d%s.scope' %
-                                   name)
-
     def activate(self):
         try:
             if not VM._libvirt_conn:
                 VM._libvirt_conn = libvirt.open('qemu:///system')
 
-            self._libvirt_domain = VM._libvirt_conn.lookupByName(self.name)
+            self._libvirt_domain = VM._libvirt_conn.\
+                lookupByUUIDString(self.name)
 
             # libvirt must be explicitly told to collect memory statistics
             self._libvirt_domain.setMemoryStatsPeriod(self._MEMSTAT_PERIOD)
         except libvirt.libvirtError as err:
             raise LibvirtError(err)
+
+        # QEMU places every virtual machine in its own memory cgroup under
+        # machine.slice
+        self._memcg = MemoryCgroup('machine.slice/machine-qemu\\x2d%s.scope' %
+                                   self._libvirt_domain.name())
 
         super(VM, self).activate()
 
