@@ -15,6 +15,25 @@ class Error(Exception):
 
 
 class Config(namedtuple('Config', _CONFIG_FIELDS)):
+    '''Represents a VE's memory configuration.
+
+    guarantee:      VE memory best-effort protection
+
+                    A VE should be always given at least as much memory as
+                    specified by this parameter unless things get really bad on
+                    the host.
+
+    limit:          VE memory limit
+
+                    Maximal size of host memory that can be used by a VE.
+                    Must be >= guarantee.
+
+    swap:           VE swap limit
+
+                    Maximal size of host swap that can be used by a VE.
+
+    All values are in bytes.
+    '''
 
     def __init__(self, *args, **kwargs):
         super(Config, self).__init__(*args, **kwargs)
@@ -27,6 +46,12 @@ class Config(namedtuple('Config', _CONFIG_FIELDS)):
 
     @staticmethod
     def from_dict(dict_, default=None):
+        '''Make a Config from a dict.
+
+        Some fields may be omitted in which case values given in 'default' will
+        be used. 'default' must be an instance of a Config or None. If it is
+        None, global default values will be used for omitted fields.
+        '''
         if default is None:
             default = DEFAULT_CONFIG
         kv = default._asdict()
@@ -137,7 +162,25 @@ class VE(object):
 
     @property
     def mem_stats(self):
+        '''Return memory statistics for this VE.
+
+        The value is cached. To get up-to-date stats, one need to call
+        'update_stats' first.
+        '''
         return self.__mem_stats
+
+    def update_stats(self):
+        '''Update statistics for this VE.
+        '''
+        self.__mem_stats = self._fetch_mem_stats()
+
+    def set_mem_range(self, low, high):
+        '''Set memory consumption range for this VE.
+
+        For more info, see comments to '_set_mem_low' and '_set_mem_high'.
+        '''
+        self._set_mem_low(low)
+        self._set_mem_high(high)
 
     def _fetch_mem_stats(self):
         '''Fetch memory statistics for this VE.
@@ -149,13 +192,6 @@ class VE(object):
         This function is supposed to be overridden in sub-class.
         '''
         return self.__mem_stats
-
-    def update_stats(self):
-        self.__mem_stats = self._fetch_mem_stats()
-
-    def set_mem_range(self, low, high):
-        self._set_mem_low(low)
-        self._set_mem_high(high)
 
     def _set_mem_low(self, value):
         '''Set best-effort memory protection.
