@@ -51,9 +51,9 @@ class _LoadManagerObject(dbus.service.Object):
             return 0
 
     @dbus.service.method(IFACE, in_signature='s', out_signature='i')
-    def CommitVE(self, ve_name):
+    def ActivateVE(self, ve_name):
         try:
-            self.ldmgr.commit_ve(ve_name)
+            self.ldmgr.activate_ve(ve_name)
         except LoadManagerError as err:
             return err.errno
         else:
@@ -64,6 +64,15 @@ class _LoadManagerObject(dbus.service.Object):
         ve_config = _config_dict_from_kv_array(ve_config)
         try:
             self.ldmgr.update_ve(ve_name, ve_config, force)
+        except LoadManagerError as err:
+            return err.errno
+        else:
+            return 0
+
+    @dbus.service.method(IFACE, in_signature='s', out_signature='i')
+    def DeactivateVE(self, ve_name):
+        try:
+            self.ldmgr.deactivate_ve(ve_name)
         except LoadManagerError as err:
             return err.errno
         else:

@@ -29,7 +29,7 @@ class VM(VE):
         self._memcg = MemoryCgroup('machine.slice/machine-qemu\\x2d%s.scope' %
                                    name)
 
-    def commit(self):
+    def activate(self):
         try:
             if not VM._libvirt_conn:
                 VM._libvirt_conn = libvirt.open('qemu:///system')
@@ -41,7 +41,7 @@ class VM(VE):
         except libvirt.libvirtError as err:
             raise LibvirtError(err)
 
-        super(VM, self).commit()
+        super(VM, self).activate()
 
     def _fetch_mem_stats(self):
         try:

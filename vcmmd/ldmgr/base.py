@@ -113,7 +113,7 @@ class LoadManager(object):
         all_ves = []
         for ve in self._registered_ves.itervalues():
             try:
-                if ve.committed:
+                if ve.active:
                     ve.update_stats()
             except VEError as err:
                 self.logger.error('Failed to update stats for %s: %s' %
@@ -146,7 +146,7 @@ class LoadManager(object):
 
         for ve, (low, high) in policy_setting.iteritems():
             try:
-                if ve.committed:
+                if ve.active:
                     ve.set_mem_range(low, high)
             except VEError as err:
                 self.logger.error('Failed to apply policy setting for %s: %s' %
@@ -180,21 +180,21 @@ class LoadManager(object):
         self.logger.info('Registered %s %s' % (ve, ve_config))
 
     @_request()
-    def commit_ve(self, ve_name):
+    def activate_ve(self, ve_name):
         ve = self._registered_ves.get(ve_name)
         if ve is None:
             raise Error(_errno.VE_NOT_REGISTERED)
 
-        if ve.committed:
-            raise Error(_errno.VE_ALREADY_COMMITTED)
+        if ve.active:
+            raise Error(_errno.VE_ALREADY_ACTIVE)
 
         try:
-            ve.commit()
+            ve.activate()
         except VEError as err:
-            self.logger.error('Failed to commit %s: %s' % (ve, err))
+            self.logger.error('Failed to activate %s: %s' % (ve, err))
             raise Error(_errno.VE_OPERATION_FAILED)
 
-        self.logger.info('Committed %s' % ve)
+        self.logger.info('Activated %s' % ve)
 
         self._balance_ves()
 
@@ -223,6 +223,19 @@ class LoadManager(object):
         self._balance_ves()
 
     @_request()
+    def deactivate_ve(self, ve_name):
+        ve = self._registered_ves.get(ve_name)
+        if ve is None:
+            raise Error(_errno.VE_NOT_REGISTERED)
+
+        if not ve.active:
+            raise Error(_errno.VE_NOT_ACTIVE)
+
+        ve.deactivate()
+
+        self.logger.info('Deactivated %s' % ve)
+
+    @_request()
     def unregister_ve(self, ve_name):
         with self._registered_ves_lock:
             ve = self._registered_ves.pop(ve_name, None)
@@ -237,5 +250,5 @@ class LoadManager(object):
         result = []
         with self._registered_ves_lock:
             for ve in self._registered_ves.itervalues():
-                result.append((ve.name, ve.VE_TYPE, ve.committed, ve.config))
+                result.append((ve.name, ve.VE_TYPE, ve.active, ve.config))
         return result

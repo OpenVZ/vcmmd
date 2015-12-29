@@ -22,9 +22,10 @@ def _report_service_error(err):
             3: 'Conflicting VE config parameters',
             4: 'VE name already in use',
             5: 'VE not registered',
-            6: 'VE already committed',
+            6: 'VE already active',
             7: 'VE operation failed',
             8: 'Unable to meet VE requirements',
+            9: 'VE not active',
         }[err]
     except KeyError:
         errmsg = 'Unknown error %d' % err
@@ -90,10 +91,10 @@ def _handle_register(args):
         _report_service_error(err)
 
 
-def _handle_commit(args):
-    parser = OptionParser('Usage: %prog commit <VE name>',
-                          description='Notify VCMMD that a registered VE '
-                          'has been started.')
+def _handle_activate(args):
+    parser = OptionParser('Usage: %prog activate <VE name>',
+                          description='Notify VCMMD that a registered VE can '
+                          'now be managed.')
 
     (options, args) = parser.parse_args(args)
     if len(args) > 1:
@@ -104,7 +105,7 @@ def _handle_commit(args):
     ve_name = args[0]
 
     proxy = _get_proxy()
-    err = proxy.CommitVE(ve_name)
+    err = proxy.ActivateVE(ve_name)
     if err:
         _report_service_error(err)
 
@@ -128,6 +129,25 @@ def _handle_update(args):
     proxy = _get_proxy()
     err = proxy.UpdateVE(ve_name, _ve_config_from_options(options),
                          options.force)
+    if err:
+        _report_service_error(err)
+
+
+def _handle_deactivate(args):
+    parser = OptionParser('Usage: %prog deactivate <VE name>',
+                          description='Notify VCMMD that a registered VE must '
+                          'not be managed any longer.')
+
+    (options, args) = parser.parse_args(args)
+    if len(args) > 1:
+        parser.error('superfluous arguments')
+
+    if len(args) < 1:
+        parser.error('VE name not specified')
+    ve_name = args[0]
+
+    proxy = _get_proxy()
+    err = proxy.DeactivateVE(ve_name)
     if err:
         _report_service_error(err)
 
@@ -169,9 +189,9 @@ def _handle_list(args):
     proxy = _get_proxy()
     ve_list = proxy.GetAllRegisteredVEs()
 
-    fmt = '%-16s %4s %4s : %8s %8s %8s'
-    print fmt % ('name', 'type', 'cmtd', 'guar', 'limit', 'swap')
-    for ve_name, ve_type, ve_committed, ve_config in ve_list:
+    fmt = '%-16s %4s %6s : %8s %8s %8s'
+    print fmt % ('name', 'type', 'active', 'guar', 'limit', 'swap')
+    for ve_name, ve_type, ve_active, ve_config in ve_list:
         try:
             ve_type_str = {
                 0: 'CT',
@@ -181,7 +201,7 @@ def _handle_list(args):
             ve_type_str = '?'
         print fmt % (ve_name,
                      ve_type_str,
-                     'yes' if ve_committed else 'no',
+                     'yes' if ve_active else 'no',
                      _str_memval(ve_config[0]),
                      _str_memval(ve_config[1]),
                      _str_memval(ve_config[2]))
@@ -189,8 +209,8 @@ def _handle_list(args):
 
 def main():
     parser = OptionParser('Usage: %prog <command> <args>...\n'
-                          'command := register | commit | update | '
-                          'unregister | list',
+                          'command := register | activate | update | '
+                          'deactivate | unregister | list',
                           description='Call a command on the VCMMD service. '
                           'See \'%prog <command> --help\' to read about a '
                           'specific subcommand.',
@@ -205,8 +225,9 @@ def main():
     try:
         handler = {
             'register': _handle_register,
-            'commit': _handle_commit,
+            'activate': _handle_activate,
             'update': _handle_update,
+            'deactivate': _handle_deactivate,
             'unregister': _handle_unregister,
             'list': _handle_list,
         }[args[0]]

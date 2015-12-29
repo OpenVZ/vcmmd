@@ -62,8 +62,8 @@ class VE(object):
     def __init__(self, name):
         self.__name = name
         self.__config = None
-        self.__committed = False
-
+        self.__active = False
+        self.__need_apply_config = False
         self.__mem_stats = MemStats()
 
     def __str__(self):
@@ -71,30 +71,69 @@ class VE(object):
 
     @property
     def name(self):
+        '''Return VE name.
+        '''
         return self.__name
 
     @property
     def config(self):
+        '''Return current VE config.
+        '''
         return self.__config
 
-    def _apply_config(self, config):
+    def __apply_config(self, config):
         self.set_mem_max(config.limit)
         self.set_swap_max(config.swap)
+        self.__need_apply_config = False
 
     def set_config(self, config):
+        '''Update VE config.
+
+        If the VE is active, it will try to apply the new config right away and
+        throw Error in case of failure. Otherwise, config will be applied only
+        when VE gets activated.
+        '''
         assert isinstance(config, Config)
-        if self.committed:
-            self._apply_config(config)
+        if self.active:
+            self.__apply_config(config)
+        else:
+            self.__need_apply_config = True
         self.__config = config
 
     @property
-    def committed(self):
-        return self.__committed
+    def active(self):
+        '''Return True iff VE is active.
 
-    def commit(self):
+        Active VEs may be tuned by the load manager, while inactive ones may
+        not (adjusting configuration and statistics update are not supposed to
+        work for inactive VEs). To activate a VE call the 'activate' method.
+        '''
+        return self.__active
+
+    def activate(self):
+        '''Activate VE.
+
+        This function marks a VE as active. If there is a pending config update
+        (i.e. one scheduled with set_config when the VE was inactive), it will
+        be applied. The latter may fail hence this function may throw Error.
+
+        This function is supposed to be called after a VE has been started or
+        resumed.
+        '''
         assert self.config is not None
-        self._apply_config(self.config)
-        self.__committed = True
+        if self.__need_apply_config:
+            self.__apply_config(self.config)
+        self.__active = True
+
+    def deactivate(self):
+        '''Deactivate VE.
+
+        This function marks a VE as inactive. It never raises an exception.
+
+        This function is supposed to be called before pausing or suspending a
+        VE.
+        '''
+        self.__active = False
 
     @property
     def mem_stats(self):
