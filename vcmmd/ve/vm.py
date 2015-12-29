@@ -24,8 +24,6 @@ class VM(VE):
     def __init__(self, name):
         super(VM, self).__init__(name)
 
-        self._mem_stats_enabled = False
-
         # QEMU places every virtual machine in its own memory cgroup under
         # machine.slice
         self._memcg = MemoryCgroup('machine.slice/machine-qemu\\x2d%s.scope' %
@@ -35,7 +33,11 @@ class VM(VE):
         try:
             if not VM._libvirt_conn:
                 VM._libvirt_conn = libvirt.open('qemu:///system')
+
             self._libvirt_domain = VM._libvirt_conn.lookupByName(self.name)
+
+            # libvirt must be explicitly told to collect memory statistics
+            self._libvirt_domain.setMemoryStatsPeriod(self._MEMSTAT_PERIOD)
         except libvirt.libvirtError as err:
             raise LibvirtError(err)
 
@@ -43,10 +45,6 @@ class VM(VE):
 
     def _fetch_mem_stats(self):
         try:
-            if not self._mem_stats_enabled:
-                # libvirt must be explicitly told to collect memory statistics
-                self._libvirt_domain.setMemoryStatsPeriod(self._MEMSTAT_PERIOD)
-                self._mem_stats_enabled = True
             stat = self._libvirt_domain.memoryStats()
         except libvirt.libvirtError as err:
             raise LibvirtError(err)
