@@ -1,5 +1,94 @@
+import time
+import threading
+
+from vcmmd.cgroup import idlememscan
 from vcmmd.cgroup.base import Cgroup
 from vcmmd.util.limits import INT64_MAX
+
+
+class _IdleMemScanner:
+
+    class _StopScan(Exception):
+        pass
+
+    def __init__(self):
+        self.__result = {}
+        self.__sampling = 1
+        self.__period = 0
+        self.__scan_in_progress = False
+        self.__lock = threading.Lock()
+
+    def __do_scan_iter(self):
+        if self.__restart_scan:
+            with self.__lock:
+                period = self.__period
+                if period <= 0:
+                    self.__scan_in_progress = False
+                    raise self._StopScan
+            idlememscan.set_sampling(self.__sampling)
+            self.__scan_took = 0.0
+            self.__time_left = float(period)
+            self.__restart_scan = False
+
+        start = time.time()
+        iters_done, iters_left = idlememscan.iter()
+        spent = time.time() - start
+
+        self.__scan_took += spent
+        self.__time_left -= spent
+
+        scan_will_take = iters_left * self.__scan_took / iters_done
+        if scan_will_take < self.__time_left:
+            timeout = ((self.__time_left - scan_will_take) / iters_left
+                       if iters_left > 0 else self.__time_left)
+            time.sleep(timeout)
+            self.__time_left -= timeout
+
+        if iters_left == 0:
+            self.__result = idlememscan.result()
+            self.__restart_scan = True
+
+    def __scan_fn(self):
+        self.__restart_scan = True
+        try:
+            while True:
+                self.__do_scan_iter()
+        except self._StopScan:
+            pass
+
+    def set_sampling(self, sampling):
+        if not isinstance(sampling, float):
+            raise TypeError("'sampling' must be a float")
+        if not 0.0 < sampling <= 1.0:
+            raise ValueError("'sampling' must be in range (0.0, 1.0]")
+
+        self.__sampling = sampling
+
+    def get_period(self):
+        return self.__period
+
+    def set_period(self, period):
+        if not isinstance(period, (int, long)):
+            raise TypeError("'period' must be an integer")
+        if period < 0:
+            raise ValueError("'period' must be >= 0")
+
+        start_scan = False
+        with self.__lock:
+            self.__period = period
+            if period > 0 and not self.__scan_in_progress:
+                self.__scan_in_progress = True
+                start_scan = True
+        if start_scan:
+            t = threading.Thread(target=self.__scan_fn)
+            t.daemon = True
+            t.start()
+
+    @property
+    def result(self):
+        return self.__result
+
+_idle_mem_scanner = _IdleMemScanner()
 
 
 class MemoryCgroup(Cgroup):
@@ -57,3 +146,83 @@ class MemoryCgroup(Cgroup):
 
     def read_mem_stat(self):
         return self.read_file_kv('memory.stat')
+
+    @staticmethod
+    def get_idle_mem_period():
+        '''Return idle memory scan period, in seconds.
+
+        If idle scanner is disabled, this function will return 0.
+        '''
+        return _idle_mem_scanner.get_period()
+
+    @staticmethod
+    def set_idle_mem_period(period):
+        '''Set idle memory scan period, in seconds.
+
+        If period is 0, the scanner will be stopped.
+
+        Note, the change will only take place after the current period
+        completes.
+        '''
+        _idle_mem_scanner.set_period(period)
+
+    @staticmethod
+    def set_idle_mem_sampling(sampling):
+        '''Set idle memory sampling.
+
+        Set the portion of memory to check while performing idle scan.
+
+        Note, the change will only take place after the current period
+        completes.
+        '''
+        _idle_mem_scanner.set_sampling(sampling)
+
+    def _get_idle_mem_stat_raw(self):
+        return _idle_mem_scanner.result.get(self._path, None)
+
+    def _get_idle_mem_portion(self, age, mem_types):
+        if not isinstance(age, (int, long)):
+            raise TypeError("'age' must be an integer")
+        if age < 0:
+            raise ValueError("'age' must be >= 0")
+
+        # Every memory page is idle for at least 0 seconds.
+        if age == 0:
+            return 1.0
+
+        # Idle memory scanner not running? Assume all memory is active.
+        period = self.get_idle_mem_period()
+        if period == 0:
+            return 0.0
+
+        # No stats yet? Assume all memory is active.
+        raw = self._get_idle_mem_stat_raw()
+        if raw is None:
+            return 0.0
+
+        # convert age to periods
+        idx = min((age - 1) / period, idlememscan.MAX_AGE - 1)
+
+        # idx == 0 stores the total number of pages scanned
+        idx += 1
+
+        idle = sum(raw[i][idx] for i in mem_types)
+        total = sum(raw[i][0] for i in mem_types)
+
+        # avoid div/0
+        return float(idle) / (total + 1)
+
+    def get_idle_mem_portion(self, age):
+        '''Return the portion of memory that was found to be idle for at least
+        'age' seconds during the last scan.
+
+        If the scanner is not running or there is no data for this cgroup, 0 is
+        returned.
+        '''
+        return self._get_idle_mem_portion(age, [0, 1])
+
+    def get_idle_mem_portion_anon(self, age):
+        return self._get_idle_mem_portion(age, [0])
+
+    def get_idle_mem_portion_file(self, age):
+        return self._get_idle_mem_portion(age, [1])
