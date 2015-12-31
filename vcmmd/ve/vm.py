@@ -1,7 +1,7 @@
 from __future__ import absolute_import
 
 from vcmmd.cgroup import MemoryCgroup
-from vcmmd.ve import VE, Error, types as ve_types, MemStats
+from vcmmd.ve import VE, Error, types as ve_types, MemStats, IOStats
 
 import libvirt
 
@@ -65,6 +65,17 @@ class VM(VE):
                         used=used << 10,
                         minflt=stat.get('minor_fault', 0),
                         majflt=stat.get('major_fault', 0))
+
+    def _fetch_io_stats(self):
+        try:
+            stat = self._libvirt_domain.blockStats('')
+        except libvirt.libvirtError as err:
+            raise LibvirtError(err)
+
+        return IOStats(rd_req=stat[0],
+                       rd_bytes=stat[1],
+                       wr_req=stat[2],
+                       wr_bytes=stat[3])
 
     def _set_mem_low(self, value):
         try:
