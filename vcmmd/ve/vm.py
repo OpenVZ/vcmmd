@@ -1,3 +1,5 @@
+from __future__ import absolute_import
+
 from vcmmd.cgroup import MemoryCgroup
 from vcmmd.ve import VE, Error, types as ve_types, MemStats
 

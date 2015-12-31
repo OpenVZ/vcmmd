@@ -1,3 +1,5 @@
+from __future__ import absolute_import
+
 from vcmmd.ve import Error
 from vcmmd.ve.ct import CT
 from vcmmd.ve.vm import VM
