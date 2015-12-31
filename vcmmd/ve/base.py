@@ -75,10 +75,24 @@ _MEM_STATS_FIELDS = (
 )
 
 
-class MemStats(namedtuple('Stats', _MEM_STATS_FIELDS)):
+class MemStats(namedtuple('MemStats', _MEM_STATS_FIELDS)):
     pass
 
 MemStats.__new__.__defaults__ = (0, ) * len(_MEM_STATS_FIELDS)
+
+
+_IO_STATS_FIELDS = (
+    'rd_req',           # number of read requests
+    'rd_bytes',         # number of read bytes
+    'wr_req',           # number of write requests
+    'wr_bytes',         # number of written bytes
+)
+
+
+class IOStats(namedtuple('IOStats', _IO_STATS_FIELDS)):
+    pass
+
+IOStats.__new__.__defaults__ = (0, ) * len(_IO_STATS_FIELDS)
 
 
 class VE(object):
@@ -92,6 +106,7 @@ class VE(object):
         self.__active = False
         self.__need_apply_config = False
         self.__mem_stats = MemStats()
+        self.__io_stats = IOStats()
 
     def __str__(self):
         return "%s '%s'" % (self.VE_TYPE_NAME, self.name)
@@ -171,10 +186,20 @@ class VE(object):
         '''
         return self.__mem_stats
 
+    @property
+    def io_stats(self):
+        '''Return IO statistics for this VE.
+
+        The value is cached. To get up-to-date stats, one need to call
+        'update_stats' first.
+        '''
+        return self.__io_stats
+
     def update_stats(self):
         '''Update statistics for this VE.
         '''
         self.__mem_stats = self._fetch_mem_stats()
+        self.__io_stats = self._fetch_io_stats()
 
     def set_mem_range(self, low, high):
         '''Set memory consumption range for this VE.
@@ -187,13 +212,24 @@ class VE(object):
     def _fetch_mem_stats(self):
         '''Fetch memory statistics for this VE.
 
-        Returns an object of Stats class.
+        Returns an object of MemStats class.
 
         May raise Error.
 
         This function is supposed to be overridden in sub-class.
         '''
         return self.__mem_stats
+
+    def _fetch_io_stats(self):
+        '''Fetch IO statistics for this VE.
+
+        Returns an object of IOStats class.
+
+        May raise Error.
+
+        This function is supposed to be overridden in sub-class.
+        '''
+        return self.__io_stats
 
     def _set_mem_low(self, value):
         '''Set best-effort memory protection.
