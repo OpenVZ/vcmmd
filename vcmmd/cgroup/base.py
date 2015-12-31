@@ -38,6 +38,6 @@ class Cgroup(object):
         kv = {}
         with open(self._file_path(filename), 'r') as f:
             for l in f.readlines():
-                k, v = l.split()
+                k, v = l.rsplit(' ', 1)
                 kv[k] = int(v)
         return kv
