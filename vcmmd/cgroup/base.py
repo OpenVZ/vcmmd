@@ -20,21 +20,21 @@ class Cgroup(object):
     def exists(self):
         return os.path.isdir(self._abs_path)
 
-    def read_file_str(self, filename):
+    def _read_file_str(self, filename):
         with open(self._file_path(filename), 'r') as f:
             return f.read()
 
-    def write_file_str(self, filename, val):
+    def _write_file_str(self, filename, val):
         with open(self._file_path(filename), 'w') as f:
             f.write(val)
 
-    def read_file_int(self, filename):
-        return int(self.read_file_str(filename))
+    def _read_file_int(self, filename):
+        return int(self._read_file_str(filename))
 
-    def write_file_int(self, filename, val):
-        self.write_file_str(filename, str(val))
+    def _write_file_int(self, filename, val):
+        self._write_file_str(filename, str(val))
 
-    def read_file_kv(self, filename):
+    def _read_file_kv(self, filename):
         kv = {}
         with open(self._file_path(filename), 'r') as f:
             for l in f.readlines():
