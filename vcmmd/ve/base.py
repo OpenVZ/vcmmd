@@ -117,6 +117,7 @@ class VE(object):
         self.__config = None
         self.__active = False
         self.__need_apply_config = False
+        self.__quota = 0
         self.__mem_stats = MemStats()
         self.__io_stats = IOStats()
 
@@ -215,13 +216,20 @@ class VE(object):
         self.__mem_stats = self._fetch_mem_stats()
         self.__io_stats = self._fetch_io_stats()
 
-    def set_mem_range(self, low, high):
-        '''Set memory consumption range for this VE.
-
-        For more info, see comments to '_set_mem_low' and '_set_mem_high'.
+    @property
+    def quota(self):
+        '''Return current memory allocation quota that was previously set using
+        'set_quota'.
         '''
-        self._set_mem_low(low)
-        self._set_mem_high(high)
+        return self.__quota
+
+    def set_quota(self, value):
+        '''Set memory allocation quota for this VE.
+
+        May raise Error.
+        '''
+        self._set_mem_target(value)
+        self.__quota = value
 
     def _fetch_mem_stats(self):
         '''Fetch memory statistics for this VE.
@@ -245,25 +253,15 @@ class VE(object):
         '''
         return self.__io_stats
 
-    def _set_mem_low(self, value):
-        '''Set best-effort memory protection.
+    def _set_mem_target(self, value):
+        '''Set memory allocation target.
 
-        If the memory usage of a VE is below its low boundary, the VE's memory
-        shouldn't be reclaimed if memory can be reclaimed from unprotected VEs.
-
-        May raise Error.
-
-        This function is supposed to be overridden in sub-class.
-        '''
-        pass
-
-    def _set_mem_high(self, value):
-        '''Set memory usage throttle limit.
-
-        If VE's memory usage goes over the high boundary, it should be
-        throttled and put under heavy reclaim pressure. Going over the high
-        limit never invokes the OOM killer and under extreme conditions the
-        limit may be breached.
+        This function sets memory consumption target for a VE. Note, it does
+        not necessarily mean that the VE memory usage will reach the target
+        instantly or even any time soon - in fact, it may not reach it at all
+        in case allocation is reduced. However, reducing the value will put the
+        VE under heavy local memory pressure forcing it to release its memory
+        to the host.
 
         May raise Error.
 
@@ -273,9 +271,6 @@ class VE(object):
 
     def _set_mem_max(self, value):
         '''Set hard memory limit.
-
-        This is the final protection mechanism. If a VE's memory usage reaches
-        this limit and can't be reduced, the OOM killer is invoked in the VE.
 
         May raise Error.
 

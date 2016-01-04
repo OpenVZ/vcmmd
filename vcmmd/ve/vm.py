@@ -74,16 +74,17 @@ class VM(VE):
                        wr_req=stat[2],
                        wr_bytes=stat[3])
 
-    def _set_mem_low(self, value):
+    def _set_mem_target(self, value):
+        # Set memory.low to protect the VM from the host pressure.
         try:
             self._memcg.write_mem_low(value)
         except IOError as err:
             raise CgroupError(err)
 
-    def _set_mem_high(self, value):
-        value >>= 10  # libvirt wants kB
+        # Update current allocation size by inflating/deflating balloon.
         try:
-            self._libvirt_domain.setMemory(value)
+            # libvirt wants kB
+            self._libvirt_domain.setMemory(value >> 10)
         except libvirt.libvirtError as err:
             raise LibvirtError(err)
 

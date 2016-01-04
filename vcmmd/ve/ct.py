@@ -51,14 +51,11 @@ class CT(VE):
                        wr_req=serviced[1],
                        wr_bytes=service_bytes[1])
 
-    def _set_mem_low(self, value):
+    def _set_mem_target(self, value):
         try:
+            # Set memory.low to protect the CT from the host pressure.
             self._memcg.write_mem_low(value)
-        except IOError as err:
-            raise CgroupError(err)
-
-    def _set_mem_high(self, value):
-        try:
+            # Set memory.high to grow/reduce memory consumption.
             self._memcg.write_mem_high(value)
         except IOError as err:
             raise CgroupError(err)

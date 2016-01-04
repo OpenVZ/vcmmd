@@ -25,13 +25,12 @@ class Policy(object):
         return True
 
     def balance(self, all_ves, timeout=None):
-        '''Calculate optimal memory consumption range for VEs.
+        '''Calculate VE memory quotas.
 
         This function is called whenever the load manager detects load
         configuration change. It is passed a list of all registered VEs and
-        should return a dictionary VE -> (low, high), where low and high are
-        lower and higher boundaries for optimal memory consumption range of a
-        VE.
+        should return a dictionary VE -> quota, where quota is a VE memory
+        consumption target calculated by the policy.
 
         'all_ves' is the list of all registered VEs to balance memory among.
         'timeout' is the time, in seconds, that has passed since the last call

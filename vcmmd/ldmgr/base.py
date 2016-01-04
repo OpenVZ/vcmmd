@@ -138,20 +138,19 @@ class LoadManager(object):
         timeout = (now - self._last_rebalance
                    if self._last_rebalance is not None else None)
 
-        policy_setting = self.policy.balance(all_ves, timeout=timeout)
+        ve_quotas = self.policy.balance(all_ves, timeout=timeout)
         timeout = self.policy.timeout()
 
         self._last_rebalance = now
         self._next_rebalance = (now + timeout
                                 if timeout is not None else None)
 
-        for ve, (low, high) in policy_setting.iteritems():
+        for ve, quota in ve_quotas.iteritems():
             try:
                 if ve.active:
-                    ve.set_mem_range(low, high)
+                    ve.set_quota(quota)
             except VEError as err:
-                self.logger.error('Failed to apply policy setting for %s: %s' %
-                                  (ve, err))
+                self.logger.error('Failed to set quota for %s: %s' % (ve, err))
 
     @_request()
     def register_ve(self, ve_name, ve_type, ve_config, force=False):
