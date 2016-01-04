@@ -30,18 +30,14 @@ class CT(VE):
     def _fetch_mem_stats(self):
         try:
             current = self._memcg.read_mem_current()
-            high = self._memcg.read_mem_high()
             stat = self._memcg.read_mem_stat()
         except IOError as err:
             raise CgroupError(err)
 
-        # Since a container releases memory to the host immediately, 'rss'
-        # always equals 'used'
-        return MemStats(actual=max(current, high),
+        return MemStats(actual=current,
                         rss=current,
-                        used=current,
-                        minflt=stat.get('pgfault', 0),
-                        majflt=stat.get('pgmajfault', 0))
+                        minflt=stat.get('pgfault', -1),
+                        majflt=stat.get('pgmajfault', -1))
 
     def _fetch_io_stats(self):
         try:

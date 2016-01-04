@@ -52,19 +52,16 @@ class VM(VE):
         except libvirt.libvirtError as err:
             raise LibvirtError(err)
 
-        try:
-            used = max(stat['available'] - stat['unused'], 0)
-        except KeyError:
-            # Guest driver is not installed? Use qemu process rss then.
-            used = stat['rss']
-
         # libvirt reports memory values in kB, so we need to convert them to
         # bytes
-        return MemStats(actual=stat['actual'] << 10,
-                        rss=stat['rss'] << 10,
-                        used=used << 10,
-                        minflt=stat.get('minor_fault', 0),
-                        majflt=stat.get('major_fault', 0))
+        return MemStats(actual=stat.get('actual', -1) << 10,
+                        rss=stat.get('rss', -1) << 10,
+                        available=stat.get('available', -1) << 10,
+                        unused=stat.get('unused', -1) << 10,
+                        swapin=stat.get('swap_in', -1) << 10,
+                        swapout=stat.get('swap_out', -1) << 10,
+                        minflt=stat.get('minor_fault', -1),
+                        majflt=stat.get('major_fault', -1))
 
     def _fetch_io_stats(self):
         try:

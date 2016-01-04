@@ -65,20 +65,28 @@ DEFAULT_CONFIG = Config(guarantee=0,
                         swap=UINT64_MAX)
 
 
-# All memory values are in bytes
 _MEM_STATS_FIELDS = (
     'actual',           # actual allocation size
     'rss',              # resident set size
-    'used',             # in use by guest OS
+    'available',        # total amount of memory as seen by guest OS
+    'unused',           # amount of memory left completely unused by guest OS
+    'swapin',           # total amount of memory read in from swap space
+    'swapout',          # total amount of memory written out to swap space
     'minflt',           # total # of minor page faults
     'majflt',           # total # of major page faults
 )
 
 
 class MemStats(namedtuple('MemStats', _MEM_STATS_FIELDS)):
+    '''VE memory statistics.
+
+    All memory values are in bytes.
+
+    If a statistic is unavailable, its value will be < 0.
+    '''
     pass
 
-MemStats.__new__.__defaults__ = (0, ) * len(_MEM_STATS_FIELDS)
+MemStats.__new__.__defaults__ = (-1, ) * len(_MEM_STATS_FIELDS)
 
 
 _IO_STATS_FIELDS = (
@@ -90,9 +98,13 @@ _IO_STATS_FIELDS = (
 
 
 class IOStats(namedtuple('IOStats', _IO_STATS_FIELDS)):
+    '''VE IO statistics.
+
+    If a statistic is unavailable, its value will be < 0.
+    '''
     pass
 
-IOStats.__new__.__defaults__ = (0, ) * len(_IO_STATS_FIELDS)
+IOStats.__new__.__defaults__ = (-1, ) * len(_IO_STATS_FIELDS)
 
 
 class VE(object):
@@ -197,6 +209,8 @@ class VE(object):
 
     def update_stats(self):
         '''Update statistics for this VE.
+
+        May raise Error.
         '''
         self.__mem_stats = self._fetch_mem_stats()
         self.__io_stats = self._fetch_io_stats()
