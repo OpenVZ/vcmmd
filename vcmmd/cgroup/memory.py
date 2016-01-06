@@ -66,9 +66,6 @@ class _IdleMemScanner:
 
         self.__sampling = sampling
 
-    def get_period(self):
-        return self.__period
-
     def set_period(self, period):
         if not isinstance(period, (int, long)):
             raise TypeError("'period' must be an integer")
@@ -96,6 +93,8 @@ _idle_mem_scanner = _IdleMemScanner()
 class MemoryCgroup(Cgroup):
 
     CONTROLLER = 'memory'
+
+    MAX_IDLE_AGE = idlememscan.MAX_AGE
 
     _MEM_VAL_MAX = INT64_MAX
 
@@ -150,18 +149,14 @@ class MemoryCgroup(Cgroup):
         return self._read_file_kv('memory.stat')
 
     @staticmethod
-    def get_idle_mem_period():
-        '''Return idle memory scan period, in seconds.
-
-        If idle scanner is disabled, this function will return 0.
-        '''
-        return _idle_mem_scanner.get_period()
-
-    @staticmethod
     def set_idle_mem_period(period):
         '''Set idle memory scan period, in seconds.
 
-        If period is 0, the scanner will be stopped.
+        If enabled, idle memory scanner will periodically scan physical memory
+        range and count pages that have not been touched since the previous
+        scan. The result can be obtained with 'get_idle_mem_portion'.
+
+        If 'period' is 0, the scanner will be stopped.
 
         Note, the change will only take place after the current period
         completes.
@@ -188,43 +183,30 @@ class MemoryCgroup(Cgroup):
         if age < 0:
             raise ValueError("'age' must be >= 0")
 
-        # Every memory page is idle for at least 0 seconds.
-        if age == 0:
-            return 1.0
-
-        # Idle memory scanner not running? Assume all memory is active.
-        period = self.get_idle_mem_period()
-        if period == 0:
-            return 0.0
-
         # No stats yet? Assume all memory is active.
         raw = self._get_idle_mem_stat_raw()
         if raw is None:
             return 0.0
 
-        # convert age to periods
-        idx = min((age - 1) / period, idlememscan.MAX_AGE - 1)
+        # idle memory history is limited by MAX_IDLE_AGE
+        age = min(age, self.MAX_IDLE_AGE - 1)
 
-        # idx == 0 stores the total number of pages scanned
-        idx += 1
-
-        idle = sum(raw[i][idx] for i in mem_types)
+        idle = sum(raw[i][age] for i in mem_types)
         total = sum(raw[i][0] for i in mem_types)
 
         # avoid div/0
         return float(idle) / (total + 1)
 
-    def get_idle_mem_portion(self, age):
-        '''Return the portion of memory that was found to be idle for at least
-        'age' seconds during the last scan.
+    def get_idle_mem_portion(self, age=0):
+        '''Return the portion of memory that was found to be idle for more than
+        'age' scan periods.
 
-        If the scanner is not running or there is no data for this cgroup, 0 is
-        returned.
+        Note, this functions returns the value obtained during the last scan.
         '''
         return self._get_idle_mem_portion(age, [0, 1])
 
-    def get_idle_mem_portion_anon(self, age):
+    def get_idle_mem_portion_anon(self, age=0):
         return self._get_idle_mem_portion(age, [0])
 
-    def get_idle_mem_portion_file(self, age):
+    def get_idle_mem_portion_file(self, age=0):
         return self._get_idle_mem_portion(age, [1])
