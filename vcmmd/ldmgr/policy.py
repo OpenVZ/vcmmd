@@ -35,7 +35,7 @@ class Policy(object):
         sum_guarantee += new_config.guarantee - ve_to_update.config.guarantee
         return sum_guarantee <= mem_total
 
-    def balance(self, all_ves, mem_total, timeout):
+    def balance(self, active_ves, mem_avail, timeout):
         '''Calculate VE memory quotas.
 
         This function is called whenever the load manager detects load
@@ -43,8 +43,8 @@ class Policy(object):
         should return a dictionary VE -> quota, where quota is a VE memory
         consumption target calculated by the policy.
 
-        'all_ves' is the list of all registered VEs to balance memory among.
-        'mem_total' is the total amount of memory available for VEs.
+        'active_ves' is the list of active VEs to balance memory among.
+        'mem_avail' is the amount of memory available for active VEs.
         'timeout' is the time, in seconds, that has passed since the last call
         of this function or None if this function is called for the first time.
 

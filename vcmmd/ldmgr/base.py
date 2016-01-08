@@ -134,34 +134,46 @@ class LoadManager(object):
         self._worker.join()
 
     def _update_ve_stats(self):
-        all_ves = []
+        active_ves = []
+        mem_avail = self._mem_total
         for ve in self._registered_ves.itervalues():
             try:
                 if ve.active:
                     ve.update_stats()
+                    active_ves.append(ve)
+                    continue
             except VEError as err:
                 self.logger.error('Failed to update stats for %s: %s' %
                                   (ve, err))
-            else:
-                all_ves.append(ve)
-        return all_ves
+
+            # If a VE is inactive or we failed to update its stats, we exclude
+            # it from the balance procedure. To take its load into account, we
+            # subtract the value of its memory usage seen last time from the
+            # amount of available memory.
+            if ve.mem_stats.rss > 0:
+                mem_avail -= ve.mem_stats.rss
+
+        return active_ves, mem_avail
 
     def _may_register_ve(self, ve):
-        all_ves = self._update_ve_stats()
-        return self.policy.may_register(ve, all_ves, self._mem_total)
+        self._update_ve_stats()
+        return self.policy.may_register(ve, self._registered_ves.values(),
+                                        self._mem_total)
 
     def _may_update_ve(self, ve, new_config):
-        all_ves = self._update_ve_stats()
-        return self.policy.may_update(ve, new_config, all_ves, self._mem_total)
+        self._update_ve_stats()
+        return self.policy.may_update(ve, new_config,
+                                      self._registered_ves.values(),
+                                      self._mem_total)
 
     def _balance_ves(self):
-        all_ves = self._update_ve_stats()
+        active_ves, mem_avail = self._update_ve_stats()
 
         now = time.time()
         timeout = (now - self._last_rebalance
                    if self._last_rebalance is not None else None)
 
-        ve_quotas = self.policy.balance(all_ves, self._mem_total, timeout)
+        ve_quotas = self.policy.balance(active_ves, mem_avail, timeout)
         timeout = self.policy.timeout()
 
         self._last_rebalance = now
@@ -169,9 +181,9 @@ class LoadManager(object):
                                 if timeout is not None else None)
 
         for ve, quota in ve_quotas.iteritems():
+            assert ve.active
             try:
-                if ve.active:
-                    ve.set_quota(quota)
+                ve.set_quota(quota)
             except VEError as err:
                 self.logger.error('Failed to set quota for %s: %s' % (ve, err))
 
@@ -243,7 +255,9 @@ class LoadManager(object):
 
         self.logger.info('Updated %s %s' % (ve, ve_config))
 
-        self._balance_ves()
+        # No need to rebalance if config is updated for an inactive VE.
+        if ve.active:
+            self._balance_ves()
 
     @_request()
     def deactivate_ve(self, ve_name):
@@ -254,9 +268,17 @@ class LoadManager(object):
         if not ve.active:
             raise Error(_errno.VE_NOT_ACTIVE)
 
+        # Update stats for the VE being deactivated for the last time.
+        try:
+            ve.update_stats()
+        except VEError as err:
+            self.logger.error('Failed to update stats for %s: %s' % (ve, err))
+
         ve.deactivate()
 
         self.logger.info('Deactivated %s' % ve)
+
+        self._balance_ves()
 
     @_request()
     def unregister_ve(self, ve_name):
