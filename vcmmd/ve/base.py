@@ -116,7 +116,6 @@ class VE(object):
         self.__name = name
         self.__config = None
         self.__active = False
-        self.__need_apply_config = False
         self.__quota = 0
         self.__mem_stats = MemStats()
         self.__io_stats = IOStats()
@@ -139,7 +138,6 @@ class VE(object):
     def __apply_config(self, config):
         self._set_mem_max(config.limit)
         self._set_swap_max(config.swap)
-        self.__need_apply_config = False
 
     def set_config(self, config):
         '''Update VE config.
@@ -148,11 +146,8 @@ class VE(object):
         throw Error in case of failure. Otherwise, config will be applied only
         when VE gets activated.
         '''
-        assert isinstance(config, Config)
         if self.active:
             self.__apply_config(config)
-        else:
-            self.__need_apply_config = True
         self.__config = config
 
     @property
@@ -168,16 +163,13 @@ class VE(object):
     def activate(self):
         '''Activate VE.
 
-        This function marks a VE as active. If there is a pending config update
-        (i.e. one scheduled with set_config when the VE was inactive), it will
-        be applied. The latter may fail hence this function may throw Error.
+        This function marks a VE as active. It also tries to apply the VE
+        config. The latter may fail hence this function may throw Error.
 
         This function is supposed to be called after a VE has been started or
         resumed.
         '''
-        assert self.config is not None
-        if self.__need_apply_config:
-            self.__apply_config(self.config)
+        self.__apply_config(self.config)
         self.__active = True
 
     def deactivate(self):
