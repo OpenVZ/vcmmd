@@ -4,6 +4,7 @@ import Queue
 import logging
 import threading
 import time
+import psutil
 
 from vcmmd.ve import VE, Config as VEConfig, Error as VEError
 from vcmmd.ve.make import (make as make_ve,
@@ -25,6 +26,10 @@ class Error(Exception):
 
 class LoadManager(object):
 
+    _HOST_MEM_PCT = 5           # 5 %
+    _HOST_MEM_MIN = 128 << 20   # 128 MB
+    _HOST_MEM_MAX = 1 << 30     # 1 GB
+
     _IDLE_MEM_PERIOD = 60       # seconds
     _IDLE_MEM_SAMPLING = 0.1
 
@@ -32,6 +37,7 @@ class LoadManager(object):
         self.policy = policy
         self.logger = logger or logging.getLogger(__name__)
 
+        self._init_mem_total()
         self._registered_ves = {}  # str -> VE
         self._registered_ves_lock = threading.Lock()
 
@@ -47,6 +53,17 @@ class LoadManager(object):
                                     self._IDLE_MEM_SAMPLING)
 
         self._worker.start()
+
+    def _init_mem_total(self):
+        mem = psutil.virtual_memory()
+
+        # We should leave some memory for the host. Give it some percentage of
+        # total memory, but never give too little or too much.
+        host_rsrv = mem.total * self._HOST_MEM_PCT / 100
+        host_rsrv = max(host_rsrv, self._HOST_MEM_MIN)
+        host_rsrv = min(host_rsrv, self._HOST_MEM_MAX)
+
+        self._mem_total = mem.total - host_rsrv
 
     def _queue_request(self, req):
         self._req_queue.put(req)
@@ -131,11 +148,11 @@ class LoadManager(object):
 
     def _may_register_ve(self, ve):
         all_ves = self._update_ve_stats()
-        return self.policy.may_register(ve, all_ves)
+        return self.policy.may_register(ve, all_ves, self._mem_total)
 
     def _may_update_ve(self, ve, new_config):
         all_ves = self._update_ve_stats()
-        return self.policy.may_update(ve, new_config, all_ves)
+        return self.policy.may_update(ve, new_config, all_ves, self._mem_total)
 
     def _balance_ves(self):
         all_ves = self._update_ve_stats()
@@ -144,7 +161,7 @@ class LoadManager(object):
         timeout = (now - self._last_rebalance
                    if self._last_rebalance is not None else None)
 
-        ve_quotas = self.policy.balance(all_ves, timeout=timeout)
+        ve_quotas = self.policy.balance(all_ves, self._mem_total, timeout)
         timeout = self.policy.timeout()
 
         self._last_rebalance = now

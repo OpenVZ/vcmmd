@@ -1,30 +1,41 @@
-from __future__ import absolute_import
-
-import psutil
-
-
 class Policy(object):
     '''Load manager policy interface.
     '''
 
-    def may_register(self, ve_to_register, all_ves):
+    def may_register(self, ve_to_register, all_ves, mem_total):
         '''Check if a VE may be started.
+
+        'all_ves' is the list of all registered VEs.
+        'mem_total' is the total amount of memory available for VEs.
 
         A sub-class may override this function to forbid starting a VE if it
         finds that this will result in overloading the host.
-        '''
-        return True
 
-    def may_update(self, ve_to_update, new_config, all_ves):
+        By default this function checks that the sum of VEs' guarantees fits in
+        available memory.
+        '''
+        sum_guarantee = sum(ve.config.guarantee for ve in all_ves)
+        sum_guarantee += ve_to_register.config.guarantee
+        return sum_guarantee <= mem_total
+
+    def may_update(self, ve_to_update, new_config, all_ves, mem_total):
         '''Check if a VE configuration may be updated.
+
+        'all_ves' is the list of all registered VEs.
+        'mem_total' is the total amount of memory available for VEs.
 
         A sub-class may override this function to forbid updating a VE's
         configuration if it finds that this will result in overloading the
         host.
-        '''
-        return True
 
-    def balance(self, all_ves, timeout=None):
+        By default this function checks that the sum of VEs' guarantees fits in
+        available memory.
+        '''
+        sum_guarantee = sum(ve.config.guarantee for ve in all_ves)
+        sum_guarantee += new_config.guarantee - ve_to_update.config.guarantee
+        return sum_guarantee <= mem_total
+
+    def balance(self, all_ves, mem_total, timeout):
         '''Calculate VE memory quotas.
 
         This function is called whenever the load manager detects load
@@ -33,6 +44,7 @@ class Policy(object):
         consumption target calculated by the policy.
 
         'all_ves' is the list of all registered VEs to balance memory among.
+        'mem_total' is the total amount of memory available for VEs.
         'timeout' is the time, in seconds, that has passed since the last call
         of this function or None if this function is called for the first time.
 
@@ -56,36 +68,3 @@ class Policy(object):
         This function may be overridden in sub-class.
         '''
         return None
-
-
-class PolicyWithGuarantees(Policy):
-    '''This is an abstract sub-class of Policy that implements register and
-    update checks.
-    '''
-
-    _HOST_MEM_PCT = 5           # 5 %
-    _HOST_MEM_MIN = 128 << 20   # 128 MB
-    _HOST_MEM_MAX = 1 << 30     # 1 GB
-
-    def _mem_available(self):
-        '''Return size of memory, in bytes, available for VEs.
-        '''
-        mem = psutil.virtual_memory()
-
-        # We should leave some memory for the host. Give it some percentage of
-        # total memory, but never give too little or too much.
-        host_rsrv = mem.total * self._HOST_MEM_PCT / 100
-        host_rsrv = max(host_rsrv, self._HOST_MEM_MIN)
-        host_rsrv = min(host_rsrv, self._HOST_MEM_MAX)
-
-        return mem.total - host_rsrv
-
-    def may_register(self, ve_to_register, all_ves):
-        sum_guarantee = sum(ve.config.guarantee for ve in all_ves)
-        sum_guarantee += ve_to_register.config.guarantee
-        return sum_guarantee <= self._mem_available()
-
-    def may_update(self, ve_to_update, new_config, all_ves):
-        sum_guarantee = sum(ve.config.guarantee for ve in all_ves)
-        sum_guarantee += new_config.guarantee - ve_to_update.config.guarantee
-        return sum_guarantee <= self._mem_available()
