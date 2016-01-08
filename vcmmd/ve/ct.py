@@ -27,6 +27,11 @@ class CT(VE):
 
         super(CT, self).activate()
 
+    def idle_ratio(self, age=0):
+        # Strictly speaking, this is incorrect, because we do not count pages
+        # used for storing kernel data here, but it'll do for an estimate.
+        return self._memcg.get_idle_mem_portion(age)
+
     def _fetch_mem_stats(self):
         try:
             current = self._memcg.read_mem_current()

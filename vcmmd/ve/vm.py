@@ -46,6 +46,11 @@ class VM(VE):
 
         super(VM, self).activate()
 
+    def idle_ratio(self, age=0):
+        # Besides the VM memory itself, there might be file caches in the VM's
+        # cgroup. We are not interested in keeping them.
+        return self._memcg.get_idle_mem_portion_anon(age)
+
     def _fetch_mem_stats(self):
         try:
             stat = self._libvirt_domain.memoryStats()

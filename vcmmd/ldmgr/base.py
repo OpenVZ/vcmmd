@@ -5,7 +5,7 @@ import logging
 import threading
 import time
 
-from vcmmd.ve import Config as VEConfig, Error as VEError
+from vcmmd.ve import VE, Config as VEConfig, Error as VEError
 from vcmmd.ve.make import (make as make_ve,
                            InvalidVENameError,
                            InvalidVETypeError)
@@ -25,6 +25,9 @@ class Error(Exception):
 
 class LoadManager(object):
 
+    _IDLE_MEM_PERIOD = 60       # seconds
+    _IDLE_MEM_SAMPLING = 0.1
+
     def __init__(self, policy=DefaultPolicy(), logger=None):
         self.policy = policy
         self.logger = logger or logging.getLogger(__name__)
@@ -39,6 +42,9 @@ class LoadManager(object):
 
         self._worker = threading.Thread(target=self._worker_thread_fn)
         self._should_stop = False
+
+        VE.enable_idle_mem_tracking(self._IDLE_MEM_PERIOD,
+                                    self._IDLE_MEM_SAMPLING)
 
         self._worker.start()
 

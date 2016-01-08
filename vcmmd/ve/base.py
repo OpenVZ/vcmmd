@@ -216,6 +216,31 @@ class VE(object):
         self.__mem_stats = self._fetch_mem_stats()
         self.__io_stats = self._fetch_io_stats()
 
+    @staticmethod
+    def enable_idle_mem_tracking(period=60, sampling=1.0):
+        '''Enable idle memory tracking.
+
+        'period' is the period, in seconds, at which idle memory scanner scans
+        all eligible memory pages. 'sampling' sets the portion of memory to
+        scan.
+        '''
+        # Both containers and VMs currently use the infrastructure provided by
+        # memory cgroup for tracking idle memory.
+        from vcmmd.cgroup import MemoryCgroup
+        MemoryCgroup.set_idle_mem_sampling(sampling)
+        MemoryCgroup.set_idle_mem_period(period)
+
+    def idle_ratio(self, age=0):
+        '''Return an estimate of the portion of memory that have been found
+        idle for more than 'age' idle scan periods.
+
+        Only relevant if 'enable_idle_mem_tracking' was called. The value is
+        updated each 'period' seconds.
+
+        This function is supposed to be overridden in sub-class.
+        '''
+        return 0.0
+
     @property
     def quota(self):
         '''Return current memory allocation quota that was previously set using
