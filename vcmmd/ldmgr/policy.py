@@ -35,36 +35,21 @@ class Policy(object):
         sum_guarantee += new_config.guarantee - ve_to_update.config.guarantee
         return sum_guarantee <= mem_total
 
-    def balance(self, active_ves, mem_avail, timeout):
+    def balance(self, active_ves, mem_avail, update_stats):
         '''Calculate VE memory quotas.
 
-        This function is called whenever the load manager detects load
-        configuration change. It is passed a list of all registered VEs and
-        should return a dictionary VE -> quota, where quota is a VE memory
-        consumption target calculated by the policy.
+        This function is called by the load manager on VE configuration changes
+        and periodically when VE statistics get updated. In the latter case
+        'update_stats' is set to True. It is passed a list of all active VEs
+        and the amount of memory available for them. It should return a mapping
+        VE -> quota, where quota is the memory consumption target that should
+        be set for a VE.
 
         'active_ves' is the list of active VEs to balance memory among.
         'mem_avail' is the amount of memory available for active VEs.
-        'timeout' is the time, in seconds, that has passed since the last call
-        of this function or None if this function is called for the first time.
+        'update_stats' is set to True if VE statistics has been updated since
+        the last time this function was called.
 
         This function must be overridden in sub-class.
         '''
         pass
-
-    def timeout(self):
-        '''Return maximal timeout, in seconds, before 'balance' should be
-        called again or None if the policy does not need it to be invoked
-        unless the load configuration changes.
-
-        This function is called after 'balance'. It is OK to return different
-        timeouts from this function.
-
-        Note, the load manager may call 'balance' prematurely, before the
-        timeout has passed, in case the load configuration changes (e.g. if a
-        new VE is registered). The 'timeout' argument of the 'balance' method
-        is there to help detect this.
-
-        This function may be overridden in sub-class.
-        '''
-        return None

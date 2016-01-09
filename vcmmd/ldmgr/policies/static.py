@@ -10,7 +10,7 @@ class StaticPolicy(Policy):
     proportional to memory limit, but never less than guarantee.
     '''
 
-    def balance(self, active_ves, mem_avail, timeout):
+    def balance(self, active_ves, mem_avail, update_stats):
         # If the host is not overcommitted, just give each VE as much as
         # configured limit allows.
         sum_lim = sum(ve.config.limit for ve in active_ves)

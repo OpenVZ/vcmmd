@@ -1,5 +1,6 @@
 from __future__ import absolute_import
 
+import time
 from collections import namedtuple
 
 from vcmmd.util.limits import UINT64_MAX
@@ -107,6 +108,28 @@ class IOStats(namedtuple('IOStats', _IO_STATS_FIELDS)):
 IOStats.__new__.__defaults__ = (-1, ) * len(_IO_STATS_FIELDS)
 
 
+def _stats_delta(cur, prev, fields, timeout):
+    '''Convert cumulative statistic counters to delta per sec.
+
+    'cur' and 'prev' is the current and the previous values of the statistics,
+    respectively. 'fields' is names of fields containing cumulative counters to
+    be converted; all other fields are copied from 'cur'. 'timeout' is the
+    time that has passed since the last update.
+
+    If 'prev' is None, all cumulative counters are set to -1.
+    '''
+    klass = type(cur)
+    cur = cur._asdict()
+    prev = prev._asdict() if prev is not None else {}
+    for f in fields:
+        cur_val = cur[f]
+        prev_val = prev.get(f, -1)
+        cur[f] = (int((cur_val - prev_val) / timeout)
+                  if cur_val >= 0 and prev_val >= 0 and timeout > 0
+                  else -1)
+    return klass(**cur)
+
+
 class VE(object):
 
     VE_TYPE = -1
@@ -117,6 +140,11 @@ class VE(object):
         self.__config = None
         self.__active = False
         self.__quota = 0
+
+        self.__last_stats_update = 0
+        self.__prev_mem_stats_raw = None
+        self.__prev_io_stats_raw = None
+
         self.__mem_stats = MemStats()
         self.__io_stats = IOStats()
 
@@ -188,6 +216,9 @@ class VE(object):
 
         The value is cached. To get up-to-date stats, one need to call
         'update_stats' first.
+
+        Note, cumulative counters are reported as delta since the last update
+        per second.
         '''
         return self.__mem_stats
 
@@ -197,6 +228,9 @@ class VE(object):
 
         The value is cached. To get up-to-date stats, one need to call
         'update_stats' first.
+
+        Note, cumulative counters are reported as delta since the last update
+        per second.
         '''
         return self.__io_stats
 
@@ -205,8 +239,27 @@ class VE(object):
 
         May raise Error.
         '''
-        self.__mem_stats = self._fetch_mem_stats()
-        self.__io_stats = self._fetch_io_stats()
+        mem_stats = self._fetch_mem_stats()
+        io_stats = self._fetch_io_stats()
+
+        now = time.time()
+        timeout = now - self.__last_stats_update
+        self.__last_stats_update = now
+
+        # Convert cumulative counters to delta per sec
+
+        self.__mem_stats = _stats_delta(mem_stats, self.__prev_mem_stats_raw,
+                                        ['swapin', 'swapout',
+                                         'minflt', 'majflt'],
+                                        timeout)
+
+        self.__io_stats = _stats_delta(io_stats, self.__prev_io_stats_raw,
+                                       ['rd_req', 'rd_bytes',
+                                        'wr_req', 'wr_bytes'],
+                                       timeout)
+
+        self.__prev_mem_stats_raw = mem_stats
+        self.__prev_io_stats_raw = io_stats
 
     @staticmethod
     def enable_idle_mem_tracking(period=60, sampling=1.0):
@@ -257,7 +310,7 @@ class VE(object):
 
         This function is supposed to be overridden in sub-class.
         '''
-        return self.__mem_stats
+        pass
 
     def _fetch_io_stats(self):
         '''Fetch IO statistics for this VE.
@@ -268,7 +321,7 @@ class VE(object):
 
         This function is supposed to be overridden in sub-class.
         '''
-        return self.__io_stats
+        pass
 
     def _set_mem_target(self, value):
         '''Set memory allocation target.
