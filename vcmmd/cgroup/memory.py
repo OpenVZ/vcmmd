@@ -191,7 +191,7 @@ class MemoryCgroup(Cgroup):
         # idle memory history is limited by MAX_IDLE_AGE
         age = min(age, self.MAX_IDLE_AGE - 1)
 
-        idle = sum(raw[i][age] for i in mem_types)
+        idle = sum(raw[i][age + 1] for i in mem_types)
         total = sum(raw[i][0] for i in mem_types)
 
         # avoid div/0
