@@ -139,7 +139,7 @@ class VE(object):
         self.__name = name
         self.__config = None
         self.__active = False
-        self.__quota = 0
+        self.__quota = None
 
         self.__last_stats_update = 0
         self.__prev_mem_stats_raw = None
@@ -177,6 +177,10 @@ class VE(object):
         if self.active:
             self.__apply_config(config)
         self.__config = config
+
+        # Assume that a new VE is given as much memory as it can consume.
+        if self.__quota is None:
+            self.__quota = self.config.limit
 
     @property
     def active(self):
