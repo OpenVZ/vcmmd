@@ -93,6 +93,15 @@ class VM(VE):
         except libvirt.libvirtError as err:
             raise LibvirtError(err)
 
+    def _hotplug_memory(self, value):
+        xml = ("<memory model='dimm'>"
+               "  <target>"
+               "    <size unit='KiB'>{memsize}</size>"
+               "    <node>0</node>"
+               "  </target>"
+               "</memory>").format(memsize=value)
+        self._libvirt_domain.attachDevice(xml)
+
     def _set_mem_max(self, value):
         value >>= 10  # libvirt wants kB
         try:
@@ -102,7 +111,8 @@ class VM(VE):
             # We ignore limit decrease here, because memory hotunplug is not
             # expected to work. Memory allocation is supposed to be decreased
             # by the policy in this case.
-            if value > self._libvirt_domain.maxMemory():
-                self._libvirt_domain.setMaxMemory(value)
+            max_mem = self._libvirt_domain.maxMemory()
+            if value > max_mem:
+                self._hotplug_memory(value - max_mem)
         except libvirt.libvirtError as err:
             raise LibvirtError(err)
