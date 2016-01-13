@@ -35,6 +35,9 @@ class LoadManager(object):
     _USER_SLICE_RSRV = 0.2
     _SYSTEM_SLICE_RSRV = 0.4
 
+    _TSWAP_ENABLED = True
+    _TCACHE_ENABLED = True
+
     _UPDATE_INTERVAL = 5        # seconds
 
     _IDLE_MEM_PERIOD = 60       # seconds
@@ -54,10 +57,10 @@ class LoadManager(object):
         self._worker = threading.Thread(target=self._worker_thread_fn)
         self._should_stop = False
 
+        self._init_tmem()
         self._init_system_slices()
         VE.enable_idle_mem_tracking(self._IDLE_MEM_PERIOD,
                                     self._IDLE_MEM_SAMPLING)
-
         self._worker.start()
 
     def _init_mem_avail(self):
@@ -71,6 +74,22 @@ class LoadManager(object):
 
         self._host_rsrv = host_rsrv
         self._mem_avail = mem.total - host_rsrv
+
+    def _toggle_tmem(self, subsys, enable):
+        try:
+            with open('/sys/module/%s/parameters/active' % subsys, 'w') as f:
+                f.write('Y' if enable else 'N')
+        except IOError as err:
+            # Don't care about failures if we don't want the feature enabled.
+            if enable:
+                self.logger.error('Failed to enable %s: %s' % (subsys, err))
+        else:
+            if enable:
+                self.logger.info('Enabled %s' % subsys)
+
+    def _init_tmem(self):
+        self._toggle_tmem('tswap', self._TSWAP_ENABLED)
+        self._toggle_tmem('tcache', self._TCACHE_ENABLED)
 
     def _set_slice_rsrv(self, name, value, verbose=True):
         memcg = MemoryCgroup(name + '.slice')
