@@ -40,11 +40,11 @@ class _LoadManagerObject(dbus.service.Object):
         bus_name = dbus.service.BusName(self.BUS_NAME, bus)
         super(_LoadManagerObject, self).__init__(bus_name, self.PATH)
 
-    @dbus.service.method(IFACE, in_signature='sia(qt)b', out_signature='i')
-    def RegisterVE(self, ve_name, ve_type, ve_config, force):
+    @dbus.service.method(IFACE, in_signature='sia(qt)', out_signature='i')
+    def RegisterVE(self, ve_name, ve_type, ve_config):
         ve_config = _config_dict_from_kv_array(ve_config)
         try:
-            self.ldmgr.register_ve(ve_name, ve_type, ve_config, force)
+            self.ldmgr.register_ve(ve_name, ve_type, ve_config)
         except LoadManagerError as err:
             return err.errno
         else:
@@ -59,11 +59,11 @@ class _LoadManagerObject(dbus.service.Object):
         else:
             return 0
 
-    @dbus.service.method(IFACE, in_signature='sa(qt)b', out_signature='i')
-    def UpdateVE(self, ve_name, ve_config, force):
+    @dbus.service.method(IFACE, in_signature='sa(qt)', out_signature='i')
+    def UpdateVE(self, ve_name, ve_config):
         ve_config = _config_dict_from_kv_array(ve_config)
         try:
-            self.ldmgr.update_ve(ve_name, ve_config, force)
+            self.ldmgr.update_ve(ve_name, ve_config)
         except LoadManagerError as err:
             return err.errno
         else:

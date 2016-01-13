@@ -226,7 +226,7 @@ class LoadManager(object):
         self._set_slice_rsrv('machine', -1, verbose=False)
 
     @_request()
-    def register_ve(self, ve_name, ve_type, ve_config, force=False):
+    def register_ve(self, ve_name, ve_type, ve_config):
         if ve_name in self._registered_ves:
             raise Error(_errno.VE_NAME_ALREADY_IN_USE)
 
@@ -244,7 +244,7 @@ class LoadManager(object):
 
         ve.set_config(ve_config)
 
-        if not force and not self._may_register_ve(ve):
+        if not self._may_register_ve(ve):
             raise Error(_errno.NO_SPACE)
 
         with self._registered_ves_lock:
@@ -289,7 +289,7 @@ class LoadManager(object):
         self._balance_ves()
 
     @_request()
-    def update_ve(self, ve_name, ve_config, force=False):
+    def update_ve(self, ve_name, ve_config):
         ve = self._registered_ves.get(ve_name)
         if ve is None:
             raise Error(_errno.VE_NOT_REGISTERED)
@@ -301,7 +301,7 @@ class LoadManager(object):
         except ValueError:
             raise Error(_errno.VE_CONFIG_CONFLICT)
 
-        if not force and not self._may_update_ve(ve, ve_config):
+        if not self._may_update_ve(ve, ve_config):
             raise Error(_errno.NO_SPACE)
 
         try:

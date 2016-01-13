@@ -44,9 +44,6 @@ def _add_ve_config_options(parser):
                      help='Max memory allocation available to VE')
     group.add_option('--swap', type='memsize',
                      help='Size of host swap space that may be used by VE')
-    group.add_option('-f', '--force', action='store_true',
-                     help='Apply VE config even if there is not enough memory '
-                     'on the host to meet VE\'s requirements')
     parser.add_option_group(group)
 
 
@@ -87,8 +84,7 @@ def _handle_register(args):
     ve_name = args[1]
 
     proxy = _get_proxy()
-    err = proxy.RegisterVE(ve_name, ve_type, _ve_config_from_options(options),
-                           options.force)
+    err = proxy.RegisterVE(ve_name, ve_type, _ve_config_from_options(options))
     if err:
         _report_service_error(err)
 
@@ -129,8 +125,7 @@ def _handle_update(args):
     ve_name = args[0]
 
     proxy = _get_proxy()
-    err = proxy.UpdateVE(ve_name, _ve_config_from_options(options),
-                         options.force)
+    err = proxy.UpdateVE(ve_name, _ve_config_from_options(options))
     if err:
         _report_service_error(err)
 
