@@ -148,6 +148,8 @@ class VE(object):
         self.__mem_stats = MemStats()
         self.__io_stats = IOStats()
 
+        self.policy_priv = None
+
     def __str__(self):
         return "%s '%s'" % (self.VE_TYPE_NAME, self.name)
 
