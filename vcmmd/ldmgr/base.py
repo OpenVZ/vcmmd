@@ -6,6 +6,7 @@ import threading
 import time
 import psutil
 
+from vcmmd.cgroup import MemoryCgroup
 from vcmmd.ve import VE, Config as VEConfig, Error as VEError
 from vcmmd.ve.make import (make as make_ve,
                            InvalidVENameError,
@@ -30,6 +31,10 @@ class LoadManager(object):
     _HOST_MEM_MIN = 128 << 20   # 128 MB
     _HOST_MEM_MAX = 1 << 30     # 1 GB
 
+    # Portion of host memory to reserve for user and system slices.
+    _USER_SLICE_RSRV = 0.2
+    _SYSTEM_SLICE_RSRV = 0.4
+
     _UPDATE_INTERVAL = 5        # seconds
 
     _IDLE_MEM_PERIOD = 60       # seconds
@@ -45,12 +50,11 @@ class LoadManager(object):
         self._registered_ves_lock = threading.Lock()
 
         self._req_queue = Queue.Queue()
-
         self._last_stats_update = 0
-
         self._worker = threading.Thread(target=self._worker_thread_fn)
         self._should_stop = False
 
+        self._init_system_slices()
         VE.enable_idle_mem_tracking(self._IDLE_MEM_PERIOD,
                                     self._IDLE_MEM_SAMPLING)
 
@@ -65,7 +69,28 @@ class LoadManager(object):
         host_rsrv = max(host_rsrv, self._HOST_MEM_MIN)
         host_rsrv = min(host_rsrv, self._HOST_MEM_MAX)
 
+        self._host_rsrv = host_rsrv
         self._mem_avail = mem.total - host_rsrv
+
+    def _set_slice_rsrv(self, name, value, verbose=True):
+        memcg = MemoryCgroup(name + '.slice')
+        if not memcg.exists():
+            return
+        try:
+            memcg.write_mem_low(value)
+        except IOError as err:
+            self.logger.error('Failed to set reservation for %s slice: %s' %
+                              (name, err))
+        else:
+            if verbose:
+                self.logger.info('Reserved %s bytes for %s slice' %
+                                 (value, name))
+
+    def _init_system_slices(self):
+        self._set_slice_rsrv('user', int(self._host_rsrv *
+                                         self._USER_SLICE_RSRV))
+        self._set_slice_rsrv('system', int(self._host_rsrv *
+                                           self._SYSTEM_SLICE_RSRV))
 
     def _queue_request(self, req):
         self._req_queue.put(req)
@@ -170,6 +195,16 @@ class LoadManager(object):
                 ve.set_quota(quota)
             except VEError as err:
                 self.logger.error('Failed to set quota for %s: %s' % (ve, err))
+
+        # We need to set memory.low for machine.slice to infinity, otherwise
+        # memory.low in sub-cgroups won't have any effect. We can't do it on
+        # start, because machine.slice might not exist at that time (it is
+        # created on demand, when the first VM starts).
+        #
+        # This is safe, because there is nothing running inside machine.slice
+        # but VMs, each of which should have its memory.low configured
+        # properly.
+        self._set_slice_rsrv('machine', -1, verbose=False)
 
     @_request()
     def register_ve(self, ve_name, ve_type, ve_config, force=False):
