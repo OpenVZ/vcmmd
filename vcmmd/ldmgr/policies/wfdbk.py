@@ -99,13 +99,23 @@ class _VEPrivate(object):
         self._update_weight()
 
     @property
+    def weight(self):
+        # This VE can't consume more memory.
+        if self.quota >= self._ve.config.limit:
+            return 0
+
+        # Normalize weight by quota so as not to grant/subtract too much from
+        # tiny VEs at once.
+        return self._weight / self.quota
+
+    @property
     def inv_weight(self):
-        # Nothing to reclaim from this VE
+        # Nothing to reclaim from this VE.
         if self.quota <= self._ve.config.guarantee:
             return 0
 
-        # Take into account current quota so as not to reclaim too much memory
-        # from tiny VEs at once.
+        # Normalize weight by quota so as not to grant/subtract too much from
+        # tiny VEs at once.
         return self.quota / self._weight
 
 
@@ -121,21 +131,44 @@ class WeightedFeedbackBasedPolicy(Policy):
     actively using their allocation.
     '''
 
-    def __distribute_excess(self, active_ves, excess):
-        # Distribute the quota excess among all active VEs proportionally to
-        # their inverse weights, respecting VEs' guarantees at the same time.
-        denominator = sum(ve.policy_priv.inv_weight for ve in active_ves)
+    def __grant_quota(self, active_ves, value):
+        # There is an excess of quota. Grant it too all active VEs
+        # proportionally to their weights, respecting configured limits.
+        denominator = sum(ve.policy_priv.weight for ve in active_ves)
+        if denominator == 0:
+            return
+
         left = 0
         for ve in active_ves:
             vepriv = ve.policy_priv
-            vepriv.quota -= excess * ve.policy_priv.inv_weight / denominator
+            vepriv.quota += value * ve.policy_priv.weight / denominator
+            if vepriv.quota > ve.config.limit:
+                left += vepriv.quota - ve.config.limit
+                vepriv.quota = ve.config.limit
+
+        # Ignore delta < 16 Mb.
+        if left > (16 << 20):
+            self.__grant_quota(active_ves, left)
+
+    def __subtract_quota(self, active_ves, value):
+        # There is a shortage of quota. Subtract it from all active VEs
+        # inversely proportionally to their weights, respecting configured
+        # guarantees.
+        denominator = sum(ve.policy_priv.inv_weight for ve in active_ves)
+        if denominator == 0:
+            return
+
+        left = 0
+        for ve in active_ves:
+            vepriv = ve.policy_priv
+            vepriv.quota -= value * ve.policy_priv.inv_weight / denominator
             if vepriv.quota < ve.config.guarantee:
                 left += ve.config.guarantee - vepriv.quota
                 vepriv.quota = ve.config.guarantee
 
-        # Ignore excess < 16 Mb.
+        # Ignore delta < 16 Mb.
         if left > (16 << 20):
-            self.__distribute_excess(active_ves, left)
+            self.__subtract_quota(active_ves, left)
 
     def balance(self, active_ves, mem_avail, stats_updated):
         sum_quota = 0
@@ -150,7 +183,9 @@ class WeightedFeedbackBasedPolicy(Policy):
                                ve.config.limit)
             sum_quota += vepriv.quota
 
-        if sum_quota > mem_avail:
-            self.__distribute_excess(active_ves, sum_quota - mem_avail)
+        if sum_quota < mem_avail:
+            self.__grant_quota(active_ves, mem_avail - sum_quota)
+        elif sum_quota > mem_avail:
+            self.__subtract_quota(active_ves, sum_quota - mem_avail)
 
         return {ve: int(ve.policy_priv.quota) for ve in active_ves}
