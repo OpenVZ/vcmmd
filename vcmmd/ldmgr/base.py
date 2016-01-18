@@ -82,10 +82,10 @@ class LoadManager(object):
         except IOError as err:
             # Don't care about failures if we don't want the feature enabled.
             if enable:
-                self.logger.error('Failed to enable %s: %s' % (subsys, err))
+                self.logger.error('Failed to enable %s: %s', subsys, err)
         else:
             if enable:
-                self.logger.info('Enabled %s' % subsys)
+                self.logger.info('Enabled %s', subsys)
 
     def _init_tmem(self):
         self._toggle_tmem('tswap', self._TSWAP_ENABLED)
@@ -98,12 +98,11 @@ class LoadManager(object):
         try:
             memcg.write_mem_low(value)
         except IOError as err:
-            self.logger.error('Failed to set reservation for %s slice: %s' %
-                              (name, err))
+            self.logger.error('Failed to set reservation for %s slice: %s',
+                              name, err)
         else:
             if verbose:
-                self.logger.info('Reserved %s bytes for %s slice' %
-                                 (value, name))
+                self.logger.info('Reserved %s bytes for %s slice', value, name)
 
     def _init_system_slices(self):
         self._set_slice_rsrv('user', int(self._host_rsrv *
@@ -196,8 +195,8 @@ class LoadManager(object):
                 try:
                     ve.update_stats()
                 except VEError as err:
-                    self.logger.error('Failed to update stats for %s: %s' %
-                                      (ve, err))
+                    self.logger.error('Failed to update stats for %s: %s',
+                                      ve, err)
             self._last_stats_update = now
             stats_updated = True
         else:
@@ -213,7 +212,7 @@ class LoadManager(object):
             try:
                 ve.set_quota(quota)
             except VEError as err:
-                self.logger.error('Failed to set quota for %s: %s' % (ve, err))
+                self.logger.error('Failed to set quota for %s: %s', ve, err)
 
         # We need to set memory.low for machine.slice to infinity, otherwise
         # memory.low in sub-cgroups won't have any effect. We can't do it on
@@ -253,7 +252,7 @@ class LoadManager(object):
         # Reserve memory for the inactive VE.
         self._mem_avail -= ve.quota
 
-        self.logger.info('Registered %s %s' % (ve, ve_config))
+        self.logger.info('Registered %s %s', ve, ve_config)
 
         self._balance_ves()
 
@@ -269,7 +268,7 @@ class LoadManager(object):
         try:
             ve.activate()
         except VEError as err:
-            self.logger.error('Failed to activate %s: %s' % (ve, err))
+            self.logger.error('Failed to activate %s: %s', ve, err)
             raise Error(_errno.VE_OPERATION_FAILED)
 
         # Update stats for the newly activated VE before calling the balance
@@ -277,14 +276,14 @@ class LoadManager(object):
         try:
             ve.update_stats()
         except VEError as err:
-            self.logger.error('Failed to update stats for %s: %s' % (ve, err))
+            self.logger.error('Failed to update stats for %s: %s', ve, err)
 
         self._active_ves.append(ve)
 
         # Unaccount reserved memory.
         self._mem_avail += ve.quota
 
-        self.logger.info('Activated %s' % ve)
+        self.logger.info('Activated %s', ve)
 
         self._balance_ves()
 
@@ -307,10 +306,10 @@ class LoadManager(object):
         try:
             ve.set_config(ve_config)
         except VEError as err:
-            self.logger.error('Failed to update %s: %s' % (ve, err))
+            self.logger.error('Failed to update %s: %s', ve, err)
             raise Error(_errno.VE_OPERATION_FAILED)
 
-        self.logger.info('Updated %s %s' % (ve, ve_config))
+        self.logger.info('Updated %s %s', ve, ve_config)
 
         self._balance_ves()
 
@@ -330,7 +329,7 @@ class LoadManager(object):
         # Reserve memory for the inactive VE.
         self._mem_avail -= ve.quota
 
-        self.logger.info('Deactivated %s' % ve)
+        self.logger.info('Deactivated %s', ve)
 
         self._balance_ves()
 
@@ -347,7 +346,7 @@ class LoadManager(object):
             # Unaccount reserved memory.
             self._mem_avail += ve.quota
 
-        self.logger.info("Unregistered %s" % ve)
+        self.logger.info('Unregistered %s', ve)
 
         self._balance_ves()
 
