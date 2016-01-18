@@ -1,10 +1,12 @@
 from __future__ import absolute_import
 
+import os
 import sys
 import logging
 import signal
 import optparse
 import time
+import subprocess
 
 import daemon
 import daemon.pidfile
@@ -16,12 +18,46 @@ from vcmmd.util.logging import LoggerWriter
 PID_FILE = '/var/run/vcmmd.pid'
 LOG_FILE = '/var/log/vcmmd.log'
 
+INIT_SCRIPTS_DIR = '/etc/vz/vcmmd/init.d'
+
 _should_stop = False
 
 
 def _sighandler(signum, frame):
     global _should_stop
     _should_stop = True
+
+
+def _run_one_init_script(script):
+    logging.info("Running init script '%s'", script)
+
+    try:
+        with open(os.devnull, 'r') as devnull:
+            p = subprocess.Popen(os.path.join(INIT_SCRIPTS_DIR, script),
+                                 stdout=devnull, stderr=subprocess.PIPE)
+        stdout, stderr = p.communicate()
+    except OSError as err:
+        logging.error("Error running init script '%s': %s", script, err)
+        return
+
+    if p.returncode != 0:
+        logging.error("Script '%s' returned %s, stderr output:\n%s",
+                      script, p.returncode, stderr)
+
+
+def _run_init_scripts():
+    if not os.path.isdir(INIT_SCRIPTS_DIR):
+        return
+
+    try:
+        scripts = os.listdir(INIT_SCRIPTS_DIR)
+    except OSError as err:
+        logging.error('Failed to read init scripts dir: %s', err)
+        return
+
+    for script in sorted(scripts):
+        if not script.startswith('.'):
+            _run_one_init_script(script)
 
 
 def _run():
@@ -34,6 +70,8 @@ def _run():
 
     ldmgr = LoadManager(logger=logger)
     rpcsrv = RPCServer(ldmgr)
+
+    _run_init_scripts()
 
     # threading.Event would fit better here, but it ignores signals.
     while not _should_stop:
