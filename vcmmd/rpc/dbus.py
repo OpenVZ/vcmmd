@@ -1,5 +1,7 @@
 from __future__ import absolute_import
 
+import threading
+
 import dbus
 import dbus.service
 import dbus.mainloop.glib
@@ -92,21 +94,20 @@ class _LoadManagerObject(dbus.service.Object):
         return self.ldmgr.get_all_registered_ves()
 
 
-def init(ldmgr):
-    gobject.threads_init()
-    dbus.mainloop.glib.threads_init()
-    dbus.mainloop.glib.DBusGMainLoop(set_as_default=True)
+class RPCServer(object):
 
-    global _mainloop
-    _mainloop = gobject.MainLoop()
+    def __init__(self, ldmgr):
+        gobject.threads_init()
+        dbus.mainloop.glib.threads_init()
+        dbus.mainloop.glib.DBusGMainLoop(set_as_default=True)
 
-    global _ldmgr_obj
-    _ldmgr_obj = _LoadManagerObject(ldmgr)
+        self._mainloop = gobject.MainLoop()
+        self._mainloop_thread = threading.Thread(target=self._mainloop.run)
 
+        self._ldmgr_obj = _LoadManagerObject(ldmgr)
 
-def run():
-    _mainloop.run()
+        self._mainloop_thread.start()
 
-
-def quit():
-    _mainloop.quit()
+    def shutdown(self):
+        self._mainloop.quit()
+        self._mainloop_thread.join()

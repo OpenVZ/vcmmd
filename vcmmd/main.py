@@ -4,20 +4,24 @@ import sys
 import logging
 import signal
 import optparse
+import time
 
 import daemon
 import daemon.pidfile
 
-from vcmmd.rpc import dbus as rpc_dbus
 from vcmmd.ldmgr import LoadManager
+from vcmmd.rpc.dbus import RPCServer
 from vcmmd.util.logging import LoggerWriter
 
 PID_FILE = '/var/run/vcmmd.pid'
 LOG_FILE = '/var/log/vcmmd.log'
 
+_should_stop = False
+
 
 def _sighandler(signum, frame):
-    rpc_dbus.quit()
+    global _should_stop
+    _should_stop = True
 
 
 def _run():
@@ -29,8 +33,13 @@ def _run():
     logger.info('Started')
 
     ldmgr = LoadManager(logger=logger)
-    rpc_dbus.init(ldmgr)
-    rpc_dbus.run()
+    rpcsrv = RPCServer(ldmgr)
+
+    # threading.Event would fit better here, but it ignores signals.
+    while not _should_stop:
+        time.sleep(1)
+
+    rpcsrv.shutdown()
     ldmgr.shutdown()
 
     logger.info('Stopped')
