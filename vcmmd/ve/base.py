@@ -1,10 +1,12 @@
 from __future__ import absolute_import
 
 import time
+import psutil
 from collections import namedtuple
 
 from vcmmd.util.limits import UINT64_MAX
 
+_MAX_EFFECTIVE_LIMIT = psutil.virtual_memory().total
 
 _CONFIG_FIELDS = (
     'guarantee',
@@ -46,6 +48,10 @@ class Config(namedtuple('Config', _CONFIG_FIELDS)):
 
     def __str__(self):
         return '(guarantee=%s, limit=%s, swap=%s)' % self
+
+    @property
+    def effective_limit(self):
+        return min(self.limit, _MAX_EFFECTIVE_LIMIT)
 
     @staticmethod
     def from_dict(dict_, default=None):

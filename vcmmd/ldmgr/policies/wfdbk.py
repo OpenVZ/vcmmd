@@ -43,7 +43,7 @@ class _VEPrivate(object):
             unused = self.quota - self._ve.mem_stats.rss
 
         unused = min(self.quota, max(unused, 0))
-        self._unused = float(unused) / (self._ve.config.limit + 1)
+        self._unused = float(unused) / (self._ve.config.effective_limit + 1)
 
     def _update_io(self):
         self._io = self._ve.io_stats.rd_req + self._ve.io_stats.wr_req
@@ -65,7 +65,7 @@ class _VEPrivate(object):
         if (self._unused < self._UNUSED_THRESH and
                 (self._io > self._IO_THRESH or
                  self._pgflt > self._PGFLT_THRESH)):
-            self.quota += self._ve.config.limit * self._QUOTA_INC
+            self.quota += self._ve.config.effective_limit * self._QUOTA_INC
 
     def _update_weight(self):
         ve = self._ve
@@ -101,7 +101,7 @@ class _VEPrivate(object):
     @property
     def weight(self):
         # This VE can't consume more memory.
-        if self.quota >= self._ve.config.limit:
+        if self.quota >= self._ve.config.effective_limit:
             return 0
 
         # Normalize weight by quota so as not to grant/subtract too much from
@@ -142,9 +142,9 @@ class WeightedFeedbackBasedPolicy(Policy):
         for ve in active_ves:
             vepriv = ve.policy_priv
             vepriv.quota += value * ve.policy_priv.weight / denominator
-            if vepriv.quota > ve.config.limit:
-                left += vepriv.quota - ve.config.limit
-                vepriv.quota = ve.config.limit
+            if vepriv.quota > ve.config.effective_limit:
+                left += vepriv.quota - ve.config.effective_limit
+                vepriv.quota = ve.config.effective_limit
 
         # Ignore delta < 16 Mb.
         if left > (16 << 20):
@@ -180,7 +180,7 @@ class WeightedFeedbackBasedPolicy(Policy):
             if stats_updated:
                 vepriv.update()
             vepriv.quota = min(max(vepriv.quota, ve.config.guarantee),
-                               ve.config.limit)
+                               ve.config.effective_limit)
             sum_quota += vepriv.quota
 
         if sum_quota < mem_avail:
