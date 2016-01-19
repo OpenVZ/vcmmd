@@ -180,9 +180,12 @@ class VE(object):
             self.__apply_config(config)
         self.__config = config
 
-        # Assume that a new VE is given as much memory as it can consume.
+        # Reserve as much as the configured guarantee for a new VE, but never
+        # less than 256 MB so as not to throttle startup in case guarantees are
+        # not configured.
         if self.__quota is None:
-            self.__quota = self.config.limit
+            self.__quota = max(self.config.guarantee,
+                               min(self.config.limit, 256 << 20))
 
     @property
     def active(self):
