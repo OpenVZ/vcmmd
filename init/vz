@@ -1,0 +1,59 @@
+#! /bin/bash
+#
+
+PAGE_SHIFT=12
+INT64_MAX=9223372036854775807
+
+pr_err()
+{
+	echo "$@" >&2
+}
+
+pages2bytes()
+{
+	if (($1 >= $INT64_MAX >> $PAGE_SHIFT)); then
+		echo $INT64_MAX
+	else
+		echo $(($1 << $PAGE_SHIFT))
+	fi
+}
+
+restore_one_ct()
+{
+	local id=$1
+	local limit=$(pages2bytes $2)
+	local swap=$(pages2bytes $3)
+
+	# FIXME: Racy! The container might get stopped while we are here, in
+	# which case vcmmd will be fed stale data.
+
+	vcmmdctl register CT $id --limit $limit --swap $swap
+	if [ $? -ne 0 ]; then
+		pr_err "Failed to register CT $id"
+		return 1
+	fi
+
+	vcmmdctl activate $id
+	if [ $? -ne 0 ]; then
+		pr_err "Failed to activate CT $id"
+		vcmmdctl unregister $id
+		return 1
+	fi
+
+	return 0
+}
+
+ct_list=$(vzlist -H -o ctid,physpages.l,swappages.l)
+if [ $? -ne 0 ]; then
+	pr_err "Failed to get CT list"
+	exit 1
+fi
+
+ret=0
+while read -r ct; do
+	test -z "$ct" && continue
+	restore_one_ct $ct
+	ret=$((ret|$?))
+done <<< "$ct_list"
+
+exit $ret

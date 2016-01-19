@@ -18,5 +18,6 @@ setup(name='vcmmd',
                              ['vcmmd/cgroup/idlememscan.cpp'],
                              extra_compile_args=['-std=c++11'])],
       data_files=[('/etc/dbus-1/system.d', ['dbus/com.virtuozzo.vcmmd.conf']),
-                  ('/etc/logrotate.d', ['logrotate/vcmmd'])],
+                  ('/etc/logrotate.d', ['logrotate/vcmmd']),
+                  ('/etc/vz/vcmmd/init.d', ['init/vz'])],
       scripts=['bin/vcmmd', 'bin/vcmmdctl'])
