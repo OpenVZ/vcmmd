@@ -1,0 +1,9 @@
+# Distribution/Packaging
+build/
+
+# Compiled python
+*.pyc
+
+# Editor temporaries
+*.swp
+*~
