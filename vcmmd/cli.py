@@ -4,7 +4,7 @@ import sys
 import dbus
 from optparse import OptionParser, OptionGroup
 
-from vcmmd.util.limits import UINT64_MAX
+from vcmmd.util.limits import INT64_MAX
 from vcmmd.util.optparse import OptionWithMemsize
 
 
@@ -168,7 +168,7 @@ def _handle_unregister(args):
 
 
 def _str_memval(val):
-    if val >= UINT64_MAX:
+    if val >= INT64_MAX:
         return 'max'
     return str(val >> 10)
 
