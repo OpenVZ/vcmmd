@@ -43,9 +43,9 @@ class LoadManager(object):
     _IDLE_MEM_PERIOD = 60       # seconds
     _IDLE_MEM_SAMPLING = 0.1
 
-    def __init__(self, policy=DefaultPolicy(), logger=None):
+    def __init__(self, policy=DefaultPolicy()):
         self.policy = policy
-        self.logger = logger or logging.getLogger(__name__)
+        self.logger = logging.getLogger('vcmmd.LoadManager')
 
         self._init_mem_avail()
         self._active_ves = []

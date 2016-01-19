@@ -29,7 +29,9 @@ def _sighandler(signum, frame):
 
 
 def _run_one_init_script(script):
-    logging.info("Running init script '%s'", script)
+    logger = logging.getLogger('vcmmd')
+
+    logger.info("Running init script '%s'", script)
 
     try:
         with open(os.devnull, 'r') as devnull:
@@ -37,22 +39,24 @@ def _run_one_init_script(script):
                                  stdout=devnull, stderr=subprocess.PIPE)
         stdout, stderr = p.communicate()
     except OSError as err:
-        logging.error("Error running init script '%s': %s", script, err)
+        logger.error("Error running init script '%s': %s", script, err)
         return
 
     if p.returncode != 0:
-        logging.error("Script '%s' returned %s, stderr output:\n%s",
-                      script, p.returncode, stderr)
+        logger.error("Script '%s' returned %s, stderr output:\n%s",
+                     script, p.returncode, stderr)
 
 
 def _run_init_scripts():
+    logger = logging.getLogger('vcmmd')
+
     if not os.path.isdir(INIT_SCRIPTS_DIR):
         return
 
     try:
         scripts = os.listdir(INIT_SCRIPTS_DIR)
     except OSError as err:
-        logging.error('Failed to read init scripts dir: %s', err)
+        logger.error('Failed to read init scripts dir: %s', err)
         return
 
     for script in sorted(scripts):
@@ -62,13 +66,13 @@ def _run_init_scripts():
 
 def _run():
     # DaemonContext closes stdout and stderr, redirect them to the logger.
-    logger = logging.getLogger()
+    logger = logging.getLogger('vcmmd')
     sys.stdout = LoggerWriter(logger, logging.INFO)
     sys.stderr = LoggerWriter(logger, logging.CRITICAL)
 
     logger.info('Started')
 
-    ldmgr = LoadManager(logger=logger)
+    ldmgr = LoadManager()
     rpcsrv = RPCServer(ldmgr)
 
     _run_init_scripts()
@@ -94,9 +98,9 @@ def main():
     if args:
         parser.error("incorrect number of arguments")
 
-    logger = logging.getLogger()
+    logger = logging.getLogger('vcmmd')
     logger.setLevel(logging.DEBUG if opts.debug else logging.INFO)
-    fmt = logging.Formatter("%(asctime)s %(levelname)s %(message)s",
+    fmt = logging.Formatter("%(asctime)s %(levelname)s %(name)s: %(message)s",
                             "%Y-%m-%d %H:%M:%S")
     fh = logging.StreamHandler() if opts.interactive else \
         logging.FileHandler(LOG_FILE)
