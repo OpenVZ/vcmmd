@@ -25,11 +25,10 @@ class Error(Exception):
 class Config(namedtuple('Config', _CONFIG_FIELDS)):
     '''Represents a VE's memory configuration.
 
-    guarantee:      VE memory best-effort protection
+    guarantee:      VE memory guarantee
 
                     A VE should be always given at least as much memory as
-                    specified by this parameter unless things get really bad on
-                    the host.
+                    specified by this parameter.
 
     limit:          VE memory limit
 
