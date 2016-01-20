@@ -16,7 +16,10 @@ _CONFIG_FIELDS = (
 
 
 class Error(Exception):
-    pass
+
+    def __str__(self):
+        return ('%s: %s' % (self.__class__.__name__,
+                            super(Error, self).__str__()))
 
 
 class Config(namedtuple('Config', _CONFIG_FIELDS)):
