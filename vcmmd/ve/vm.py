@@ -1,9 +1,10 @@
 from __future__ import absolute_import
 
+from libvirt import libvirtError
+
 from vcmmd.cgroup import MemoryCgroup
 from vcmmd.ve import VE, Error, types as ve_types, MemStats, IOStats
-
-import libvirt
+from vcmmd.util.libvirt import virDomainProxy
 
 
 class LibvirtError(Error):
@@ -21,25 +22,21 @@ class VM(VE):
 
     _MEMSTAT_PERIOD = 5  # seconds
 
-    _libvirt_conn = None
-
     def activate(self):
         try:
-            if not VM._libvirt_conn:
-                VM._libvirt_conn = libvirt.open('qemu:///system')
-
-            self._libvirt_domain = VM._libvirt_conn.\
-                lookupByUUIDString(self.name)
+            self._libvirt_domain = virDomainProxy(self.name)
 
             # libvirt must be explicitly told to collect memory statistics
             self._libvirt_domain.setMemoryStatsPeriod(self._MEMSTAT_PERIOD)
-        except libvirt.libvirtError as err:
+
+            dom_name = self._libvirt_domain.name()
+        except libvirtError as err:
             raise LibvirtError(err)
 
         # QEMU places every virtual machine in its own memory cgroup under
         # machine.slice
         self._memcg = MemoryCgroup('machine.slice/machine-qemu\\x2d%s.scope' %
-                                   self._libvirt_domain.name())
+                                   dom_name)
 
         if not self._memcg.exists():
             raise CgroupError('VM memory cgroup does not exist')
@@ -54,7 +51,7 @@ class VM(VE):
     def _fetch_mem_stats(self):
         try:
             stat = self._libvirt_domain.memoryStats()
-        except libvirt.libvirtError as err:
+        except libvirtError as err:
             raise LibvirtError(err)
 
         # libvirt reports memory values in kB, so we need to convert them to
@@ -71,7 +68,7 @@ class VM(VE):
     def _fetch_io_stats(self):
         try:
             stat = self._libvirt_domain.blockStats('')
-        except libvirt.libvirtError as err:
+        except libvirtError as err:
             raise LibvirtError(err)
 
         return IOStats(rd_req=stat[0],
@@ -90,7 +87,7 @@ class VM(VE):
         try:
             # libvirt wants kB
             self._libvirt_domain.setMemory(value >> 10)
-        except libvirt.libvirtError as err:
+        except libvirtError as err:
             raise LibvirtError(err)
 
     def _hotplug_memory(self, value):
@@ -114,5 +111,5 @@ class VM(VE):
             max_mem = self._libvirt_domain.maxMemory()
             if value > max_mem:
                 self._hotplug_memory(value - max_mem)
-        except libvirt.libvirtError as err:
+        except libvirtError as err:
             raise LibvirtError(err)
