@@ -139,7 +139,6 @@ def _stats_delta(cur, prev, fields, timeout):
 class VE(object):
 
     VE_TYPE = -1
-    VE_TYPE_NAME = 'UNKNOWN'
 
     def __init__(self, name):
         self.__name = name
@@ -157,7 +156,7 @@ class VE(object):
         self.policy_priv = None
 
     def __str__(self):
-        return "%s '%s'" % (self.VE_TYPE_NAME, self.name)
+        return "%s '%s'" % (self.__class__.__name__, self.name)
 
     @property
     def name(self):

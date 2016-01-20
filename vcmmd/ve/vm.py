@@ -18,7 +18,6 @@ class CgroupError(Error):
 class VM(VE):
 
     VE_TYPE = ve_types.VM
-    VE_TYPE_NAME = 'VM'
 
     _MEMSTAT_PERIOD = 5  # seconds
 

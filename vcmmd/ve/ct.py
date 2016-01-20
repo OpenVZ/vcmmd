@@ -11,7 +11,6 @@ class CgroupError(Error):
 class CT(VE):
 
     VE_TYPE = ve_types.CT
-    VE_TYPE_NAME = 'CT'
 
     def activate(self):
         # Currently, containers' cgroups are located at the first level of the
