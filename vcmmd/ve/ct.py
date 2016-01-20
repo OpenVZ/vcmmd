@@ -67,6 +67,8 @@ class CT(VE):
     def _set_mem_max(self, value):
         try:
             self._memcg.write_mem_max(value)
+            self._memcg.write_tcp_mem_limit(value / 8)
+            self._memcg.write_udp_mem_limit(value / 8)
         except IOError as err:
             raise CgroupError(err)
 

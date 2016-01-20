@@ -148,6 +148,12 @@ class MemoryCgroup(Cgroup):
     def read_mem_stat(self):
         return self._read_file_kv('memory.stat')
 
+    def write_tcp_mem_limit(self, val):
+        self._write_file_mem_val('memory.kmem.tcp.limit_in_bytes', val)
+
+    def write_udp_mem_limit(self, val):
+        self._write_file_mem_val('memory.kmem.udp.limit_in_bytes', val)
+
     @staticmethod
     def set_idle_mem_period(period):
         '''Set idle memory scan period, in seconds.
