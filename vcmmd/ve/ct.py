@@ -56,10 +56,11 @@ class CT(VE):
 
     def _set_mem_target(self, value):
         try:
-            # Set memory.low to protect the CT from the host pressure.
+            # Set memory target by adjusting memory.low. If the host is
+            # experiencing memory pressure, containers exceeding the low
+            # threshold are reclaimed from first, but if there is enough
+            # free memory it may be breached freely.
             self._memcg.write_mem_low(value)
-            # Set memory.high to grow/reduce memory consumption.
-            self._memcg.write_mem_high(value)
         except IOError as err:
             raise CgroupError(err)
 
