@@ -65,7 +65,8 @@ class _VEPrivate(object):
         if (self._unused < self._UNUSED_THRESH and
                 (self._io > self._IO_THRESH or
                  self._pgflt > self._PGFLT_THRESH)):
-            self.quota += self._ve.config.effective_limit * self._QUOTA_INC
+            self.quota += int(self._ve.config.effective_limit *
+                              self._QUOTA_INC)
 
     def _update_weight(self):
         ve = self._ve
@@ -141,7 +142,7 @@ class WeightedFeedbackBasedPolicy(Policy):
         left = 0
         for ve in active_ves:
             vepriv = ve.policy_priv
-            vepriv.quota += value * ve.policy_priv.weight / denominator
+            vepriv.quota += int(value * ve.policy_priv.weight / denominator)
             if vepriv.quota > ve.config.effective_limit:
                 left += vepriv.quota - ve.config.effective_limit
                 vepriv.quota = ve.config.effective_limit
@@ -161,7 +162,8 @@ class WeightedFeedbackBasedPolicy(Policy):
         left = 0
         for ve in active_ves:
             vepriv = ve.policy_priv
-            vepriv.quota -= value * ve.policy_priv.inv_weight / denominator
+            vepriv.quota -= int(value * ve.policy_priv.inv_weight /
+                                denominator)
             if vepriv.quota < ve.config.guarantee:
                 left += ve.config.guarantee - vepriv.quota
                 vepriv.quota = ve.config.guarantee
@@ -188,4 +190,4 @@ class WeightedFeedbackBasedPolicy(Policy):
         elif sum_quota > mem_avail:
             self.__subtract_quota(active_ves, sum_quota - mem_avail)
 
-        return {ve: int(ve.policy_priv.quota) for ve in active_ves}
+        return {ve: ve.policy_priv.quota for ve in active_ves}
