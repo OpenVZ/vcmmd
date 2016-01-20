@@ -107,7 +107,7 @@ class _VEPrivate(object):
 
         # Normalize weight by quota so as not to grant/subtract too much from
         # tiny VEs at once.
-        return self._weight / self.quota
+        return self._weight / (self.quota + 1)
 
     @property
     def inv_weight(self):
