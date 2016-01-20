@@ -75,8 +75,8 @@ DEFAULT_CONFIG = Config(guarantee=0,
 
 
 _MEM_STATS_FIELDS = (
-    'actual',           # actual allocation size
     'rss',              # resident set size
+    'actual',           # current balloon value
     'available',        # total amount of memory as seen by guest OS
     'unused',           # amount of memory left completely unused by guest OS
     'swapin',           # total amount of memory read in from swap space

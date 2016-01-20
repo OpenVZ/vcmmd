@@ -38,8 +38,7 @@ class CT(VE):
         except IOError as err:
             raise CgroupError(err)
 
-        return MemStats(actual=current,
-                        rss=current,
+        return MemStats(rss=current,
                         minflt=stat.get('pgfault', -1),
                         majflt=stat.get('pgmajfault', -1))
 
