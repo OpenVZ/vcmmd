@@ -11,6 +11,7 @@ import subprocess
 import daemon
 import daemon.pidfile
 
+from vcmmd.config import VCMMDConfig
 from vcmmd.ldmgr import LoadManager
 from vcmmd.rpc.dbus import RPCServer
 from vcmmd.util.logging import LoggerWriter
@@ -20,8 +21,8 @@ class _App(object):
 
     PID_FILE = '/var/run/vcmmd.pid'
     LOG_FILE = '/var/log/vcmmd.log'
-
     INIT_SCRIPTS_DIR = '/etc/vz/vcmmd/init.d'
+    DEFAULT_CONFIG = '/etc/vz/vcmmd/config.json'
 
     def __init__(self):
         self.parse_args()
@@ -38,6 +39,9 @@ class _App(object):
                           help="run interactive (not a daemon)")
         parser.add_option("-d", action="store_true", dest="debug",
                           help="increase verbosity to debug level")
+        parser.add_option("-c", type="string", dest="config",
+                          default=self.DEFAULT_CONFIG,
+                          help="path to config file")
 
         (opts, args) = parser.parse_args()
         if args:
@@ -100,6 +104,8 @@ class _App(object):
         sys.stderr = LoggerWriter(self.logger, logging.CRITICAL)
 
         self.logger.info('Started')
+
+        VCMMDConfig().load(self.opts.config)
 
         ldmgr = LoadManager()
         rpcsrv = RPCServer(ldmgr)
