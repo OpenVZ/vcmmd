@@ -14,7 +14,6 @@ from vcmmd.ve.make import (make as make_ve,
                            InvalidVENameError,
                            InvalidVETypeError)
 from vcmmd.ldmgr import errno as _errno
-from vcmmd.ldmgr.policies import DefaultPolicy
 
 
 class Error(Exception):
