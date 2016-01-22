@@ -1,2 +1,5 @@
 {
+	"LoadManager": {
+		"Policy": "WeightedFeedbackBasedPolicy"
+	}
 }

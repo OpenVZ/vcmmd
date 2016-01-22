@@ -4,8 +4,10 @@ import Queue
 import logging
 import threading
 import time
+import importlib
 import psutil
 
+from vcmmd.config import VCMMDConfig
 from vcmmd.cgroup import MemoryCgroup
 from vcmmd.ve import VE, Config as VEConfig, Error as VEError
 from vcmmd.ve.make import (make as make_ve,
@@ -27,6 +29,8 @@ class Error(Exception):
 
 class LoadManager(object):
 
+    DEFAULT_POLICY = 'WeightedFeedbackBasedPolicy'
+
     _HOST_MEM_PCT = 5           # 5 %
     _HOST_MEM_MIN = 128 << 20   # 128 MB
     _HOST_MEM_MAX = 1 << 30     # 1 GB
@@ -43,8 +47,7 @@ class LoadManager(object):
     _IDLE_MEM_PERIOD = 60       # seconds
     _IDLE_MEM_SAMPLING = 0.1
 
-    def __init__(self, policy=DefaultPolicy()):
-        self.policy = policy
+    def __init__(self):
         self.logger = logging.getLogger('vcmmd.LoadManager')
 
         self._init_mem_avail()
@@ -57,11 +60,30 @@ class LoadManager(object):
         self._worker = threading.Thread(target=self._worker_thread_fn)
         self._should_stop = False
 
+        self._load_policy()
         self._init_tmem()
         self._init_system_slices()
         VE.enable_idle_mem_tracking(self._IDLE_MEM_PERIOD,
                                     self._IDLE_MEM_SAMPLING)
         self._worker.start()
+
+    def _do_load_policy(self, policy_name):
+        policy_module = importlib.import_module('vcmmd.ldmgr.policies.' +
+                                                policy_name)
+        self._policy = getattr(policy_module, policy_name)()
+
+    def _load_policy(self):
+        policy_name = VCMMDConfig().get_str('LoadManager.Policy',
+                                            self.DEFAULT_POLICY)
+        try:
+            self._do_load_policy(policy_name)
+        except ImportError:
+            assert policy_name != self.DEFAULT_POLICY
+            self.logger.error("Policy '%s' not found", policy_name)
+            # Fallback on default policy
+            policy_name = self.DEFAULT_POLICY
+            self._do_load_policy(policy_name)
+        self.logger.info("Loaded policy '%s'", policy_name)
 
     def _init_mem_avail(self):
         mem = psutil.virtual_memory()
@@ -203,8 +225,8 @@ class LoadManager(object):
             stats_updated = False
 
         # Call the policy to calculate VEs' quotas.
-        ve_quotas = self.policy.balance(self._active_ves, self._mem_avail,
-                                        stats_updated)
+        ve_quotas = self._policy.balance(self._active_ves, self._mem_avail,
+                                         stats_updated)
 
         # Apply the quotas.
         for ve, quota in ve_quotas.iteritems():
