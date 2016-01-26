@@ -374,6 +374,13 @@ class LoadManager(object):
 
         self._balance_ves()
 
+    def get_ve_config(self, ve_name):
+        with self._registered_ves_lock:
+            try:
+                return self._registered_ves[ve_name].config
+            except KeyError:
+                raise Error(_errno.VE_NOT_REGISTERED)
+
     def get_all_registered_ves(self):
         result = []
         with self._registered_ves_lock:
