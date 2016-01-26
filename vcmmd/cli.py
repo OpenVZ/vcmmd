@@ -3,8 +3,7 @@ from __future__ import absolute_import
 import sys
 from optparse import OptionParser, OptionGroup
 
-from vcmmd.ldmgr import Error as LoadManagerError
-from vcmmd.rpc.dbus.client import RPCProxy
+from vcmmd.rpc.dbus.client import RPCProxy, RPCError
 from vcmmd.util.limits import INT64_MAX
 from vcmmd.util.optparse import OptionWithMemsize
 
@@ -191,7 +190,7 @@ def main():
 
     try:
         handler(args[1:])
-    except LoadManagerError as err:
+    except RPCError as err:
         sys.stderr.write('VCMMD returned error: %s\n' % err)
         sys.exit(1)
 
