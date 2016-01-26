@@ -10,7 +10,7 @@ from vcmmd.util.optparse import OptionWithMemsize
 
 def _add_ve_config_options(parser):
     group = OptionGroup(parser, 'VE config options')
-    group.add_option('--guar', type='memsize',
+    group.add_option('--guarantee', type='memsize',
                      help='VE memory guarantee')
     group.add_option('--limit', type='memsize',
                      help='Max memory allocation available to VE')
@@ -21,8 +21,8 @@ def _add_ve_config_options(parser):
 
 def _ve_config_from_options(options):
     ve_config = {}
-    if options.guar is not None:
-        ve_config['guarantee'] = options.guar
+    if options.guarantee is not None:
+        ve_config['guarantee'] = options.guarantee
     if options.limit is not None:
         ve_config['limit'] = options.limit
     if options.swap is not None:
@@ -143,8 +143,8 @@ def _handle_list(args):
     proxy = RPCProxy()
     ve_list = proxy.get_all_registered_ves()
 
-    fmt = '%-36s %4s %6s : %8s %8s %8s'
-    print fmt % ('name', 'type', 'active', 'guar', 'limit', 'swap')
+    fmt = '%-36s %4s %6s : %9s %8s %8s'
+    print fmt % ('name', 'type', 'active', 'guarantee', 'limit', 'swap')
     for ve_name, ve_type, ve_active, ve_config in ve_list:
         try:
             ve_type_str = {
