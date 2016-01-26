@@ -190,4 +190,14 @@ class WeightedFeedbackBasedPolicy(Policy):
         elif sum_quota > mem_avail:
             self.__subtract_quota(active_ves, sum_quota - mem_avail)
 
+        # Due to calculation errors, it might turn out that sum_quota is still
+        # greater than mem_avail. We don't want it, because that would reset
+        # memory protections, so we scale down quotas proportionally in this
+        # case.
+        sum_quota = sum(ve.policy_priv.quota for ve in active_ves)
+        if sum_quota > mem_avail:
+            for ve in active_ves:
+                ve.policy_priv.quota = (ve.policy_priv.quota *
+                                        mem_avail / sum_quota)
+
         return {ve: ve.policy_priv.quota for ve in active_ves}
