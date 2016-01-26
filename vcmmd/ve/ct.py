@@ -54,15 +54,24 @@ class CT(VE):
                        wr_req=serviced[1],
                        wr_bytes=service_bytes[1])
 
-    def _set_mem_target(self, value):
+    def set_mem_protection(self, value):
+        # Use memcg/memory.low to protect the CT from host pressure.
         try:
-            # Set memory target by adjusting memory.low. If the host is
-            # experiencing memory pressure, containers exceeding the low
-            # threshold are reclaimed from first, but if there is enough
-            # free memory it may be breached freely.
             self._memcg.write_mem_low(value)
         except IOError as err:
             raise CgroupError(err)
+
+    def set_mem_target(self, value):
+        # XXX: Should we adjust memcg/memory.high here?
+        #
+        # On one hand, not adjusting it might break policy assumptions. On the
+        # other hand, for containers global and local reclaim paths are
+        # equivalent, so it is tempting to avoid local reclaim here, which may
+        # noticeably degrade performance in case policy underestimates
+        # container's demand, and rely solely on memcg/memory.low set by
+        # set_mem_protection, which is kinda soft limit and only matters when
+        # there is real memory shortage on the host.
+        pass
 
     def _set_mem_max(self, value):
         try:

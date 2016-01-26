@@ -295,13 +295,6 @@ class VE(object):
         '''
         return 0.0
 
-    def set_quota(self, value):
-        '''Set memory allocation quota for this VE.
-
-        May raise Error.
-        '''
-        self._set_mem_target(value)
-
     def _fetch_mem_stats(self):
         '''Fetch memory statistics for this VE.
 
@@ -324,7 +317,20 @@ class VE(object):
         '''
         pass
 
-    def _set_mem_target(self, value):
+    def set_mem_protection(self, value):
+        '''Set memory best-effort protection.
+
+        If memory usage of a VE is below this value, the VE's memory shouldn't
+        be reclaimed on host pressure if memory can be reclaimed from
+        unprotected VEs.
+
+        May raise Error.
+
+        This function is supposed to be overridden in sub-class.
+        '''
+        pass
+
+    def set_mem_target(self, value):
         '''Set memory allocation target.
 
         This function sets memory consumption target for a VE. Note, it does
