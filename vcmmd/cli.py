@@ -4,7 +4,7 @@ import sys
 from optparse import OptionParser, OptionGroup
 
 from vcmmd.ldmgr import Error as LoadManagerError
-from vcmmd.rpc.dbus import RPCProxy
+from vcmmd.rpc.dbus.client import RPCProxy
 from vcmmd.util.limits import INT64_MAX
 from vcmmd.util.optparse import OptionWithMemsize
 

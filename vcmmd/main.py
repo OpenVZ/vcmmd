@@ -13,7 +13,7 @@ import daemon.pidfile
 
 from vcmmd.config import VCMMDConfig
 from vcmmd.ldmgr import LoadManager
-from vcmmd.rpc.dbus import RPCServer
+from vcmmd.rpc.dbus.server import RPCServer
 from vcmmd.util.logging import LoggerWriter
 
 
