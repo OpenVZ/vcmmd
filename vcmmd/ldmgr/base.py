@@ -25,6 +25,9 @@ class Error(Exception):
     def __init__(self, errno):
         self.errno = errno
 
+    def __str__(self):
+        return _errno.strerror(self.errno)
+
 
 class LoadManager(object):
 

@@ -29,6 +29,27 @@ def _config_dict_from_kv_array(kv_array):
     return dict_
 
 
+def _config_dict_to_kv_array(dict_):
+    '''Convert a config dictionary to an array of pairs. The first value of
+    each pair is the index of a config parameter in VEConfig struct while the
+    second value is the value of the config parameter. Used to prepare a config
+    for passing to dbus.
+    '''
+    kv_array = []
+    for k in range(len(VEConfig._fields)):
+        field_name = VEConfig._fields[k]
+        try:
+            kv_array.append((k, dict_[field_name]))
+        except KeyError:
+            pass  # No value is OK.
+    return kv_array
+
+
+def _config_dict_from_array(arr):
+    return _config_dict_from_kv_array((i, arr[i])
+                                      for i in range(len(arr)))
+
+
 class _LoadManagerObject(dbus.service.Object):
 
     PATH = '/LoadManager'
@@ -111,3 +132,44 @@ class RPCServer(object):
     def shutdown(self):
         self._mainloop.quit()
         self._mainloop_thread.join()
+
+
+class RPCProxy(object):
+
+    def __init__(self):
+        bus = dbus.SystemBus()
+        obj = bus.get_object(_LoadManagerObject.BUS_NAME,
+                             _LoadManagerObject.PATH)
+        self._iface = dbus.Interface(obj, _LoadManagerObject.IFACE)
+
+    def register_ve(self, ve_name, ve_type, ve_config):
+        err = self._iface.RegisterVE(ve_name, ve_type,
+                                     _config_dict_to_kv_array(ve_config))
+        if err:
+            raise LoadManagerError(err)
+
+    def activate_ve(self, ve_name):
+        err = self._iface.ActivateVE(ve_name)
+        if err:
+            raise LoadManagerError(err)
+
+    def update_ve(self, ve_name, ve_config):
+        err = self._iface.UpdateVE(ve_name,
+                                   _config_dict_to_kv_array(ve_config))
+        if err:
+            raise LoadManagerError(err)
+
+    def deactivate_ve(self, ve_name):
+        err = self._iface.DeactivateVE(ve_name)
+        if err:
+            raise LoadManagerError(err)
+
+    def unregister_ve(self, ve_name):
+        err = self._iface.UnregisterVE(ve_name)
+        if err:
+            raise LoadManagerError(err)
+
+    def get_all_registered_ves(self):
+        lst = self._iface.GetAllRegisteredVEs()
+        return [(name, typ, actv, _config_dict_from_array(cfg))
+                for name, typ, actv, cfg in lst]

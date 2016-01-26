@@ -1,39 +1,12 @@
 from __future__ import absolute_import
 
 import sys
-import dbus
 from optparse import OptionParser, OptionGroup
 
+from vcmmd.ldmgr import Error as LoadManagerError
+from vcmmd.rpc.dbus import RPCProxy
 from vcmmd.util.limits import INT64_MAX
 from vcmmd.util.optparse import OptionWithMemsize
-
-
-def _get_proxy():
-    bus = dbus.SystemBus()
-    obj = bus.get_object('com.virtuozzo.vcmmd', '/LoadManager')
-    iface = dbus.Interface(obj, 'com.virtuozzo.vcmmd.LoadManager')
-    return iface
-
-
-def _report_service_error(err):
-    try:
-        errmsg = {
-            0: 'Success',
-            1: 'Invalid VE name',
-            2: 'Invalid VE type',
-            3: 'Conflicting VE config parameters',
-            4: 'VE name already in use',
-            5: 'VE not registered',
-            6: 'VE already active',
-            7: 'VE operation failed',
-            8: 'Unable to meet VE requirements',
-            9: 'VE not active',
-        }[err]
-    except KeyError:
-        errmsg = 'Unknown error %d' % err
-
-    sys.stderr.write('VCMMD returned error: %s\n' % errmsg)
-    sys.exit(1)
 
 
 def _add_ve_config_options(parser):
@@ -48,14 +21,14 @@ def _add_ve_config_options(parser):
 
 
 def _ve_config_from_options(options):
-    ve_config = []
+    ve_config = {}
     if options.guar is not None:
-        ve_config.append((0, options.guar))
+        ve_config['guarantee'] = options.guar
     if options.limit is not None:
-        ve_config.append((1, options.limit))
+        ve_config['limit'] = options.limit
     if options.swap is not None:
-        ve_config.append((2, options.swap))
-    return tuple(ve_config)
+        ve_config['swap'] = options.swap
+    return ve_config
 
 
 def _handle_register(args):
@@ -83,10 +56,7 @@ def _handle_register(args):
         parser.error('VE name not specified')
     ve_name = args[1]
 
-    proxy = _get_proxy()
-    err = proxy.RegisterVE(ve_name, ve_type, _ve_config_from_options(options))
-    if err:
-        _report_service_error(err)
+    RPCProxy().register_ve(ve_name, ve_type, _ve_config_from_options(options))
 
 
 def _handle_activate(args):
@@ -102,10 +72,7 @@ def _handle_activate(args):
         parser.error('VE name not specified')
     ve_name = args[0]
 
-    proxy = _get_proxy()
-    err = proxy.ActivateVE(ve_name)
-    if err:
-        _report_service_error(err)
+    RPCProxy().activate_ve(ve_name)
 
 
 def _handle_update(args):
@@ -124,10 +91,7 @@ def _handle_update(args):
         parser.error('VE name not specified')
     ve_name = args[0]
 
-    proxy = _get_proxy()
-    err = proxy.UpdateVE(ve_name, _ve_config_from_options(options))
-    if err:
-        _report_service_error(err)
+    RPCProxy().update_ve(ve_name, _ve_config_from_options(options))
 
 
 def _handle_deactivate(args):
@@ -143,10 +107,7 @@ def _handle_deactivate(args):
         parser.error('VE name not specified')
     ve_name = args[0]
 
-    proxy = _get_proxy()
-    err = proxy.DeactivateVE(ve_name)
-    if err:
-        _report_service_error(err)
+    RPCProxy().deactivate_ve(ve_name)
 
 
 def _handle_unregister(args):
@@ -161,10 +122,7 @@ def _handle_unregister(args):
         parser.error('VE name not specified')
     ve_name = args[0]
 
-    proxy = _get_proxy()
-    err = proxy.UnregisterVE(ve_name)
-    if err:
-        _report_service_error(err)
+    RPCProxy().unregister_ve(ve_name)
 
 
 def _str_memval(val):
@@ -183,8 +141,8 @@ def _handle_list(args):
     if len(args) > 0:
         parser.error('superfluous arguments')
 
-    proxy = _get_proxy()
-    ve_list = proxy.GetAllRegisteredVEs()
+    proxy = RPCProxy()
+    ve_list = proxy.get_all_registered_ves()
 
     fmt = '%-36s %4s %6s : %8s %8s %8s'
     print fmt % ('name', 'type', 'active', 'guar', 'limit', 'swap')
@@ -199,9 +157,9 @@ def _handle_list(args):
         print fmt % (ve_name,
                      ve_type_str,
                      'yes' if ve_active else 'no',
-                     _str_memval(ve_config[0]),
-                     _str_memval(ve_config[1]),
-                     _str_memval(ve_config[2]))
+                     _str_memval(ve_config['guarantee']),
+                     _str_memval(ve_config['limit']),
+                     _str_memval(ve_config['swap']))
 
 
 def main():
@@ -231,7 +189,11 @@ def main():
     except KeyError:
         parser.error('invalid command')
 
-    handler(args[1:])
+    try:
+        handler(args[1:])
+    except LoadManagerError as err:
+        sys.stderr.write('VCMMD returned error: %s\n' % err)
+        sys.exit(1)
 
 if __name__ == "__main__":
     main()
