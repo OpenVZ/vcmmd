@@ -25,7 +25,7 @@ class _VEPrivate(object):
     def __init__(self, ve):
         self._ve = ve
 
-        self.quota = ve.quota
+        self.quota = ve.config.guarantee
         self._weight = self._BASE_WEIGHT
 
         self._unused = 0

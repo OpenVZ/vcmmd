@@ -56,6 +56,7 @@ class LoadManager(object):
         self._active_ves = []
         self._registered_ves = {}  # str -> VE
         self._registered_ves_lock = threading.Lock()
+        self._inactive_ve_rsrv = {}  # ve -> reservation
 
         self._req_queue = Queue.Queue()
         self._last_stats_update = 0
@@ -98,6 +99,14 @@ class LoadManager(object):
 
         self._host_rsrv = host_rsrv
         self._mem_avail = mem.total - host_rsrv
+
+    def _reserve_inactive_ve_mem(self, ve, value):
+        assert ve not in self._inactive_ve_rsrv
+        self._inactive_ve_rsrv[ve] = value
+        self._mem_avail -= value
+
+    def _unreserve_inactive_ve_mem(self, ve):
+        self._mem_avail += self._inactive_ve_rsrv.pop(ve)
 
     def _toggle_tmem(self, subsys, enable):
         try:
@@ -200,10 +209,10 @@ class LoadManager(object):
         self._worker.join()
 
     def _may_register_ve(self, new_ve):
-        # Check that the sum of guarantees plus the new VE's quota fit in
+        # Check that the sum of guarantees plus the new VE's guarantee fit in
         # available memory.
         sum_guar = sum(ve.config.guarantee for ve in self._active_ves)
-        return sum_guar + new_ve.quota <= self._mem_avail
+        return sum_guar + new_ve.config.guarantee <= self._mem_avail
 
     def _may_update_ve(self, ve_to_update, new_config):
         # Check that the sum of guarantees still fit in available memory.
@@ -273,8 +282,7 @@ class LoadManager(object):
         with self._registered_ves_lock:
             self._registered_ves[ve_name] = ve
 
-        # Reserve memory for the inactive VE.
-        self._mem_avail -= ve.quota
+        self._reserve_inactive_ve_mem(ve, ve.config.guarantee)
 
         self.logger.info('Registered %s %s', ve, ve_config)
 
@@ -303,9 +311,7 @@ class LoadManager(object):
             self.logger.error('Failed to update stats for %s: %s', ve, err)
 
         self._active_ves.append(ve)
-
-        # Unaccount reserved memory.
-        self._mem_avail += ve.quota
+        self._unreserve_inactive_ve_mem(ve)
 
         self.logger.info('Activated %s', ve)
 
@@ -346,12 +352,17 @@ class LoadManager(object):
         if not ve.active:
             raise Error(_errno.VE_NOT_ACTIVE)
 
+        # Update stats right before deactivating the VE. We need this to update
+        # the VE's reservation below.
+        try:
+            ve.update_stats()
+        except VEError as err:
+            self.logger.error('Failed to update stats for %s: %s', ve, err)
+
         ve.deactivate()
 
         self._active_ves.remove(ve)
-
-        # Reserve memory for the inactive VE.
-        self._mem_avail -= ve.quota
+        self._reserve_inactive_ve_mem(ve, ve.mem_stats.rss)
 
         self.logger.info('Deactivated %s', ve)
 
@@ -367,8 +378,7 @@ class LoadManager(object):
         if ve.active:
             self._active_ves.remove(ve)
         else:
-            # Unaccount reserved memory.
-            self._mem_avail += ve.quota
+            self._unreserve_inactive_ve_mem(ve)
 
         self.logger.info('Unregistered %s', ve)
 

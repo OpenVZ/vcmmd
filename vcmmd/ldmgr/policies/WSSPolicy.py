@@ -31,7 +31,7 @@ class _VEPrivate(object):
     def __init__(self, ve):
         self._ve = ve
 
-        self.quota = ve.quota
+        self.quota = ve.config.effective_limit
 
         self._io = 0
         self._io_avg = 0

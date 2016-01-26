@@ -147,7 +147,6 @@ class VE(object):
         self.__name = name
         self.__config = None
         self.__active = False
-        self.__quota = None
 
         self.__last_stats_update = 0
         self.__prev_mem_stats_raw = None
@@ -187,13 +186,6 @@ class VE(object):
         if self.active:
             self.__apply_config(config)
         self.__config = config
-
-        # Reserve as much as the configured guarantee for a new VE, but never
-        # less than 256 MB so as not to throttle startup in case guarantees are
-        # not configured.
-        if self.__quota is None:
-            self.__quota = max(self.config.guarantee,
-                               min(self.config.limit, 256 << 20))
 
     @property
     def active(self):
@@ -303,20 +295,12 @@ class VE(object):
         '''
         return 0.0
 
-    @property
-    def quota(self):
-        '''Return current memory allocation quota that was previously set using
-        'set_quota'.
-        '''
-        return self.__quota
-
     def set_quota(self, value):
         '''Set memory allocation quota for this VE.
 
         May raise Error.
         '''
         self._set_mem_target(value)
-        self.__quota = value
 
     def _fetch_mem_stats(self):
         '''Fetch memory statistics for this VE.
