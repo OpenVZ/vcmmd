@@ -79,6 +79,7 @@ _MEM_STATS_FIELDS = (
     'actual',           # current balloon value
     'available',        # total amount of memory as seen by guest OS
     'unused',           # amount of memory left completely unused by guest OS
+    'wss',              # working set size reported by guest OS
     'swapin',           # total amount of memory read in from swap space
     'swapout',          # total amount of memory written out to swap space
     'minflt',           # total # of minor page faults
