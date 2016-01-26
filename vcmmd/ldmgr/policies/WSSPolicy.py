@@ -25,6 +25,9 @@ class _VEPrivate(object):
     _PGFLT_REWARD = 8.
     _POSITIVE_REWARD = -8.
 
+    _DOWNHYSTERESIS = 8
+    _UPHYSTERESIS = 1
+
     def __init__(self, ve):
         self._ve = ve
 
@@ -74,6 +77,14 @@ class _VEPrivate(object):
         gap = self._align(gap)
         return gap
 
+    def _app_hysteresis(self, cur, goal):
+        tgt = cur
+        if cur > goal:
+                tgt = cur - ((cur - goal) / self._DOWNHYSTERESIS)
+        elif cur < goal:
+                tgt = cur + ((goal - cur) / self._UPHYSTERESIS)
+        return tgt
+
     def _get_wss(self):
         if self._ve.mem_stats.wss > 0:
             return self._ve.mem_stats.wss
@@ -103,6 +114,9 @@ class _VEPrivate(object):
                abs(size - self._prev_size) < self._DELTA_THRESHOLD:
                 size = self._prev_size
 
+        # This approach have sense a special in case with WS
+        # based on unused memory which really far from real
+        size = self._app_hysteresis(self._ve.mem_stats.actual, size)
         # Align new size at page size.
         size = self._align(size)
 
