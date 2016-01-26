@@ -7,13 +7,13 @@ import time
 import importlib
 import psutil
 
+from vcmmd import errno as _errno
 from vcmmd.config import VCMMDConfig
 from vcmmd.cgroup import MemoryCgroup
 from vcmmd.ve import VE, Config as VEConfig, Error as VEError
 from vcmmd.ve.make import (make as make_ve,
                            InvalidVENameError,
                            InvalidVETypeError)
-from vcmmd.ldmgr import errno as _errno
 
 
 class Error(Exception):
