@@ -1,5 +1,7 @@
 from __future__ import absolute_import
 
+import logging
+
 from vcmmd.ldmgr import Policy
 
 
@@ -119,6 +121,16 @@ class _VEPrivate(object):
         # tiny VEs at once.
         return self.quota / self._weight
 
+    _DUMP_FMT = ('%s: quota=%d weight=%.2f pgflt=%d/%d io=%d/%d unused=%.2f '
+                 'idle=' + ':%0.2f' * 5)
+
+    def dump(self):
+        return (self._DUMP_FMT %
+                ((self._ve, self.quota, self._weight,
+                  self._pgflt, self._pgflt_avg,
+                  self._io, self._io_avg, self._unused) +
+                 tuple(self._ve.idle_ratio(i) for i in range(5))))
+
 
 class WeightedFeedbackBasedPolicy(Policy):
     '''Weighted feedback-based policy.
@@ -199,5 +211,12 @@ class WeightedFeedbackBasedPolicy(Policy):
             for ve in active_ves:
                 ve.policy_priv.quota = (ve.policy_priv.quota *
                                         mem_avail / sum_quota)
+
+        # Dump stats of all active VEs for debugging.
+        if self.logger.isEnabledFor(logging.DEBUG):
+            self.logger.debug('=' * 4 + ' VE stats ' + '=' * 4)
+            for ve in active_ves:
+                self.logger.debug(ve.policy_priv.dump())
+            self.logger.debug('')
 
         return {ve: ve.policy_priv.quota for ve in active_ves}
