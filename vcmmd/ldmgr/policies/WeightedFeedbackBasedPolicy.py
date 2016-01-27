@@ -45,7 +45,7 @@ class _VEPrivate(object):
             unused = self.quota - self._ve.mem_stats.rss
 
         unused = min(self.quota, max(unused, 0))
-        self._unused = float(unused) / (self._ve.config.effective_limit + 1)
+        self._unused = float(unused) / (self.quota + 1)
 
     def _update_io(self):
         self._io = self._ve.io_stats.rd_req + self._ve.io_stats.wr_req
