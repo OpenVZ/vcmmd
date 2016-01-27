@@ -33,9 +33,9 @@ class LoadManager(object):
 
     DEFAULT_POLICY = 'WeightedFeedbackBasedPolicy'
 
-    _HOST_MEM_PCT = 5           # 5 %
+    _HOST_MEM_PCT = 10          # 10 %
     _HOST_MEM_MIN = 128 << 20   # 128 MB
-    _HOST_MEM_MAX = 1 << 30     # 1 GB
+    _HOST_MEM_MAX = 768 << 20   # 768 MB
 
     # Portion of host memory to reserve for user and system slices.
     _USER_SLICE_RSRV = 0.2
