@@ -5,6 +5,7 @@ from libvirt import libvirtError
 from vcmmd.cgroup import MemoryCgroup
 from vcmmd.ve import VE, Error, types as ve_types, MemStats, IOStats
 from vcmmd.util.libvirt import virDomainProxy
+from vcmmd.util.misc import roundup
 
 
 class LibvirtError(Error):
@@ -20,6 +21,7 @@ class VM(VE):
     VE_TYPE = ve_types.VM
 
     _MEMSTAT_PERIOD = 5  # seconds
+    _MEM_HOTPLUG_GRAN = 128 * 1024  # 128 MiB defined in KiB
 
     def activate(self):
         try:
@@ -111,6 +113,7 @@ class VM(VE):
             # by the policy in this case.
             max_mem = self._libvirt_domain.maxMemory()
             if value > max_mem:
-                self._hotplug_memory(value - max_mem)
+                self._hotplug_memory(roundup(value - max_mem,
+                                             self._MEM_HOTPLUG_GRAN))
         except libvirtError as err:
             raise LibvirtError(err)
