@@ -3,6 +3,7 @@ from __future__ import absolute_import
 import logging
 
 from vcmmd.ldmgr import Policy
+from vcmmd.util.misc import clamp
 
 
 class _VEPrivate(object):
@@ -14,7 +15,10 @@ class _VEPrivate(object):
     _AVG_WINDOW = 10
 
     _QUOTA_INC = 0.1
-    _UNUSED_THRESH = 0.1
+
+    _MEM_LOW = 0.1  # 10%
+    _MEM_LOW_MIN = 192 << 20  # 192 MB
+    _MEM_LOW_MAX = 768 << 20  # 768 MB
 
     _IO_THRESH = 20
     _PGFLT_THRESH = 20
@@ -43,9 +47,7 @@ class _VEPrivate(object):
         # If no value is provided by guest OS, rely on rss.
         if unused < 0:
             unused = self.quota - self._ve.mem_stats.rss
-
-        unused = min(self.quota, max(unused, 0))
-        self._unused = float(unused) / (self.quota + 1)
+        self._unused = clamp(unused, 0, self.quota)
 
     def _update_io(self):
         self._io = self._ve.io_stats.rd_req + self._ve.io_stats.wr_req
@@ -64,7 +66,9 @@ class _VEPrivate(object):
 
         # High io/pgflt rate and not much free memory? Looks like the VE is
         # thrashing, so consider increasing its quota.
-        if (self._unused < self._UNUSED_THRESH and
+        mem_low = clamp(int(self._ve.config.effective_limit * self._MEM_LOW),
+                        self._MEM_LOW_MIN, self._MEM_LOW_MAX)
+        if (self._unused <= mem_low and
                 (self._io > self._IO_THRESH or
                  self._pgflt > self._PGFLT_THRESH)):
             self.quota += int(self._ve.config.effective_limit *
@@ -76,7 +80,7 @@ class _VEPrivate(object):
         weight = self._BASE_WEIGHT
 
         # Fine for memory left completely unused.
-        weight -= self._unused * self._UNUSED_FINE
+        weight -= self._unused * self._UNUSED_FINE / self.quota
 
         # Fine for allocated, but not actively used memory.
         for i in range(len(self._IDLE_FINE)):
@@ -90,9 +94,7 @@ class _VEPrivate(object):
                    (self._pgflt_avg > self._PGFLT_THRESH) *
                    self._PGFLT_REWARD / 2)
 
-        weight = min(self._MAX_WEIGHT, max(self._MIN_WEIGHT, weight))
-
-        self._weight = weight
+        self._weight = clamp(weight, self._MIN_WEIGHT, self._MAX_WEIGHT)
 
     def update(self):
         self._update_unused()
@@ -121,7 +123,7 @@ class _VEPrivate(object):
         # tiny VEs at once.
         return self.quota / self._weight
 
-    _DUMP_FMT = ('%s: quota=%d weight=%.2f pgflt=%d/%d io=%d/%d unused=%.2f '
+    _DUMP_FMT = ('%s: quota=%d weight=%.2f pgflt=%d/%d io=%d/%d unused=%d '
                  'idle=' + ':%0.2f' * 5)
 
     def dump(self):
@@ -193,8 +195,8 @@ class WeightedFeedbackBasedPolicy(Policy):
                 ve.policy_priv = vepriv
             if stats_updated:
                 vepriv.update()
-            vepriv.quota = min(max(vepriv.quota, ve.config.guarantee),
-                               ve.config.effective_limit)
+            vepriv.quota = clamp(vepriv.quota, ve.config.guarantee,
+                                 ve.config.effective_limit)
             sum_quota += vepriv.quota
 
         if sum_quota < mem_avail:
