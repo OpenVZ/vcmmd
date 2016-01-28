@@ -130,6 +130,8 @@ class WSSPolicy(Policy):
     The new quota size based on WS size.
     '''
 
+    REQUIRES_PERIODIC_UPDATES = True
+
     def balance(self, active_ves, mem_avail, stats_updated):
         sum_quota = 0
         for ve in active_ves:

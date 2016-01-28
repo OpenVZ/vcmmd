@@ -66,8 +66,9 @@ class LoadManager(object):
         self._load_policy()
         self._init_tmem()
         self._init_system_slices()
-        VE.enable_idle_mem_tracking(self._IDLE_MEM_PERIOD,
-                                    self._IDLE_MEM_SAMPLING)
+        if self._policy.REQUIRES_IDLE_MEM_TRACKING:
+            VE.enable_idle_mem_tracking(self._IDLE_MEM_PERIOD,
+                                        self._IDLE_MEM_SAMPLING)
         self._worker.start()
 
     def _do_load_policy(self, policy_name):
@@ -147,9 +148,13 @@ class LoadManager(object):
         self._req_queue.put(req)
 
     def _process_request(self):
-        timeout = (self._last_stats_update +
-                   self._UPDATE_INTERVAL - time.time())
-        block = timeout > 0
+        if self._policy.REQUIRES_PERIODIC_UPDATES:
+            timeout = (self._last_stats_update +
+                       self._UPDATE_INTERVAL - time.time())
+            block = timeout > 0
+        else:
+            timeout = None
+            block = True
         try:
             req = self._req_queue.get(block=block, timeout=timeout)
         except Queue.Empty:

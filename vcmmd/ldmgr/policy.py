@@ -5,6 +5,9 @@ class Policy(object):
     '''Load manager policy interface.
     '''
 
+    REQUIRES_PERIODIC_UPDATES = False
+    REQUIRES_IDLE_MEM_TRACKING = False
+
     def __init__(self):
         self.logger = logging.getLogger('vcmmd.Policy')
 
