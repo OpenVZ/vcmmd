@@ -2,6 +2,104 @@ from __future__ import absolute_import
 
 from vcmmd.ldmgr import Policy
 from vcmmd.ve import types as ve_types
+import prlsdkapi
+import os
+from prlsdkapi import consts
+
+
+class VmGuestSession(object):
+    """
+    Parent class for VE wrappers. This is bootstraps for prlsdkapi
+    """
+
+    _ve_list = []
+
+    def __init__(self, uuid, *args, **kwargs):
+        if not hasattr(type(self), '_server'):
+            type(self)._init_server()
+        self._sdk_ve = None
+        self._lookup_ve(uuid)
+        if self._sdk_ve is None:
+            self._update_ve_list()
+            self._lookup_ve(uuid)
+        assert self._sdk_ve, 'Lookup VE failed %r' % uuid
+        self._os_type = self._sdk_ve.get_os_type()
+        self._connected = False
+
+    @classmethod
+    def _init_server(cls):
+        helper = prlsdkapi.ApiHelper()
+        helper.init(consts.PRL_VERSION_7X)
+        cls._server = prlsdkapi.Server()
+        cls._server.login_local().wait()
+
+    @classmethod
+    def _update_ve_list(cls):
+        cls._ve_list = cls._server.get_vm_list_ex(consts.PVTF_VM |
+                                                  consts.PVTF_CT).wait()
+
+    def _lookup_ve(self, uuid):
+        if set(('{', '}')) - set((uuid[0], uuid[-1])):
+            uuid = '{%s}' % uuid
+        for ve in self._ve_list:
+            if ve.get_uuid() == uuid:
+                self._sdk_ve = ve
+                break
+
+    def disconnect(self):
+        if not self._connected:
+            return
+        try:
+            self._sdk_veguest.logout().wait()
+            self._sdk_ve.disconnect()
+        except prlsdkapi.PrlSDKError, e:
+            pass
+        self._connected = False
+
+    def connect(self):
+        if self._connected:
+            return
+        try:
+            sdk_user = 'root'
+            self._sdk_ve.connect(0).wait()
+            result = self._sdk_ve.login_in_guest(sdk_user, '', 0).wait()
+            self._sdk_veguest = result.get_param()
+            self._connected = True
+        except prlsdkapi.PrlSDKError, e:
+            self._connected = False
+
+    def _run_program(self, cmd, **kw):
+        args = [cmd] and isinstance(cmd, basestring) or cmd
+        args_list = prlsdkapi.StringList()
+        for arg in args[1:]:
+            args_list.add_item(arg)
+        return self._sdk_veguest.run_program(args[0], args_list,
+                                             prlsdkapi.StringList(), **kw)
+
+    def getstatusoutput(self, cmd):
+        status = -1
+        self.connect()
+
+        if not self._connected:
+            return status, None
+
+        r, nStdout = os.pipe()
+        r_fo = os.fdopen(r, 'r')
+        try:
+            status = self._run_program(cmd, nFlags=consts.PFD_STDOUT,
+                                       nStdout=nStdout).wait()
+            status = status.get_param().get_param(0).to_int32()
+            os.close(nStdout)
+            nStdout = None
+            # should be in thread
+            out = r_fo.read()
+        except prlsdkapi.PrlSDKError, e:
+            return status, None
+        finally:
+            nStdout is not None and os.close(nStdout)
+            r_fo.close()
+            self.disconnect()
+        return status, out
 
 
 class _VEPrivate(object):
@@ -32,6 +130,7 @@ class _VEPrivate(object):
 
     def __init__(self, ve):
         self._ve = ve
+        self._ve_session = VmGuestSession(ve.name)
 
         self.quota = ve.config.effective_limit
 
