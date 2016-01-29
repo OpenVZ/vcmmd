@@ -288,7 +288,7 @@ class LoadManager(object):
         try:
             ve_config = VEConfig.from_dict(ve_config)
         except ValueError:
-            raise Error(_errno.VE_CONFIG_CONFLICT)
+            raise Error(_errno.INVALID_VE_CONFIG)
 
         ve.set_config(ve_config)
 
@@ -344,7 +344,7 @@ class LoadManager(object):
         try:
             ve_config = VEConfig.from_dict(ve_config, default=ve.config)
         except ValueError:
-            raise Error(_errno.VE_CONFIG_CONFLICT)
+            raise Error(_errno.INVALID_VE_CONFIG)
 
         if not self._may_update_ve(ve, ve_config):
             raise Error(_errno.NO_SPACE)
