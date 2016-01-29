@@ -53,5 +53,5 @@ class RPCProxy(object):
 
     def get_all_registered_ves(self):
         lst = self._iface.GetAllRegisteredVEs()
-        return [(name, typ, actv, ve_config_from_array(cfg))
+        return [(str(name), int(typ), bool(actv), ve_config_from_array(cfg))
                 for name, typ, actv, cfg in lst]

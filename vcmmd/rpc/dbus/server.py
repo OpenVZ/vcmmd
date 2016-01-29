@@ -23,6 +23,8 @@ class _LoadManagerObject(dbus.service.Object):
 
     @dbus.service.method(IFACE, in_signature='sia(qt)', out_signature='i')
     def RegisterVE(self, ve_name, ve_type, ve_config):
+        ve_name = str(ve_name)
+        ve_type = int(ve_type)
         ve_config = ve_config_from_kv_array(ve_config)
         try:
             self.ldmgr.register_ve(ve_name, ve_type, ve_config)
@@ -33,6 +35,7 @@ class _LoadManagerObject(dbus.service.Object):
 
     @dbus.service.method(IFACE, in_signature='s', out_signature='i')
     def ActivateVE(self, ve_name):
+        ve_name = str(ve_name)
         try:
             self.ldmgr.activate_ve(ve_name)
         except LoadManagerError as err:
@@ -42,6 +45,7 @@ class _LoadManagerObject(dbus.service.Object):
 
     @dbus.service.method(IFACE, in_signature='sa(qt)', out_signature='i')
     def UpdateVE(self, ve_name, ve_config):
+        ve_name = str(ve_name)
         ve_config = ve_config_from_kv_array(ve_config)
         try:
             self.ldmgr.update_ve(ve_name, ve_config)
@@ -52,6 +56,7 @@ class _LoadManagerObject(dbus.service.Object):
 
     @dbus.service.method(IFACE, in_signature='s', out_signature='i')
     def DeactivateVE(self, ve_name):
+        ve_name = str(ve_name)
         try:
             self.ldmgr.deactivate_ve(ve_name)
         except LoadManagerError as err:
@@ -61,6 +66,7 @@ class _LoadManagerObject(dbus.service.Object):
 
     @dbus.service.method(IFACE, in_signature='s', out_signature='i')
     def UnregisterVE(self, ve_name):
+        ve_name = str(ve_name)
         try:
             self.ldmgr.unregister_ve(ve_name)
         except LoadManagerError as err:
@@ -70,6 +76,7 @@ class _LoadManagerObject(dbus.service.Object):
 
     @dbus.service.method(IFACE, in_signature='s', out_signature='iat')
     def GetVEConfig(self, ve_name):
+        ve_name = str(ve_name)
         try:
             return (0, self.ldmgr.get_ve_config(ve_name))
         except LoadManagerError as err:

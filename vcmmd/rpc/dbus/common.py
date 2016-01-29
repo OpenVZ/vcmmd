@@ -21,7 +21,7 @@ def ve_config_from_kv_array(kv_array):
             # Silently ignore unknown fields in case the config is extended in
             # future
             continue
-        dict_[field_name] = v
+        dict_[field_name] = int(v)
     return dict_
 
 
