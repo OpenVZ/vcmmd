@@ -18,11 +18,13 @@ class _VEPrivate(object):
     # too aggressive in some workloads
     _IO_THRESH = 20
     _PGFLT_THRESH = 20
+    _SWAPIN_THRESH = 20
     _DELTA_THRESHOLD = 32 * __UNITS
 
     _MEM_FINE = 32 * __UNITS
     _IO_REWARD = 4.
     _PGFLT_REWARD = 8.
+    _SWAPEXCH_REWARD = 8.
     _POSITIVE_REWARD = -8.
 
     _DOWNHYSTERESIS = 8
@@ -68,9 +70,13 @@ class _VEPrivate(object):
         '''
         Put a fine or a prize for the previous change
         '''
-        delta = ((self._pgflt > self._PGFLT_THRESH) * self._PGFLT_REWARD +
-                 (self._io > self._IO_THRESH) * self._IO_REWARD) or \
-                  self._MEM_FINE * self._POSITIVE_REWARD
+        delta = (((self._ve.mem_stats.swapin > self._SWAPIN_THRESH and
+                   self._ve.mem_stats.swapout > self._SWAPIN_THRESH) * self._SWAPEXCH_REWARD +
+
+                  (self._pgflt > self._PGFLT_THRESH) * self._PGFLT_REWARD +
+                  (self._io > self._IO_THRESH) * self._IO_REWARD) or
+
+                   self._POSITIVE_REWARD) * self._MEM_FINE
 
         gap = self._prev_gap + delta
         gap = max(min(gap, self.wss / 2), self._MIN_GAP)
