@@ -5,6 +5,7 @@ import logging
 import threading
 import time
 import importlib
+import shelve
 import psutil
 
 from vcmmd import errno as _errno
@@ -32,6 +33,8 @@ class Error(Exception):
 class LoadManager(object):
 
     DEFAULT_POLICY = 'WeightedFeedbackBasedPolicy'
+
+    _VE_STATE_FILE = '/var/run/vcmmd.state'
 
     _HOST_MEM_PCT = 10          # 10 %
     _HOST_MEM_MIN = 128 << 20   # 128 MB
@@ -144,6 +147,44 @@ class LoadManager(object):
         self._set_slice_rsrv('system', int(self._host_rsrv *
                                            self._SYSTEM_SLICE_RSRV))
 
+    def _save_ve_state(self, ve):
+        self._ve_state[ve.name] = {
+            'type': ve.VE_TYPE,
+            'active': ve.active,
+            'config': ve.config._asdict(),
+        }
+        self._ve_state.sync()
+
+    def _delete_ve_state(self, ve):
+        del self._ve_state[ve.name]
+        self._ve_state.sync()
+
+    def _restore_ves(self):
+        self.logger.info("Restoring VE state from file '%s'",
+                         self._VE_STATE_FILE)
+        self._ve_state = shelve.open(self._VE_STATE_FILE)
+        stale_ves = []
+        for ve_name, ve_params in self._ve_state.iteritems():
+            ve = None
+            try:
+                ve = self._do_register_ve(ve_name,
+                                          ve_params['type'],
+                                          ve_params['config'])
+                if ve_params['active']:
+                    self._do_activate_ve(ve)
+            except Error as err:
+                self.logger.error("Failed to restore VE '%s': %s",
+                                  ve_name, err)
+                if ve is not None:
+                    self._do_unregister_ve(ve)
+                    stale_ves.append(ve)
+            else:
+                self.logger.info('Restored %s %s %s',
+                                 'active' if ve.active else 'inactive',
+                                 ve, ve.config)
+        for ve in stale_ves:
+            self._delete_ve_state(ve)
+
     def _queue_request(self, req):
         self._req_queue.put(req)
 
@@ -164,6 +205,7 @@ class LoadManager(object):
             self._req_queue.task_done()
 
     def _worker_thread_fn(self):
+        self._restore_ves()
         while not self._should_stop:
             self._process_request()
 
@@ -273,8 +315,7 @@ class LoadManager(object):
         # properly.
         self._set_slice_rsrv('machine', -1, verbose=False)
 
-    @_request()
-    def register_ve(self, ve_name, ve_type, ve_config):
+    def _do_register_ve(self, ve_name, ve_type, ve_config):
         if ve_name in self._registered_ves:
             raise Error(_errno.VE_NAME_ALREADY_IN_USE)
 
@@ -300,16 +341,16 @@ class LoadManager(object):
 
         self._reserve_inactive_ve_mem(ve, ve.config.guarantee)
 
-        self.logger.info('Registered %s %s', ve, ve_config)
-
-        self._balance_ves()
+        return ve
 
     @_request()
-    def activate_ve(self, ve_name):
-        ve = self._registered_ves.get(ve_name)
-        if ve is None:
-            raise Error(_errno.VE_NOT_REGISTERED)
+    def register_ve(self, ve_name, ve_type, ve_config):
+        ve = self._do_register_ve(ve_name, ve_type, ve_config)
+        self._save_ve_state(ve)
+        self.logger.info('Registered %s %s', ve, ve.config)
+        self._balance_ves()
 
+    def _do_activate_ve(self, ve):
         if ve.active:
             raise Error(_errno.VE_ALREADY_ACTIVE)
 
@@ -329,8 +370,14 @@ class LoadManager(object):
         self._active_ves.append(ve)
         self._unreserve_inactive_ve_mem(ve)
 
+    @_request()
+    def activate_ve(self, ve_name):
+        ve = self._registered_ves.get(ve_name)
+        if ve is None:
+            raise Error(_errno.VE_NOT_REGISTERED)
+        self._do_activate_ve(ve)
+        self._save_ve_state(ve)
         self.logger.info('Activated %s', ve)
-
         self._balance_ves()
 
     @_request()
@@ -355,8 +402,8 @@ class LoadManager(object):
             self.logger.error('Failed to update %s: %s', ve, err)
             raise Error(_errno.VE_OPERATION_FAILED)
 
-        self.logger.info('Updated %s %s', ve, ve_config)
-
+        self._save_ve_state(ve)
+        self.logger.info('Updated %s %s', ve, ve.config)
         self._balance_ves()
 
     @_request()
@@ -380,24 +427,26 @@ class LoadManager(object):
         self._active_ves.remove(ve)
         self._reserve_inactive_ve_mem(ve, ve.mem_stats.rss)
 
+        self._save_ve_state(ve)
         self.logger.info('Deactivated %s', ve)
-
         self._balance_ves()
 
-    @_request()
-    def unregister_ve(self, ve_name):
+    def _do_unregister_ve(self, ve):
         with self._registered_ves_lock:
-            ve = self._registered_ves.pop(ve_name, None)
-        if ve is None:
-            raise Error(_errno.VE_NOT_REGISTERED)
-
+            del self._registered_ves[ve.name]
         if ve.active:
             self._active_ves.remove(ve)
         else:
             self._unreserve_inactive_ve_mem(ve)
 
+    @_request()
+    def unregister_ve(self, ve_name):
+        ve = self._registered_ves.get(ve_name)
+        if ve is None:
+            raise Error(_errno.VE_NOT_REGISTERED)
+        self._do_unregister_ve(ve)
+        self._delete_ve_state(ve)
         self.logger.info('Unregistered %s', ve)
-
         self._balance_ves()
 
     def get_ve_config(self, ve_name):
