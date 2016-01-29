@@ -145,19 +145,34 @@ class _VEPrivate(object):
         self._prev_gap = self._MIN_GAP
         self._prev_size = None
 
-    def _update_io(self):
+    def _update_stats(self):
         self._io = self._ve.io_stats.rd_req + self._ve.io_stats.wr_req
-        self._io_avg = ((self._io + self._AVG_WINDOW * self._io_avg) /
-                        (self._AVG_WINDOW + 1))
-
-    def _update_pgflt(self):
         self._pgflt = self._ve.mem_stats.majflt
-        self._pgflt_avg = ((self._pgflt + self._AVG_WINDOW * self._pgflt_avg) /
-                           (self._AVG_WINDOW + 1))
+        self._swapin = self._ve.mem_stats.swapin
+        self._swapout = self._ve.mem_stats.swapout
+
+    def _update_add_stat(self):
+        {consts.PVS_GUEST_TYPE_LINUX: self._update_linux_stat,
+         consts.PVS_GUEST_TYPE_WINDOWS: self._update_win_stat}[self._ve_session._os_type]()
+
+    def _update_win_stat(self):
+        pass
+
+    def _update_linux_stat(self):
+        self.linux_memstat = {}
+        status, out = self._ve_session.getstatusoutput(['cat',
+                                                        '/proc/meminfo'])
+        if status:
+            return
+        for line in out.splitlines():
+            line = line.split()
+            if not line:
+                continue
+            self.linux_memstat[line[0].strip(':')] = int(line[1]) << 10
 
     def update(self):
-        self._update_io()
-        self._update_pgflt()
+        self._update_stats()
+        self._update_add_stat()
         self._update_quota()
 
     def _align(self, val):
@@ -169,8 +184,8 @@ class _VEPrivate(object):
         '''
         Put a fine or a prize for the previous change
         '''
-        delta = (((self._ve.mem_stats.swapin > self._SWAPIN_THRESH and
-                   self._ve.mem_stats.swapout > self._SWAPIN_THRESH) * self._SWAPEXCH_REWARD +
+        delta = (((self._swapin > self._SWAPIN_THRESH and
+                   self._swapout > self._SWAPIN_THRESH) * self._SWAPEXCH_REWARD +
 
                   (self._pgflt > self._PGFLT_THRESH) * self._PGFLT_REWARD +
                   (self._io > self._IO_THRESH) * self._IO_REWARD) or
@@ -193,7 +208,21 @@ class _VEPrivate(object):
     def _get_wss(self):
         if self._ve.mem_stats.wss > 0:
             return self._ve.mem_stats.wss
-        unused = self._ve.mem_stats.unused if self._ve.mem_stats.unused > 0 else 0
+
+        return {consts.PVS_GUEST_TYPE_LINUX: self._get_wss_linux,
+                consts.PVS_GUEST_TYPE_WINDOWS: self._get_wss_win}[self._ve_session._os_type]()
+
+    def _get_wss_linux(self):
+        # available  on  kernels  3.14
+        if not self.linux_memstat or 'MemAvailable' not in self.linux_memstat:
+            return self._ve.mem_stats.rss
+
+        return self._ve.mem_stats.actual - self.linux_memstat['MemAvailable']
+
+    def _get_wss_win(self):
+        unused = 0
+        if self._ve.mem_stats.unused > 0:
+            unused = self._ve.mem_stats.unused
         return self._ve.mem_stats.actual - unused
 
     def _update_quota(self):
