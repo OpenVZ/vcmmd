@@ -1,12 +1,10 @@
 from __future__ import absolute_import
 
-import os
 import sys
 import logging
 import signal
 import optparse
 import time
-import subprocess
 
 import daemon
 import daemon.pidfile
@@ -21,7 +19,6 @@ class _App(object):
 
     PID_FILE = '/var/run/vcmmd.pid'
     LOG_FILE = '/var/log/vcmmd.log'
-    INIT_SCRIPTS_DIR = '/etc/vz/vcmmd/init.d'
     DEFAULT_CONFIG = '/etc/vz/vcmmd/config.json'
 
     def __init__(self):
@@ -66,38 +63,6 @@ class _App(object):
         self.logger = logger
         self.logger_stream = fh.stream  # for DaemonContext:files_preserve
 
-    def run_one_init_script(self, script):
-        self.logger.info("Running init script '%s'", script)
-
-        try:
-            with open(os.devnull, 'r') as devnull:
-                p = subprocess.Popen(
-                    os.path.join(self.INIT_SCRIPTS_DIR, script),
-                    stdout=devnull, stderr=subprocess.PIPE)
-            stdout, stderr = p.communicate()
-        except OSError as err:
-            self.logger.error("Error running init script '%s': %s",
-                              script, err)
-            return
-
-        if p.returncode != 0:
-            self.logger.error("Script '%s' returned %s, stderr output:\n%s",
-                              script, p.returncode, stderr)
-
-    def run_init_scripts(self):
-        if not os.path.isdir(self.INIT_SCRIPTS_DIR):
-            return
-
-        try:
-            scripts = os.listdir(self.INIT_SCRIPTS_DIR)
-        except OSError as err:
-            self.logger.error('Failed to read init scripts dir: %s', err)
-            return
-
-        for script in sorted(scripts):
-            if not script.startswith('.'):
-                self.run_one_init_script(script)
-
     def run(self):
         # Redirect stdout and stderr to logger
         sys.stdout = LoggerWriter(self.logger, logging.INFO)
@@ -109,8 +74,6 @@ class _App(object):
 
         ldmgr = LoadManager()
         rpcsrv = RPCServer(ldmgr)
-
-        self.run_init_scripts()
 
         # threading.Event would fit better here, but it ignores signals.
         self.should_stop = False

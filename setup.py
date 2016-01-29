@@ -20,6 +20,5 @@ setup(name='vcmmd',
                              extra_compile_args=['-std=c++11'])],
       data_files=[('/etc/dbus-1/system.d', ['dbus/com.virtuozzo.vcmmd.conf']),
                   ('/etc/logrotate.d', ['logrotate/vcmmd']),
-                  ('/etc/vz/vcmmd', ['config/config.json']),
-                  ('/etc/vz/vcmmd/init.d', ['init/vz'])],
+                  ('/etc/vz/vcmmd', ['config/config.json'])],
       scripts=['bin/vcmmd', 'bin/vcmmdctl'])
