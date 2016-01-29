@@ -55,7 +55,6 @@ class LoadManager(object):
     def __init__(self):
         self.logger = logging.getLogger('vcmmd.LoadManager')
 
-        self._init_mem_avail()
         self._active_ves = []
         self._registered_ves = {}  # str -> VE
         self._registered_ves_lock = threading.Lock()
@@ -66,12 +65,6 @@ class LoadManager(object):
         self._worker = threading.Thread(target=self._worker_thread_fn)
         self._should_stop = False
 
-        self._load_policy()
-        self._init_tmem()
-        self._init_system_slices()
-        if self._policy.REQUIRES_IDLE_MEM_TRACKING:
-            VE.enable_idle_mem_tracking(self._IDLE_MEM_PERIOD,
-                                        self._IDLE_MEM_SAMPLING)
         self._worker.start()
 
     def _do_load_policy(self, policy_name):
@@ -205,6 +198,13 @@ class LoadManager(object):
             self._req_queue.task_done()
 
     def _worker_thread_fn(self):
+        self._init_mem_avail()
+        self._init_tmem()
+        self._init_system_slices()
+        self._load_policy()
+        if self._policy.REQUIRES_IDLE_MEM_TRACKING:
+            VE.enable_idle_mem_tracking(self._IDLE_MEM_PERIOD,
+                                        self._IDLE_MEM_SAMPLING)
         self._restore_ves()
         while not self._should_stop:
             self._process_request()
