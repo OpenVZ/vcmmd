@@ -19,7 +19,7 @@ _ERRSTR = {
     5: 'VE not registered',
     6: 'VE already active',
     7: 'VE operation failed',
-    8: 'Unable to meet VE requirements',
+    8: 'No space for VE',
     9: 'VE not active',
 }
 
