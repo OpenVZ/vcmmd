@@ -19,7 +19,7 @@ class _App(object):
 
     PID_FILE = '/var/run/vcmmd.pid'
     LOG_FILE = '/var/log/vcmmd.log'
-    DEFAULT_CONFIG = '/etc/vz/vcmmd/config.json'
+    DEFAULT_CONFIG = '/etc/vz/vcmmd.conf'
 
     def __init__(self):
         self.parse_args()
