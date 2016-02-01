@@ -74,6 +74,14 @@ class _LoadManagerObject(dbus.service.Object):
         else:
             return 0
 
+    @dbus.service.method(IFACE, in_signature='s', out_signature='ib')
+    def IsVEActive(self, ve_name):
+        ve_name = str(ve_name)
+        try:
+            return (0, self.ldmgr.is_ve_active(ve_name))
+        except LoadManagerError as err:
+            return (err.errno, False)
+
     @dbus.service.method(IFACE, in_signature='s', out_signature='iat')
     def GetVEConfig(self, ve_name):
         ve_name = str(ve_name)

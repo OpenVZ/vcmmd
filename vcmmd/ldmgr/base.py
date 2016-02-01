@@ -464,6 +464,13 @@ class LoadManager(object):
         self.logger.info('Unregistered %s', ve)
         self._balance_ves()
 
+    def is_ve_active(self, ve_name):
+        with self._registered_ves_lock:
+            try:
+                return self._registered_ves[ve_name].active
+            except KeyError:
+                raise Error(_errno.VE_NOT_REGISTERED)
+
     def get_ve_config(self, ve_name):
         with self._registered_ves_lock:
             try:
