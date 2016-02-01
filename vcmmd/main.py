@@ -1,10 +1,12 @@
 from __future__ import absolute_import
 
 import sys
+import os
 import logging
 import signal
 import optparse
 import time
+import traceback
 
 import daemon
 import daemon.pidfile
@@ -13,6 +15,7 @@ from vcmmd.config import VCMMDConfig
 from vcmmd.ldmgr import LoadManager
 from vcmmd.rpc.dbus.server import RPCServer
 from vcmmd.util.logging import LoggerWriter
+from vcmmd.util.threading import setup_thread_excepthook
 
 
 class _App(object):
@@ -100,7 +103,18 @@ class _App(object):
             self.run()
 
 
+def _excepthook(exc_type, exc_value, exc_traceback):
+    sys.stderr.write('Terminating program due to unhandled exception:\n' +
+                     ''.join(traceback.format_exception(exc_type, exc_value,
+                                                        exc_traceback)))
+    os._exit(1)  # force all threads to exit
+
+
 def main():
+    # setup handler for uncaught exceptions in all threads
+    setup_thread_excepthook()
+    sys.excepthook = _excepthook
+
     _App()
 
 if __name__ == "__main__":
