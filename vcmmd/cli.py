@@ -160,7 +160,7 @@ def _str_memval(val, opts):
             divisor = 1
             suffix = 'B'
         val = float(val) / divisor
-        return '%.1f%s' % (val, suffix)
+        return '%.{0}f%s'.format(1 if val < 10 else 0) % (val, suffix)
 
 
 def _handle_list(args):
