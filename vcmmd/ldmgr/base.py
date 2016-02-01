@@ -1,6 +1,7 @@
 from __future__ import absolute_import
 
 import Queue
+import os
 import logging
 import threading
 import time
@@ -152,7 +153,7 @@ class LoadManager(object):
         del self._ve_state[ve.name]
         self._ve_state.sync()
 
-    def _restore_ves(self):
+    def _do_restore_ves(self):
         self.logger.info("Restoring VE state from file '%s'",
                          self._VE_STATE_FILE)
         self._ve_state = shelve.open(self._VE_STATE_FILE)
@@ -177,6 +178,20 @@ class LoadManager(object):
                                  ve, ve.config)
         for ve in stale_ves:
             self._delete_ve_state(ve)
+
+    def _restore_ves(self):
+        # State file might be corrupted, handle this gracefully.
+        try:
+            self._do_restore_ves()
+        except Exception as err:
+            self.logger.error('Unexpected error while reading VE state file: '
+                              '%s', err)
+        else:
+            return
+        # In case of error, try to recreate the state file.
+        os.remove(self._VE_STATE_FILE)
+        self._ve_state = shelve.open(self._VE_STATE_FILE)
+        assert not self._ve_state
 
     def _queue_request(self, req):
         self._req_queue.put(req)
