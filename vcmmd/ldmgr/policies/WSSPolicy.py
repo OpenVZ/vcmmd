@@ -131,6 +131,7 @@ class _VEPrivate(object):
     _IO_REWARD = 4.
     _PGFLT_REWARD = 8.
     _SWAPEXCH_REWARD = 8.
+    _INSIZE_REWARD = 8.
     _POSITIVE_REWARD = -8.
 
     _DOWNHYSTERESIS = 8
@@ -148,16 +149,15 @@ class _VEPrivate(object):
         self._pgflt = 0
         self._pgflt_avg = 0
 
-        # _prev_gap is some empirical initial value.
-        # It doesn't influence the final result
-        self._prev_gap = self._MIN_GAP
-        self._prev_size = None
-
     def _update_stats(self):
         self._io = self._ve.io_stats.rd_req + self._ve.io_stats.wr_req
         self._pgflt = self._ve.mem_stats.majflt
         self._swapin = self._ve.mem_stats.swapin
         self._swapout = self._ve.mem_stats.swapout
+        _io_avg = ((self._io + self._AVG_WINDOW * self._io_avg) / (self._AVG_WINDOW + 1))
+        self._io_avg_delta = _io_avg - self._io_avg
+        self._io_avg = _io_avg
+        self._actual = self._ve.mem_stats.actual
 
     def _update_add_stat(self):
         {consts.PVS_GUEST_TYPE_LINUX: self._update_linux_stat,
@@ -192,13 +192,16 @@ class _VEPrivate(object):
                    self._swapout > self._SWAPIN_THRESH) * self._SWAPEXCH_REWARD +
 
                   (self._pgflt > self._PGFLT_THRESH) * self._PGFLT_REWARD +
-                  (self._io > self._IO_THRESH) * self._IO_REWARD) or
+                  (self._io_avg_delta > self._IO_THRESH) * self._IO_REWARD +
+                  # if actual - prev quota > threshold
+                  # looks like balloon can't grow correctly,
+                  # so let's reduce it a little
+                  (self._actual - self.quota > self._DELTA_THRESHOLD) * self._INSIZE_REWARD) or
 
                    self._POSITIVE_REWARD) * self._MEM_FINE
 
-        gap = self._prev_gap + delta
-        gap = max(min(gap, self.wss / 2), self._MIN_GAP)
-        gap = self._align(gap)
+        gap = self._actual - wss + delta
+        gap = max(gap, self._MIN_GAP)
         return gap
 
     @align
@@ -223,13 +226,13 @@ class _VEPrivate(object):
         if not self.linux_memstat or 'MemAvailable' not in self.linux_memstat:
             return self._ve.mem_stats.rss
 
-        return self._ve.mem_stats.actual - self.linux_memstat['MemAvailable']
+        return self._actual - self.linux_memstat['MemAvailable']
 
     def _get_wss_win(self):
         unused = 0
         if self._ve.mem_stats.unused > 0:
             unused = self._ve.mem_stats.unused
-        return self._ve.mem_stats.actual - unused
+        return self._actual - unused
 
     def _update_quota(self):
         '''
@@ -238,30 +241,15 @@ class _VEPrivate(object):
         In case that we have own guest balloon driver we have more precisely
         WS value
         '''
-        self.wss = self._get_wss()
-        if self._prev_size is not None and \
-           self._ve.mem_stats.actual - self._prev_size > self._DELTA_THRESHOLD:
-            # looks like balloon can't grow correctly,
-            # so let's reduce it a little
-            size = self._ve.mem_stats.actual + \
-                   max(self._prev_gap, self._MEM_FINE)
-        else:
-            # Align new size at page size.
-            self.wss = self._align(self.wss)
-            gap = self._choose_gap()
-            size = self.wss + gap
-            if self._prev_size and \
-               abs(size - self._prev_size) < self._DELTA_THRESHOLD:
-                size = self._prev_size
+        wss = self._get_wss()
+        size = wss + self._choose_gap(wss)
 
         # This approach have sense a special in case with WS
         # based on unused memory which really far from real
-        size = self._app_hysteresis(self._ve.mem_stats.actual, size)
-        # Align new size at page size.
-        size = self._align(size)
+        size = self._app_hysteresis(self._actual, size)
 
-        self._prev_gap = size - self.wss
-        self.quota = size
+        self.quota = min(max(size, self._ve.config.guarantee),
+                         self._ve.config.effective_limit)
 
 
 class WSSPolicy(Policy):
@@ -285,8 +273,6 @@ class WSSPolicy(Policy):
                 ve.policy_priv = vepriv
             if stats_updated:
                 vepriv.update()
-            vepriv.quota = min(max(vepriv.quota, ve.config.guarantee),
-                               ve.config.effective_limit)
             sum_quota += vepriv.quota
 
         if sum_quota > mem_avail:
