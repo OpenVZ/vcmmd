@@ -5,6 +5,7 @@ from libvirt import libvirtError
 from vcmmd.cgroup import MemoryCgroup
 from vcmmd.ve import VE, Error, types as ve_types, MemStats, IOStats
 from vcmmd.util.libvirt import virDomainProxy
+from vcmmd.util.systemd import escape_unit_name, Error as SystemdError
 from vcmmd.util.misc import roundup
 
 
@@ -28,9 +29,11 @@ class VM(VE):
 
         # QEMU places every virtual machine in its own memory cgroup under
         # machine.slice
-        self._memcg = MemoryCgroup('machine.slice/machine-qemu\\x2d%s.scope' %
-                                   dom_name)
-
+        try:
+            unit_name = escape_unit_name('qemu-' + dom_name, 'scope')
+        except SystemdError as err:
+            raise Error(err)
+        self._memcg = MemoryCgroup('machine.slice/machine-' + unit_name)
         if not self._memcg.exists():
             raise Error('VM memory cgroup does not exist')
 
