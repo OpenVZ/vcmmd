@@ -23,7 +23,7 @@ class VmGuestSession(object):
             self._update_ve_list()
             self._lookup_ve(uuid)
         assert self._sdk_ve, 'Lookup VE failed %r' % uuid
-        self._os_type = self._sdk_ve.get_os_type()
+        self._os_type = self._sdk_ve.get_os_type() or consts.PVS_GUEST_TYPE_WINDOWS
         self._connected = False
 
     @classmethod
