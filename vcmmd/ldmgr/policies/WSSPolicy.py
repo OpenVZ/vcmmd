@@ -102,13 +102,21 @@ class VmGuestSession(object):
         return status, out
 
 
+def align(f):
+    def wrap(*args, **kwargs):
+        val = f(*args, **kwargs)
+        val = int(val)
+        ALIGN = 4 << 20  # 4Mb
+        val &= ~(ALIGN - 1)
+        return val
+    return wrap
+
+
 class _VEPrivate(object):
 
     __UNITS = 1 << 20  # MB
 
     _AVG_WINDOW = 10
-
-    _ALIGN = 4 * __UNITS
     _MIN_GAP = 64 * __UNITS
 
     # thresholds/fine/rewards should be tuneable in case
@@ -175,12 +183,8 @@ class _VEPrivate(object):
         self._update_add_stat()
         self._update_quota()
 
-    def _align(self, val):
-        val = int(val)
-        val &= ~(self._ALIGN - 1)
-        return val
-
-    def _choose_gap(self):
+    @align
+    def _choose_gap(self, wss):
         '''
         Put a fine or a prize for the previous change
         '''
@@ -197,6 +201,7 @@ class _VEPrivate(object):
         gap = self._align(gap)
         return gap
 
+    @align
     def _app_hysteresis(self, cur, goal):
         tgt = cur
         if cur > goal:
@@ -205,6 +210,7 @@ class _VEPrivate(object):
                 tgt = cur + ((goal - cur) / self._UPHYSTERESIS)
         return tgt
 
+    @align
     def _get_wss(self):
         if self._ve.mem_stats.wss > 0:
             return self._ve.mem_stats.wss
