@@ -8,14 +8,6 @@ from vcmmd.util.libvirt import virDomainProxy
 from vcmmd.util.misc import roundup
 
 
-class LibvirtError(Error):
-    pass
-
-
-class CgroupError(Error):
-    pass
-
-
 class VM(VE):
 
     VE_TYPE = ve_types.VM
@@ -32,7 +24,7 @@ class VM(VE):
 
             dom_name = self._libvirt_domain.name()
         except libvirtError as err:
-            raise LibvirtError(err)
+            raise Error(err)
 
         # QEMU places every virtual machine in its own memory cgroup under
         # machine.slice
@@ -40,7 +32,7 @@ class VM(VE):
                                    dom_name)
 
         if not self._memcg.exists():
-            raise CgroupError('VM memory cgroup does not exist')
+            raise Error('VM memory cgroup does not exist')
 
         super(VM, self).activate()
 
@@ -53,7 +45,7 @@ class VM(VE):
         try:
             stat = self._libvirt_domain.memoryStats()
         except libvirtError as err:
-            raise LibvirtError(err)
+            raise Error(err)
 
         # libvirt reports memory values in kB, so we need to convert them to
         # bytes
@@ -71,7 +63,7 @@ class VM(VE):
         try:
             stat = self._libvirt_domain.blockStats('')
         except libvirtError as err:
-            raise LibvirtError(err)
+            raise Error(err)
 
         return IOStats(rd_req=stat[0],
                        rd_bytes=stat[1],
@@ -83,7 +75,7 @@ class VM(VE):
         try:
             self._memcg.write_mem_low(value)
         except IOError as err:
-            raise CgroupError(err)
+            raise Error(err)
 
     def set_mem_target(self, value):
         # Update current allocation size by inflating/deflating balloon.
@@ -91,7 +83,7 @@ class VM(VE):
             # libvirt wants kB
             self._libvirt_domain.setMemory(value >> 10)
         except libvirtError as err:
-            raise LibvirtError(err)
+            raise Error(err)
 
     def _hotplug_memory(self, value):
         xml = ("<memory model='dimm'>"
@@ -116,4 +108,4 @@ class VM(VE):
                 self._hotplug_memory(roundup(value - max_mem,
                                              self._MEM_HOTPLUG_GRAN))
         except libvirtError as err:
-            raise LibvirtError(err)
+            raise Error(err)

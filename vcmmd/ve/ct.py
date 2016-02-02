@@ -4,10 +4,6 @@ from vcmmd.cgroup import MemoryCgroup, BlkIOCgroup
 from vcmmd.ve import VE, Error, types as ve_types, MemStats, IOStats
 
 
-class CgroupError(Error):
-    pass
-
-
 class CT(VE):
 
     VE_TYPE = ve_types.CT
@@ -19,10 +15,10 @@ class CT(VE):
         self._blkcg = BlkIOCgroup(self.name)
 
         if not self._memcg.exists():
-            raise CgroupError('CT memory cgroup does not exist')
+            raise Error('CT memory cgroup does not exist')
 
         if not self._blkcg.exists():
-            raise CgroupError('CT blkio cgroup does not exist')
+            raise Error('CT blkio cgroup does not exist')
 
         super(CT, self).activate()
 
@@ -36,7 +32,7 @@ class CT(VE):
             current = self._memcg.read_mem_current()
             stat = self._memcg.read_mem_stat()
         except IOError as err:
-            raise CgroupError(err)
+            raise Error(err)
 
         return MemStats(rss=current,
                         minflt=stat.get('pgfault', -1),
@@ -47,7 +43,7 @@ class CT(VE):
             serviced = self._blkcg.get_io_serviced()
             service_bytes = self._blkcg.get_io_service_bytes()
         except IOError as err:
-            raise CgroupError(err)
+            raise Error(err)
 
         return IOStats(rd_req=serviced[0],
                        rd_bytes=service_bytes[0],
@@ -59,7 +55,7 @@ class CT(VE):
         try:
             self._memcg.write_mem_low(value)
         except IOError as err:
-            raise CgroupError(err)
+            raise Error(err)
 
     def set_mem_target(self, value):
         # XXX: Should we adjust memcg/memory.high here?
@@ -79,10 +75,10 @@ class CT(VE):
             self._memcg.write_tcp_mem_limit(value / 8)
             self._memcg.write_udp_mem_limit(value / 8)
         except IOError as err:
-            raise CgroupError(err)
+            raise Error(err)
 
     def _set_swap_max(self, value):
         try:
             self._memcg.write_swap_max(value)
         except IOError as err:
-            raise CgroupError(err)
+            raise Error(err)
