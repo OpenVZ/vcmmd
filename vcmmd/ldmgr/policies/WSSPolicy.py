@@ -5,6 +5,8 @@ from vcmmd.ve import types as ve_types
 import prlsdkapi
 import os
 from prlsdkapi import consts
+GUEST_LINUX = consts.PVS_GUEST_TYPE_LINUX
+GUEST_WINDOWS = consts.PVS_GUEST_TYPE_WINDOWS
 
 
 class VmGuestSession(object):
@@ -23,7 +25,7 @@ class VmGuestSession(object):
             self._update_ve_list()
             self._lookup_ve(uuid)
         assert self._sdk_ve, 'Lookup VE failed %r' % uuid
-        self._os_type = self._sdk_ve.get_os_type() or consts.PVS_GUEST_TYPE_WINDOWS
+        self._os_type = self._sdk_ve.get_os_type() or GUEST_WINDOWS
         self._connected = False
 
     @classmethod
@@ -137,9 +139,13 @@ class _VEPrivate(object):
     _DOWNHYSTERESIS = 8
     _UPHYSTERESIS = 1
 
-    def __init__(self, ve):
+    def __init__(self, ve, session):
         self._ve = ve
-        self._ve_session = VmGuestSession(ve.name)
+        # _ve_session need only for collect
+        # additional stats in Linux guest by exec
+        # so it should be dropped as an option
+        # for init in the future
+        self._ve_session = session
 
         self.quota = ve.config.effective_limit
 
@@ -160,23 +166,7 @@ class _VEPrivate(object):
         self._actual = self._ve.mem_stats.actual
 
     def _update_add_stat(self):
-        {consts.PVS_GUEST_TYPE_LINUX: self._update_linux_stat,
-         consts.PVS_GUEST_TYPE_WINDOWS: self._update_win_stat}[self._ve_session._os_type]()
-
-    def _update_win_stat(self):
         pass
-
-    def _update_linux_stat(self):
-        self.linux_memstat = {}
-        status, out = self._ve_session.getstatusoutput(['cat',
-                                                        '/proc/meminfo'])
-        if status:
-            return
-        for line in out.splitlines():
-            line = line.split()
-            if not line:
-                continue
-            self.linux_memstat[line[0].strip(':')] = int(line[1]) << 10
 
     def update(self):
         self._update_stats()
@@ -217,22 +207,7 @@ class _VEPrivate(object):
     def _get_wss(self):
         if self._ve.mem_stats.wss > 0:
             return self._ve.mem_stats.wss
-
-        return {consts.PVS_GUEST_TYPE_LINUX: self._get_wss_linux,
-                consts.PVS_GUEST_TYPE_WINDOWS: self._get_wss_win}[self._ve_session._os_type]()
-
-    def _get_wss_linux(self):
-        # available  on  kernels  3.14
-        if not self.linux_memstat or 'MemAvailable' not in self.linux_memstat:
-            return self._ve.mem_stats.rss
-
-        return self._actual - self.linux_memstat['MemAvailable']
-
-    def _get_wss_win(self):
-        unused = 0
-        if self._ve.mem_stats.unused > 0:
-            unused = self._ve.mem_stats.unused
-        return self._actual - unused
+        return super(_VEPrivate, self)._get_wss()
 
     def _update_quota(self):
         '''
@@ -242,7 +217,8 @@ class _VEPrivate(object):
         WS value
         '''
         wss = self._get_wss()
-        size = wss + self._choose_gap(wss)
+        gap = self._choose_gap(wss)
+        size = wss + gap
 
         # This approach have sense a special in case with WS
         # based on unused memory which really far from real
@@ -250,6 +226,39 @@ class _VEPrivate(object):
 
         self.quota = min(max(size, self._ve.config.guarantee),
                          self._ve.config.effective_limit)
+
+
+class LinuxVMGuest(_VEPrivate):
+
+    def _get_wss(self):
+        # available  on  kernels  3.14
+        if not self.linux_memstat or 'MemAvailable' not in self.linux_memstat:
+            return self._ve.mem_stats.rss
+
+        return self._actual - self.linux_memstat['MemAvailable']
+
+    def _update_add_stat(self):
+        self.linux_memstat = {}
+        status, out = self._ve_session.getstatusoutput(['cat',
+                                                        '/proc/meminfo'])
+        if status:
+            return
+        for line in out.splitlines():
+            line = line.split()
+            if not line:
+                continue
+            self.linux_memstat[line[0].strip(':')] = int(line[1]) << 10
+
+
+class WindowsVMGuest(_VEPrivate):
+    _PGFLT_THRESH = 30
+    _PGFLT_REWARD = 2.
+
+    def _get_wss(self):
+        unused = 0
+        if self._ve.mem_stats.unused > 0:
+            unused = self._ve.mem_stats.unused
+        return self._actual - unused
 
 
 class WSSPolicy(Policy):
@@ -269,7 +278,10 @@ class WSSPolicy(Policy):
 
             vepriv = ve.policy_priv
             if vepriv is None:
-                vepriv = _VEPrivate(ve)
+                session = VmGuestSession(ve.name)
+                TypeGuest = {GUEST_LINUX: LinuxVMGuest,
+                             GUEST_WINDOWS: WindowsVMGuest}[session._os_type]
+                vepriv = TypeGuest(ve, session)
                 ve.policy_priv = vepriv
             if stats_updated:
                 vepriv.update()
