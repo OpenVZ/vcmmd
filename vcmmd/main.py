@@ -73,7 +73,10 @@ class _App(object):
 
         self.logger.info('Started')
 
-        VCMMDConfig().load(self.opts.config)
+        cfg = VCMMDConfig()
+        cfg.load(self.opts.config)
+        if cfg.get_bool('Logging.Debug', False):
+            self.logger.setLevel(logging.DEBUG)
 
         ldmgr = LoadManager()
         rpcsrv = RPCServer(ldmgr)
