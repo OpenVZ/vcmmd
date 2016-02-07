@@ -1,7 +1,8 @@
 from __future__ import absolute_import
 
 from vcmmd.ldmgr import Policy
-from vcmmd.ve import types as ve_types
+from vcmmd.ve.ct import CT
+from vcmmd.ve.vm import VM
 import prlsdkapi
 import os
 from prlsdkapi import consts
@@ -25,7 +26,7 @@ class VmGuestSession(object):
             self._update_ve_list()
             self._lookup_ve(uuid)
         assert self._sdk_ve, 'Lookup VE failed %r' % uuid
-        self._os_type = self._sdk_ve.get_os_type() or GUEST_WINDOWS
+        self.os_type = self._sdk_ve.get_os_type() or GUEST_WINDOWS
         self._connected = False
 
     @classmethod
@@ -37,8 +38,7 @@ class VmGuestSession(object):
 
     @classmethod
     def _update_ve_list(cls):
-        cls._ve_list = cls._server.get_vm_list_ex(consts.PVTF_VM |
-                                                  consts.PVTF_CT).wait()
+        cls._ve_list = cls._server.get_vm_list_ex(consts.PVTF_VM).wait()
 
     def _lookup_ve(self, uuid):
         if set(('{', '}')) - set((uuid[0], uuid[-1])):
@@ -228,7 +228,7 @@ class _VEPrivate(object):
                          self._ve.config.effective_limit)
 
 
-class LinuxVMGuest(_VEPrivate):
+class LinuxGuest(_VEPrivate):
 
     def _get_wss(self):
         # available  on  kernels  3.14
@@ -237,11 +237,13 @@ class LinuxVMGuest(_VEPrivate):
 
         return self._actual - self.linux_memstat['MemAvailable']
 
+    def _read_meminfo(self):
+        pass
+
     def _update_add_stat(self):
         self.linux_memstat = {}
-        status, out = self._ve_session.getstatusoutput(['cat',
-                                                        '/proc/meminfo'])
-        if status:
+        out = self._read_meminfo()
+        if out is None:
             return
         for line in out.splitlines():
             line = line.split()
@@ -250,7 +252,25 @@ class LinuxVMGuest(_VEPrivate):
             self.linux_memstat[line[0].strip(':')] = int(line[1]) << 10
 
 
-class WindowsVMGuest(_VEPrivate):
+class LinuxVM(LinuxGuest):
+
+    def _read_meminfo(self):
+        status, out = self._ve_session.getstatusoutput(['cat',
+                                                        '/proc/meminfo'])
+        if status:
+            return
+        return out
+
+
+class LinuxCT(LinuxGuest):
+
+    def _read_meminfo(self):
+        meminfo_path = '/proc/bc/%s/meminfo' % self._ve.name
+        with open(meminfo_path) as f:
+            return f.read()
+
+
+class WindowsVM(_VEPrivate):
     _PGFLT_THRESH = 30
     _PGFLT_REWARD = 2.
 
@@ -272,15 +292,17 @@ class WSSPolicy(Policy):
     def balance(self, active_ves, mem_avail, stats_updated):
         sum_quota = 0
         for ve in active_ves:
-
-            if ve.VE_TYPE != ve_types.VM:
-                self.logger.error('This policy should be apply only for VM')
-
             vepriv = ve.policy_priv
             if vepriv is None:
-                session = VmGuestSession(ve.name)
-                TypeGuest = {GUEST_LINUX: LinuxVMGuest,
-                             GUEST_WINDOWS: WindowsVMGuest}[session._os_type]
+                TypeGuest = None
+                if isinstance(ve, CT):
+                    session = None
+                    TypeGuest = LinuxCT
+                elif isinstance(ve, VM):
+                    session = VmGuestSession(ve.name)
+                    TypeGuest = {GUEST_LINUX: LinuxVM,
+                                 GUEST_WINDOWS: WindowsVM}[session.os_type]
+                assert TypeGuest, 'Unknown guest type'
                 vepriv = TypeGuest(ve, session)
                 ve.policy_priv = vepriv
             if stats_updated:
