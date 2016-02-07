@@ -80,7 +80,7 @@ class _VEPrivate(object):
         weight = self._BASE_WEIGHT
 
         # Fine for memory left completely unused.
-        weight -= self._unused * self._UNUSED_FINE / self.quota
+        weight -= self._unused * self._UNUSED_FINE / (self.quota + 1)
 
         # Fine for allocated, but not actively used memory.
         for i in range(len(self._IDLE_FINE)):
