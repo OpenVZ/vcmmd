@@ -1,6 +1,7 @@
 from __future__ import absolute_import
 
 from libvirt import libvirtError
+from xml.etree import ElementTree as XMLET
 
 from vcmmd.cgroup import MemoryCgroup
 from vcmmd.ve import VE, Error, types as ve_types, MemStats, IOStats
@@ -16,27 +17,46 @@ class VM(VE):
     _MEMSTAT_PERIOD = 5  # seconds
     _MEM_HOTPLUG_GRAN = 128 * 1024  # 128 MiB defined in KiB
 
-    def activate(self):
+    # QEMU memory overhead is about 200MB per VM
+    _QEMU_MEM_OVERHEAD = 200 << 20
+
+    def __init_libvirt_domain(self):
         try:
             self._libvirt_domain = virDomainProxy(self.name)
 
             # libvirt must be explicitly told to collect memory statistics
             self._libvirt_domain.setMemoryStatsPeriod(self._MEMSTAT_PERIOD)
-
-            dom_name = self._libvirt_domain.name()
         except libvirtError as err:
             raise Error(err)
 
+    def __init_cgroup(self):
         # QEMU places every virtual machine in its own memory cgroup under
         # machine.slice
         try:
+            dom_name = self._libvirt_domain.name()
             unit_name = escape_unit_name('qemu-' + dom_name, 'scope')
-        except SystemdError as err:
+        except (libvirtError, SystemdError) as err:
             raise Error(err)
         self._memcg = MemoryCgroup('machine.slice/machine-' + unit_name)
         if not self._memcg.exists():
             raise Error('VM memory cgroup does not exist')
 
+    def __init_mem_overhead(self):
+        try:
+            vram = 0
+            xml_desc = self._libvirt_domain.XMLDesc()
+            for video_device in XMLET.fromstring(xml_desc).iter('video'):
+                vram += int(video_device.find('model').get('vram'))
+            self.mem_overhead = self._QEMU_MEM_OVERHEAD + (vram << 10)
+        except libvirtError as err:
+            raise Error(err)
+        except (XMLET.ParseError, ValueError) as err:
+            raise Error("Failed to parse VM's XML descriptor: %s" % err)
+
+    def activate(self):
+        self.__init_libvirt_domain()
+        self.__init_cgroup()
+        self.__init_mem_overhead()
         super(VM, self).activate()
 
     def idle_ratio(self, age=0):

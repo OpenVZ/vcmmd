@@ -152,6 +152,10 @@ class VE(object):
         self.__mem_stats = MemStats()
         self.__io_stats = IOStats()
 
+        # Additional memory that should be taken into account
+        # when calculating memory.low
+        self.mem_overhead = 0
+
         self.policy_priv = None
 
     def __str__(self):
