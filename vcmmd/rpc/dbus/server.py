@@ -94,6 +94,10 @@ class _LoadManagerObject(dbus.service.Object):
     def GetAllRegisteredVEs(self):
         return self.ldmgr.get_all_registered_ves()
 
+    @dbus.service.method(IFACE, in_signature='', out_signature='')
+    def Dump(self):
+        return self.ldmgr.dump()
+
 
 class RPCServer(object):
 

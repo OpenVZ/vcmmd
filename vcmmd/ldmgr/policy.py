@@ -29,3 +29,11 @@ class Policy(object):
         This function must be overridden in sub-class.
         '''
         pass
+
+    def dump_ve(self, ve):
+        '''Return extra info about an active VE.
+
+        A sub-class may override this function in order to provide the
+        `vcmmdctl dump` command with extra information about active VEs.
+        '''
+        pass

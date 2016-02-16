@@ -97,6 +97,7 @@ class LoadManager(object):
 
         self._host_rsrv = host_rsrv
         self._mem_avail = mem.total - host_rsrv
+        self._mem_total = mem.total
 
     def _reserve_inactive_ve_mem(self, ve, value):
         assert ve not in self._inactive_ve_rsrv
@@ -488,3 +489,25 @@ class LoadManager(object):
             for ve in self._registered_ves.itervalues():
                 result.append((ve.name, ve.VE_TYPE, ve.active, ve.config))
         return result
+
+    @_request()
+    def dump(self):
+        P = self.logger.info
+        P('==== DUMP BEGIN ====')
+        P('Active policy: %s', self._policy.__class__.__name__)
+        P('Memory total: %s', self._mem_total)
+        P('Host reservation: %s', self._host_rsrv)
+        P('Available for active VEs: %s', self._mem_avail)
+        P('Inactive VEs:')
+        for ve in self._registered_ves.itervalues():
+            if not ve.active:
+                P('  %s %s', ve, ve.config)
+        P('Active VEs:')
+        for ve in self._registered_ves.itervalues():
+            if ve.active:
+                P('%s %s', ve, ve.config)
+                ve_dump = self._policy.dump_ve(ve)
+                if ve_dump is not None:
+                    for l in ve_dump.split('\n'):
+                        P('  %s', l)
+        P('==== DUMP END ====')

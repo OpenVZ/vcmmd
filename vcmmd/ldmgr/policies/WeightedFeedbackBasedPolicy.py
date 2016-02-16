@@ -123,12 +123,12 @@ class _VEPrivate(object):
         # tiny VEs at once.
         return self.quota / self._weight
 
-    _DUMP_FMT = ('%s: quota=%d weight=%.2f pgflt=%d/%d io=%d/%d unused=%d '
-                 'idle=' + ':%0.2f' * 5)
+    _DUMP_FMT = ('quota=%d weight=%.2f pgflt=%d/%d io=%d/%d unused=%d '
+                 'idle=%0.2f' + ':%0.2f' * 4)
 
     def dump(self):
         return (self._DUMP_FMT %
-                ((self._ve, self.quota, self._weight,
+                ((self.quota, self._weight,
                   self._pgflt, self._pgflt_avg,
                   self._io, self._io_avg, self._unused) +
                  tuple(self._ve.idle_ratio(i) for i in range(5))))
@@ -221,7 +221,9 @@ class WeightedFeedbackBasedPolicy(Policy):
         if self.logger.isEnabledFor(logging.DEBUG):
             self.logger.debug('=' * 4 + ' VE stats ' + '=' * 4)
             for ve in active_ves:
-                self.logger.debug(ve.policy_priv.dump())
-            self.logger.debug('')
+                self.logger.debug('%s: %s', ve, ve.policy_priv.dump())
 
         return {ve: ve.policy_priv.quota for ve in active_ves}
+
+    def dump_ve(self, ve):
+        return ve.policy_priv.dump()
