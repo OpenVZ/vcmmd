@@ -2,6 +2,7 @@ from __future__ import absolute_import
 
 from vcmmd.cgroup import MemoryCgroup, BlkIOCgroup
 from vcmmd.ve import VE, Error, types as ve_types, MemStats, IOStats
+from vcmmd.config import VCMMDConfig
 
 
 class CT(VE):
@@ -67,7 +68,12 @@ class CT(VE):
         # container's demand, and rely solely on memcg/memory.low set by
         # set_mem_protection, which is kinda soft limit and only matters when
         # there is real memory shortage on the host.
-        pass
+        #
+        # For now, let's set memory.high unless we are explicitly asked not to
+        # do so via config.
+        if VCMMDConfig().get_bool('VE.CT.SoftMemTarget', False):
+            value = MemoryCgroup.MAX_MEM_VAL
+        self._memcg.write_mem_high(value)
 
     def _apply_config(self, config):
         try:

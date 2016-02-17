@@ -94,12 +94,11 @@ class MemoryCgroup(Cgroup):
 
     CONTROLLER = 'memory'
 
+    MAX_MEM_VAL = INT64_MAX
     MAX_IDLE_AGE = idlememscan.MAX_AGE
 
-    _MEM_VAL_MAX = INT64_MAX
-
     def _write_file_mem_val(self, filename, value):
-        value = min(value, self._MEM_VAL_MAX)
+        value = min(value, self.MAX_MEM_VAL)
         self._write_file_int(filename, value)
 
     def read_mem_current(self):
