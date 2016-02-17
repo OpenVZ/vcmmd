@@ -69,16 +69,11 @@ class CT(VE):
         # there is real memory shortage on the host.
         pass
 
-    def _set_mem_max(self, value):
+    def _apply_config(self, config):
         try:
-            self._memcg.write_mem_max(value)
-            self._memcg.write_tcp_mem_limit(value / 8)
-            self._memcg.write_udp_mem_limit(value / 8)
-        except IOError as err:
-            raise Error(err)
-
-    def _set_swap_max(self, value):
-        try:
-            self._memcg.write_swap_max(value)
+            self._memcg.write_mem_max(config.limit)
+            self._memcg.write_tcp_mem_limit(config.limit / 8)
+            self._memcg.write_udp_mem_limit(config.limit / 8)
+            self._memcg.write_swap_max(config.swap)
         except IOError as err:
             raise Error(err)

@@ -173,9 +173,16 @@ class VE(object):
         '''
         return self.__config
 
-    def __apply_config(self, config):
-        self._set_mem_max(config.limit)
-        self._set_swap_max(config.swap)
+    def _apply_config(self, config):
+        '''Try to apply VE config.
+
+        A sub-class is supposed to override this function to propagate config
+        changes to the underlying implementation.
+
+        This function May raise Error, in which case config update will be
+        aborted.
+        '''
+        pass
 
     def set_config(self, config):
         '''Update VE config.
@@ -185,7 +192,7 @@ class VE(object):
         when VE gets activated.
         '''
         if self.active:
-            self.__apply_config(config)
+            self._apply_config(config)
         self.__config = config
 
     @property
@@ -207,7 +214,7 @@ class VE(object):
         This function is supposed to be called after a VE has been started or
         resumed.
         '''
-        self.__apply_config(self.config)
+        self._apply_config(self.config)
         self.__active = True
 
     def deactivate(self):
@@ -340,24 +347,6 @@ class VE(object):
         in case allocation is reduced. However, reducing the value will put the
         VE under heavy local memory pressure forcing it to release its memory
         to the host.
-
-        May raise Error.
-
-        This function is supposed to be overridden in sub-class.
-        '''
-        pass
-
-    def _set_mem_max(self, value):
-        '''Set hard memory limit.
-
-        May raise Error.
-
-        This function is supposed to be overridden in sub-class.
-        '''
-        pass
-
-    def _set_swap_max(self, value):
-        '''Set hard swap limit.
 
         May raise Error.
 

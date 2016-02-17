@@ -117,7 +117,8 @@ class VM(VE):
                "</memory>").format(memsize=value)
         self._libvirt_domain.attachDevice(xml)
 
-    def _set_mem_max(self, value):
+    def _apply_config(self, config):
+        value = config.limit
         value >>= 10  # libvirt wants kB
         try:
             # If value is greater than MaxMemory, we have to initiate memory
