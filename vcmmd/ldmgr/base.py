@@ -45,9 +45,6 @@ class LoadManager(object):
     _USER_SLICE_RSRV = 0.2
     _SYSTEM_SLICE_RSRV = 0.4
 
-    _TSWAP_ENABLED = True
-    _TCACHE_ENABLED = True
-
     _UPDATE_INTERVAL = 5        # seconds
 
     _IDLE_MEM_PERIOD = 60       # seconds
@@ -106,22 +103,6 @@ class LoadManager(object):
 
     def _unreserve_inactive_ve_mem(self, ve):
         self._mem_avail += self._inactive_ve_rsrv.pop(ve)
-
-    def _toggle_tmem(self, subsys, enable):
-        try:
-            with open('/sys/module/%s/parameters/active' % subsys, 'w') as f:
-                f.write('Y' if enable else 'N')
-        except IOError as err:
-            # Don't care about failures if we don't want the feature enabled.
-            if enable:
-                self.logger.error('Failed to enable %s: %s', subsys, err)
-        else:
-            if enable:
-                self.logger.info('Enabled %s', subsys)
-
-    def _init_tmem(self):
-        self._toggle_tmem('tswap', self._TSWAP_ENABLED)
-        self._toggle_tmem('tcache', self._TCACHE_ENABLED)
 
     def _set_slice_rsrv(self, name, value, verbose=True):
         memcg = MemoryCgroup(name + '.slice')
@@ -215,7 +196,6 @@ class LoadManager(object):
 
     def _worker_thread_fn(self):
         self._init_mem_avail()
-        self._init_tmem()
         self._init_system_slices()
         self._load_policy()
         if self._policy.REQUIRES_IDLE_MEM_TRACKING:
