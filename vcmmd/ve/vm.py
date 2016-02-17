@@ -118,6 +118,13 @@ class VM(VE):
         self._libvirt_domain.attachDevice(xml)
 
     def _apply_config(self, config):
+        # Set protection against OOM killer according to configured guarantee
+        try:
+            self._memcg.write_oom_guarantee(config.guarantee)
+        except IOError as err:
+            raise Error(err)
+
+        # Update memory limit
         value = config.limit
         value >>= 10  # libvirt wants kB
         try:

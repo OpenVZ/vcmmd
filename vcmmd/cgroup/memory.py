@@ -154,6 +154,9 @@ class MemoryCgroup(Cgroup):
     def write_udp_mem_limit(self, val):
         self._write_file_mem_val('memory.kmem.udp.limit_in_bytes', val)
 
+    def write_oom_guarantee(self, val):
+        self._write_file_mem_val('memory.oom_guarantee', val)
+
     @staticmethod
     def set_idle_mem_period(period):
         '''Set idle memory scan period, in seconds.

@@ -71,6 +71,7 @@ class CT(VE):
 
     def _apply_config(self, config):
         try:
+            self._memcg.write_oom_guarantee(config.guarantee)
             self._memcg.write_mem_max(config.limit)
             self._memcg.write_tcp_mem_limit(config.limit / 8)
             self._memcg.write_udp_mem_limit(config.limit / 8)
