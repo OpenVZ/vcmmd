@@ -40,71 +40,58 @@ class VCMMDConfig(object):
             d = d[k]
         return d
 
-    def get(self, name, default=None):
+    def get(self, name, default=None, checkfn=None):
         '''Get the value of a config option.
 
         This function lookups a config option by name and returns its value.
         To lookup an option in a sub-section, use dot, e.g. 'section.option'.
         In case the option does not exist, the value of 'default' is returned.
 
-        This function does not perform any type checks. To assure the value is
-        of a specific type, use get_str, get_bool, and get_num methods.
+        Unless 'checkfn' is not None, no checks is performed upon the retrieved
+        value. To assure the value meets specific requirements, use get_str,
+        get_bool, and get_num methods.
+
+        If 'checkfn' argument is not None, it must be a function taking exactly
+        one argument. The function will be called to check the retrieved value.
+        It may raise ValueError or TypeError, in which case the retrieved value
+        will be discarded and 'default' will be returned.
         '''
         try:
-            return self._get(name)
-        except KeyError:
-            return default
+            val = self._get(name)
+            if checkfn is not None:
+                checkfn(val)
+        except (KeyError, TypeError, ValueError) as err:
+            # do not complain if the option is absent
+            if not isinstance(err, KeyError):
+                self.logger.warn("Invalid value for config option '%s': %s",
+                                 name, err)
+            val = default
+        return val
 
     def get_str(self, name, default=None):
-        try:
-            val = self._get(name)
-        except KeyError:
-            return default
-
-        t = type(val)
-        if t not in (str, unicode):
-            self.logger.warn("Invalid value for config option '%s': "
-                             "Expected string, got '%s'", name, t.__name__)
-            return default
-
-        return val
+        def checkfn(val):
+            t = type(val)
+            if t not in (str, unicode):
+                raise TypeError("expected string, got '%s'" % t.__name__)
+        return self.get(name, default, checkfn)
 
     def get_bool(self, name, default=None):
-        try:
-            val = self._get(name)
-        except KeyError:
-            return default
-
-        t = type(val)
-        if t != bool:
-            self.logger.warn("Invalid value for config option '%s': "
-                             "Expected boolean, got '%s'", name, t.__name__)
-            return default
-
-        return val
+        def checkfn(val):
+            t = type(val)
+            if t != bool:
+                raise TypeError("expected boolean, got '%s'" % t.__name__)
+        return self.get(name, default, checkfn)
 
     def get_num(self, name, default=None,
                 integer=False, minimum=None, maximum=None):
-        try:
-            val = self._get(name)
-        except KeyError:
-            return default
-
-        t = type(val)
-        if t not in (int, long, float) or (integer and t == float):
-            self.logger.warn("Invalid value for config option '%s': "
-                             "Expected %s, got '%s'", name,
-                             'integer' if integer else 'number', t.__name__)
-            return default
-
-        if minimum is not None and val < minimum:
-            self.logger.warn("Config option '%s' must be >= %s, got %s",
-                             name, minimum, val)
-            return default
-
-        if maximum is not None and val > maximum:
-            self.logger.warn("Config option '%s' must be <= %s, got %s",
-                             name, maximum, val)
-            return default
-
-        return val
+        def checkfn(val):
+            t = type(val)
+            if t not in (int, long, float) or (integer and t == float):
+                raise TypeError("expected %s, got '%s'" %
+                                ('integer' if integer
+                                 else 'number', t.__name__))
+            if minimum is not None and val < minimum:
+                raise ValueError("must be >= %s, got %s" % (minimum, val))
+            if maximum is not None and val > maximum:
+                raise ValueError("must be <= %s, got %s" % (maximum, val))
+        return self.get(name, default, checkfn)
