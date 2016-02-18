@@ -16,6 +16,7 @@ from vcmmd.ve import VE, Config as VEConfig, Error as VEError
 from vcmmd.ve.make import (make as make_ve,
                            InvalidVENameError,
                            InvalidVETypeError)
+from vcmmd.util.misc import clamp
 
 
 class Error(Exception):
@@ -37,13 +38,11 @@ class LoadManager(object):
 
     _VE_STATE_FILE = '/var/run/vcmmd.state'
 
-    _HOST_MEM_PCT = 10          # 10 %
-    _HOST_MEM_MIN = 128 << 20   # 128 MB
-    _HOST_MEM_MAX = 768 << 20   # 768 MB
-
-    # Portion of host memory to reserve for user and system slices.
-    _USER_SLICE_RSRV = 0.2
-    _SYSTEM_SLICE_RSRV = 0.4
+    # How much memory to reserve for host, system.slice, and user.slice
+    # (percentage, min, max)
+    _HOST_MEM = (0.04, 128 << 20, 320 << 20)
+    _SYS_MEM = (0.04, 128 << 20, 320 << 20)
+    _USER_MEM = (0.02, 32 << 20, 128 << 20)
 
     _UPDATE_INTERVAL = 5        # seconds
 
@@ -83,18 +82,20 @@ class LoadManager(object):
             self._do_load_policy(policy_name)
         self.logger.info("Loaded policy '%s'", policy_name)
 
+    def _calc_mem_size(self, params):
+        # Given a tuple (percentage, min, max), calculate memory size.
+        return clamp(int(self._mem_total * params[0]), params[1], params[2])
+
     def _init_mem_avail(self):
-        mem = psutil.virtual_memory()
-
-        # We should leave some memory for the host. Give it some percentage of
-        # total memory, but never give too little or too much.
-        host_rsrv = mem.total * self._HOST_MEM_PCT / 100
-        host_rsrv = max(host_rsrv, self._HOST_MEM_MIN)
-        host_rsrv = min(host_rsrv, self._HOST_MEM_MAX)
-
-        self._host_rsrv = host_rsrv
-        self._mem_avail = mem.total - host_rsrv
-        self._mem_total = mem.total
+        self._mem_total = psutil.virtual_memory().total
+        self._host_rsrv = self._calc_mem_size(self._HOST_MEM)
+        self._sys_rsrv = self._calc_mem_size(self._SYS_MEM)
+        self._user_rsrv = self._calc_mem_size(self._USER_MEM)
+        self._mem_avail = (self._mem_total - self._host_rsrv -
+                           self._sys_rsrv - self._user_rsrv)
+        self.logger.info('%s bytes available for VEs', self._mem_avail)
+        if self._mem_avail < 0:
+            self.logger.error('Not enough memory to run VEs!')
 
     def _reserve_inactive_ve_mem(self, ve, value):
         assert ve not in self._inactive_ve_rsrv
@@ -118,10 +119,8 @@ class LoadManager(object):
                 self.logger.info('Reserved %s bytes for %s slice', value, name)
 
     def _init_system_slices(self):
-        self._set_slice_rsrv('user', int(self._host_rsrv *
-                                         self._USER_SLICE_RSRV))
-        self._set_slice_rsrv('system', int(self._host_rsrv *
-                                           self._SYSTEM_SLICE_RSRV))
+        self._set_slice_rsrv('user', self._user_rsrv)
+        self._set_slice_rsrv('system', self._sys_rsrv)
 
     def _save_ve_state(self, ve):
         self._ve_state[ve.name] = {
@@ -476,7 +475,9 @@ class LoadManager(object):
         P('==== DUMP BEGIN ====')
         P('Active policy: %s', self._policy.__class__.__name__)
         P('Memory total: %s', self._mem_total)
-        P('Host reservation: %s', self._host_rsrv)
+        P('Reserved for host: %s', self._host_rsrv)
+        P('Reserved for system.slice: %s', self._sys_rsrv)
+        P('Reserved for user.slice: %s', self._user_rsrv)
         P('Available for active VEs: %s', self._mem_avail)
         P('Inactive VEs:')
         for ve in self._registered_ves.itervalues():
