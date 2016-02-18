@@ -38,16 +38,16 @@ class LoadManager(object):
 
     _VE_STATE_FILE = '/var/run/vcmmd.state'
 
+    _DFLT_UPDATE_INTERVAL = 5  # seconds
+
     # How much memory to reserve for host, system.slice, and user.slice
     # (percentage, min, max)
-    _HOST_MEM = (0.04, 128 << 20, 320 << 20)
-    _SYS_MEM = (0.04, 128 << 20, 320 << 20)
-    _USER_MEM = (0.02, 32 << 20, 128 << 20)
+    _DFLT_HOST_MEM = (0.04, 128 << 20, 320 << 20)
+    _DFLT_SYS_MEM = (0.04, 128 << 20, 320 << 20)
+    _DFLT_USER_MEM = (0.02, 32 << 20, 128 << 20)
 
-    _UPDATE_INTERVAL = 5        # seconds
-
-    _IDLE_MEM_PERIOD = 60       # seconds
-    _IDLE_MEM_SAMPLING = 0.1
+    _DFLT_IDLE_MEM_PERIOD = 60  # seconds
+    _DFLT_IDLE_MEM_SAMPLING = 0.1
 
     def __init__(self):
         self.logger = logging.getLogger('vcmmd.LoadManager')
@@ -82,15 +82,31 @@ class LoadManager(object):
             self._do_load_policy(policy_name)
         self.logger.info("Loaded policy '%s'", policy_name)
 
-    def _calc_mem_size(self, params):
-        # Given a tuple (percentage, min, max), calculate memory size.
-        return clamp(int(self._mem_total * params[0]), params[1], params[2])
+    def _init_update_interval(self):
+        self._update_interval = VCMMDConfig().get_num(
+            'LoadManager.UpdateInterval',
+            default=self._DFLT_UPDATE_INTERVAL, integer=True, minimum=1)
+        self.logger.info('Update interval is set to %ss',
+                         self._update_interval)
+
+    def _mem_size_from_config(self, name, default):
+        cfg = VCMMDConfig()
+        share = cfg.get_num('LoadManager.%s.Share' % name,
+                            default=default[0], minimum=0.0, maximum=1.0)
+        min_ = cfg.get_num('LoadManager.%s.Min' % name,
+                           default=default[1], integer=True, minimum=0)
+        max_ = cfg.get_num('LoadManager.%s.Max' % name,
+                           default=default[2], integer=True, minimum=0)
+        return clamp(int(self._mem_total * share), min_, max_)
 
     def _init_mem_avail(self):
         self._mem_total = psutil.virtual_memory().total
-        self._host_rsrv = self._calc_mem_size(self._HOST_MEM)
-        self._sys_rsrv = self._calc_mem_size(self._SYS_MEM)
-        self._user_rsrv = self._calc_mem_size(self._USER_MEM)
+        self._host_rsrv = self._mem_size_from_config('HostMem',
+                                                     self._DFLT_HOST_MEM)
+        self._sys_rsrv = self._mem_size_from_config('SysMem',
+                                                    self._DFLT_SYS_MEM)
+        self._user_rsrv = self._mem_size_from_config('UserMem',
+                                                     self._DFLT_USER_MEM)
         self._mem_avail = (self._mem_total - self._host_rsrv -
                            self._sys_rsrv - self._user_rsrv)
         self.logger.info('%s bytes available for VEs', self._mem_avail)
@@ -121,6 +137,18 @@ class LoadManager(object):
     def _init_system_slices(self):
         self._set_slice_rsrv('user', self._user_rsrv)
         self._set_slice_rsrv('system', self._sys_rsrv)
+
+    def _start_idle_mem_tracking(self):
+        cfg = VCMMDConfig()
+        period = cfg.get_num('LoadManager.IdleMemTracking.Period',
+                             default=self._DFLT_IDLE_MEM_PERIOD,
+                             integer=True, minimum=1)
+        sampling = cfg.get_num('LoadManager.IdleMemTracking.Sampling',
+                               default=self._DFLT_IDLE_MEM_SAMPLING,
+                               minimum=0.01, maximum=1.0)
+        VE.enable_idle_mem_tracking(period, sampling)
+        self.logger.info('Started idle memory tracking: '
+                         'period %ss sampling %.2f', period, sampling)
 
     def _save_ve_state(self, ve):
         self._ve_state[ve.name] = {
@@ -180,7 +208,7 @@ class LoadManager(object):
     def _process_request(self):
         if self._policy.REQUIRES_PERIODIC_UPDATES:
             timeout = (self._last_stats_update +
-                       self._UPDATE_INTERVAL - time.time())
+                       self._update_interval - time.time())
             block = timeout > 0
         else:
             timeout = None
@@ -194,12 +222,12 @@ class LoadManager(object):
             self._req_queue.task_done()
 
     def _worker_thread_fn(self):
+        self._init_update_interval()
         self._init_mem_avail()
         self._init_system_slices()
         self._load_policy()
         if self._policy.REQUIRES_IDLE_MEM_TRACKING:
-            VE.enable_idle_mem_tracking(self._IDLE_MEM_PERIOD,
-                                        self._IDLE_MEM_SAMPLING)
+            self._start_idle_mem_tracking()
         self._restore_ves()
         while not self._should_stop:
             self._process_request()
@@ -265,7 +293,7 @@ class LoadManager(object):
     def _balance_ves(self):
         # Update VE stats if enough time has passed
         now = time.time()
-        if now >= self._last_stats_update + self._UPDATE_INTERVAL:
+        if now >= self._last_stats_update + self._update_interval:
             for ve in self._active_ves:
                 try:
                     ve.update_stats()
