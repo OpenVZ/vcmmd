@@ -8,6 +8,7 @@ import os
 from prlsdkapi import consts
 GUEST_LINUX = consts.PVS_GUEST_TYPE_LINUX
 GUEST_WINDOWS = consts.PVS_GUEST_TYPE_WINDOWS
+import logging
 
 
 class VmGuestSession(object):
@@ -139,7 +140,7 @@ class _VEPrivate(object):
     _DOWNHYSTERESIS = 8
     _UPHYSTERESIS = 1
 
-    def __init__(self, ve, session):
+    def __init__(self, ve, session, logger=lambda *args: None):
         self._ve = ve
         # _ve_session need only for collect
         # additional stats in Linux guest by exec
@@ -154,6 +155,8 @@ class _VEPrivate(object):
 
         self._pgflt = 0
         self._pgflt_avg = 0
+
+        self.logger = logger
 
     def _update_stats(self):
         self._io = self._ve.io_stats.rd_req + self._ve.io_stats.wr_req
@@ -190,6 +193,9 @@ class _VEPrivate(object):
 
                    self._POSITIVE_REWARD) * self._MEM_FINE
 
+        if self._actual - self.quota > self._DELTA_THRESHOLD:
+            self.logger.error("balloon in %r can't grow correctly"
+                              "(actual: %d, quota: %d)" % (self._ve, self._actual, self.quota))
         gap = self._actual - wss + delta
         gap = max(gap, self._MIN_GAP)
         return gap
@@ -216,9 +222,9 @@ class _VEPrivate(object):
         In case that we have own guest balloon driver we have more precisely
         WS value
         '''
-        wss = self._get_wss()
-        gap = self._choose_gap(wss)
-        size = wss + gap
+        self.wss = self._get_wss()
+        gap = self._choose_gap(self.wss)
+        size = self.wss + gap
 
         # This approach have sense a special in case with WS
         # based on unused memory which really far from real
@@ -227,12 +233,22 @@ class _VEPrivate(object):
         self.quota = min(max(size, self._ve.config.guarantee),
                          self._ve.config.effective_limit)
 
+    _DUMP_FMT = '%s: wss=%d quota=%d actual=%d pgflt=%d/%d io=%d/%d'
+
+    def dump(self):
+        return self._DUMP_FMT % (self._ve, self.wss,
+                                 self.quota, self._actual,
+                                 self._pgflt, self._pgflt_avg,
+                                 self._io, self._io_avg)
+
 
 class LinuxGuest(_VEPrivate):
 
     def _get_wss(self):
         # available  on  kernels  3.14
         if not self.linux_memstat or 'MemAvailable' not in self.linux_memstat:
+            self.logger.error('Failed to get "MemAvailable" '
+                              'from linux guest(%s), using RSS' % self._ve)
             return self._ve.mem_stats.rss
 
         return self._actual - self.linux_memstat['MemAvailable']
@@ -277,6 +293,8 @@ class WindowsVM(_VEPrivate):
     def _get_wss(self):
         unused = 0
         if self._ve.mem_stats.unused > 0:
+            self.logger.error('Failed to get "unused" '
+                              'from windows guest(%s), using "actual"' % self._ve)
             unused = self._ve.mem_stats.unused
         return self._actual - unused
 
@@ -303,7 +321,7 @@ class WSSPolicy(Policy):
                     TypeGuest = {GUEST_LINUX: LinuxVM,
                                  GUEST_WINDOWS: WindowsVM}[session.os_type]
                 assert TypeGuest, 'Unknown guest type'
-                vepriv = TypeGuest(ve, session)
+                vepriv = TypeGuest(ve, session, self.logger)
                 ve.policy_priv = vepriv
             if stats_updated:
                 vepriv.update()
@@ -311,4 +329,14 @@ class WSSPolicy(Policy):
 
         if sum_quota > mem_avail:
             self.logger.error('Sum VE quotas out of mem_avail limit')
+
+        # Dump stats of all active VEs for debugging.
+        if self.logger.isEnabledFor(logging.DEBUG):
+            self.logger.debug('=' * 4 + ' VE stats ' + '=' * 4)
+            for ve in active_ves:
+                self.logger.debug('%s: %s', ve, ve.policy_priv.dump())
+
         return {ve: ve.policy_priv.quota for ve in active_ves}
+
+    def dump_ve(self, ve):
+        return ve.policy_priv.dump()
