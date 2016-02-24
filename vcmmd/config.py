@@ -16,12 +16,15 @@ class VCMMDConfig(object):
     def __init__(self):
         self.logger = logging.getLogger('vcmmd.config')
         self._data = None
+        self._cache = {}
 
     def load(self, filename):
         '''Load config from a file.
 
         The file must be in json format.
         '''
+        self._data = None
+        self._cache = {}
 
         self.logger.info("Loading config from file '%s'", filename)
         try:
@@ -55,7 +58,17 @@ class VCMMDConfig(object):
         one argument. The function will be called to check the retrieved value.
         It may raise ValueError or TypeError, in which case the retrieved value
         will be discarded and 'default' will be returned.
+
+        Note, the value returned by this function is cached, meaning that the
+        next call to it with the same 'name' will return the same value
+        bypassing any checks.
         '''
+        # First, check if we've already fetched the requested value. If this is
+        # the case, bypass any checks and return the cached value.
+        try:
+            return self._cache[name]
+        except KeyError:
+            pass
         try:
             val = self._get(name)
             if checkfn is not None:
@@ -66,6 +79,9 @@ class VCMMDConfig(object):
                 self.logger.warn("Invalid value for config option '%s': %s",
                                  name, err)
             val = default
+        # Save the value to speed up following retrievals and avoid spewing
+        # warnings if any over and over again.
+        self._cache[name] = val
         return val
 
     def get_str(self, name, default=None):
