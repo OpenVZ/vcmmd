@@ -134,7 +134,7 @@ class _VEPrivate(object):
                  tuple(self._ve.idle_ratio(i) for i in range(5))))
 
 
-class WeightedFeedbackBasedPolicy(Policy):
+class WFBPolicy(Policy):
     '''Weighted feedback-based policy.
 
     The idea is simple. Whenever the policy detects that a VE needs more memory

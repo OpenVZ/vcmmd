@@ -34,7 +34,7 @@ class Error(Exception):
 
 class LoadManager(object):
 
-    DEFAULT_POLICY = 'WeightedFeedbackBasedPolicy'
+    DEFAULT_POLICY = 'WFBPolicy'
 
     _VE_STATE_FILE = '/var/run/vcmmd.state'
 
