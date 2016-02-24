@@ -140,7 +140,7 @@ class _VEPrivate(object):
     _DOWNHYSTERESIS = 8
     _UPHYSTERESIS = 1
 
-    def __init__(self, ve, session, logger=lambda *args: None):
+    def __init__(self, ve, session):
         self._ve = ve
         # _ve_session need only for collect
         # additional stats in Linux guest by exec
@@ -156,7 +156,7 @@ class _VEPrivate(object):
         self._pgflt = 0
         self._pgflt_avg = 0
 
-        self.logger = logger
+        self.logger = logging.getLogger('vcmmd.Policy')
 
     def _update_stats(self):
         self._io = self._ve.io_stats.rd_req + self._ve.io_stats.wr_req
@@ -307,6 +307,9 @@ class WSSPolicy(Policy):
 
     REQUIRES_PERIODIC_UPDATES = True
 
+    def __init__(self):
+        self.logger = logging.getLogger('vcmmd.Policy')
+
     def balance(self, active_ves, mem_avail, stats_updated):
         sum_quota = 0
         for ve in active_ves:
@@ -321,7 +324,7 @@ class WSSPolicy(Policy):
                     TypeGuest = {GUEST_LINUX: LinuxVM,
                                  GUEST_WINDOWS: WindowsVM}[session.os_type]
                 assert TypeGuest, 'Unknown guest type'
-                vepriv = TypeGuest(ve, session, self.logger)
+                vepriv = TypeGuest(ve, session)
                 ve.policy_priv = vepriv
             if stats_updated:
                 vepriv.update()

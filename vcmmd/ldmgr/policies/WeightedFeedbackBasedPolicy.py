@@ -149,6 +149,9 @@ class WeightedFeedbackBasedPolicy(Policy):
     REQUIRES_PERIODIC_UPDATES = True
     REQUIRES_IDLE_MEM_TRACKING = True
 
+    def __init__(self):
+        self.logger = logging.getLogger('vcmmd.Policy')
+
     def __grant_quota(self, active_ves, value):
         # There is an excess of quota. Grant it too all active VEs
         # proportionally to their weights, respecting configured limits.

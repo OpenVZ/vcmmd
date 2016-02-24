@@ -1,15 +1,9 @@
-import logging
-
-
 class Policy(object):
     '''Load manager policy interface.
     '''
 
     REQUIRES_PERIODIC_UPDATES = False
     REQUIRES_IDLE_MEM_TRACKING = False
-
-    def __init__(self):
-        self.logger = logging.getLogger('vcmmd.Policy')
 
     def balance(self, active_ves, mem_avail, stats_updated):
         '''Calculate VE memory quotas.
