@@ -127,6 +127,7 @@ class LoadManager(object):
             return
         try:
             memcg.write_mem_low(value)
+            memcg.write_oom_guarantee(value)
         except IOError as err:
             self.logger.error('Failed to set reservation for %s slice: %s',
                               name, err)
