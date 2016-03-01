@@ -115,7 +115,7 @@ def align(f):
     return wrap
 
 
-class _VEPrivate(object):
+class AbstractVE(object):
 
     __UNITS = 1 << 20  # MB
 
@@ -213,7 +213,7 @@ class _VEPrivate(object):
     def _get_wss(self):
         if self._ve.mem_stats.wss > 0:
             return self._ve.mem_stats.wss
-        return super(_VEPrivate, self)._get_wss()
+        return super(AbstractVE, self)._get_wss()
 
     def _update_quota(self):
         '''
@@ -242,7 +242,7 @@ class _VEPrivate(object):
                                  self._io, self._io_avg)
 
 
-class LinuxGuest(_VEPrivate):
+class LinuxGuest(AbstractVE):
 
     def _get_wss(self):
         # available  on  kernels  3.14
@@ -286,7 +286,7 @@ class LinuxCT(LinuxGuest):
             return f.read()
 
 
-class WindowsVM(_VEPrivate):
+class WindowsVM(AbstractVE):
     _PGFLT_THRESH = 30
     _PGFLT_REWARD = 2.
 
