@@ -293,9 +293,10 @@ class WindowsVM(_VEPrivate):
     def _get_wss(self):
         unused = 0
         if self._ve.mem_stats.unused > 0:
+            unused = self._ve.mem_stats.unused
+        else:
             self.logger.error('Failed to get "unused" '
                               'from windows guest(%s), using "actual"' % self._ve)
-            unused = self._ve.mem_stats.unused
         return self._actual - unused
 
 
