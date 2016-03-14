@@ -82,6 +82,7 @@ class VCMMDConfig(object):
         # Save the value to speed up following retrievals and avoid spewing
         # warnings if any over and over again.
         self._cache[name] = val
+        self.logger.info('%s = %r', name, val)
         return val
 
     def get_str(self, name, default=None):

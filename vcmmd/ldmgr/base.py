@@ -86,8 +86,6 @@ class LoadManager(object):
         self._update_interval = VCMMDConfig().get_num(
             'LoadManager.UpdateInterval',
             default=self._DFLT_UPDATE_INTERVAL, integer=True, minimum=1)
-        self.logger.info('Update interval is set to %ss',
-                         self._update_interval)
 
     def _mem_size_from_config(self, name, default):
         cfg = VCMMDConfig()
@@ -148,8 +146,7 @@ class LoadManager(object):
                                default=self._DFLT_IDLE_MEM_SAMPLING,
                                minimum=0.01, maximum=1.0)
         VE.enable_idle_mem_tracking(period, sampling)
-        self.logger.info('Started idle memory tracking: '
-                         'period %ss sampling %.2f', period, sampling)
+        self.logger.info('Started idle memory tracking')
 
     def _save_ve_state(self, ve):
         self._ve_state[ve.name] = {
