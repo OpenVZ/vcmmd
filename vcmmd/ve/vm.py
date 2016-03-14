@@ -5,6 +5,7 @@ from xml.etree import ElementTree as XMLET
 
 from vcmmd.cgroup import MemoryCgroup
 from vcmmd.ve import VE, Error, types as ve_types, MemStats, IOStats
+from vcmmd.config import VCMMDConfig
 from vcmmd.util.libvirt import virDomainProxy
 from vcmmd.util.systemd import escape_unit_name, Error as SystemdError
 from vcmmd.util.misc import roundup
@@ -14,18 +15,14 @@ class VM(VE):
 
     VE_TYPE = ve_types.VM
 
-    _MEMSTAT_PERIOD = 5  # seconds
-    _MEM_HOTPLUG_GRAN = 128 * 1024  # 128 MiB defined in KiB
-
-    # QEMU memory overhead is about 200MB per VM
-    _QEMU_MEM_OVERHEAD = 200 << 20
-
     def __init_libvirt_domain(self):
         try:
             self._libvirt_domain = virDomainProxy(self.name)
 
             # libvirt must be explicitly told to collect memory statistics
-            self._libvirt_domain.setMemoryStatsPeriod(self._MEMSTAT_PERIOD)
+            period = VCMMDConfig().get_num('VE.VM.MemStatsPeriod',
+                                           default=5, integer=True, minimum=1)
+            self._libvirt_domain.setMemoryStatsPeriod(period)
         except libvirtError as err:
             raise Error(err)
 
@@ -47,7 +44,10 @@ class VM(VE):
             xml_desc = self._libvirt_domain.XMLDesc()
             for video_device in XMLET.fromstring(xml_desc).iter('video'):
                 vram += int(video_device.find('model').get('vram'))
-            self.mem_overhead = self._QEMU_MEM_OVERHEAD + (vram << 10)
+            qemu_overhead = VCMMDConfig().get_num('VE.VM.QEMUOverhead',
+                                                  default=209715200,
+                                                  integer=True, minimum=0)
+            self.mem_overhead = qemu_overhead + (vram << 10)
         except libvirtError as err:
             raise Error(err)
         except (XMLET.ParseError, ValueError) as err:
@@ -109,6 +109,11 @@ class VM(VE):
             raise Error(err)
 
     def _hotplug_memory(self, value):
+        grain = VCMMDConfig().get_num('VE.VM.MemHotplugGrain',
+                                      default=134217728, integer=True,
+                                      minimum=1048576)
+        value = roundup(value, grain)
+        value >>= 10  # libvirt wants kB
         xml = ("<memory model='dimm'>"
                "  <target>"
                "    <size unit='KiB'>{memsize}</size>"
@@ -126,7 +131,6 @@ class VM(VE):
 
         # Update memory limit
         value = config.limit
-        value >>= 10  # libvirt wants kB
         try:
             # If value is greater than MaxMemory, we have to initiate memory
             # hotplug to increase the limit.
@@ -135,8 +139,8 @@ class VM(VE):
             # expected to work. Memory allocation is supposed to be decreased
             # by the policy in this case.
             max_mem = self._libvirt_domain.maxMemory()
+            max_mem <<= 10  # libvirt reports in kB
             if value > max_mem:
-                self._hotplug_memory(roundup(value - max_mem,
-                                             self._MEM_HOTPLUG_GRAN))
+                self._hotplug_memory(value - max_mem)
         except libvirtError as err:
             raise Error(err)
