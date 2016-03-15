@@ -102,4 +102,7 @@ class virDomainProxy(object):
             return self.__do_call_real(name, args, kwargs)
 
     def __getattr__(self, name):
+        attr = getattr(self.__dom, name)
+        if not callable(attr):
+            return attr
         return _virDomainProxyMethod(self, name)
