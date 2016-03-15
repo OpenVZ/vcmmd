@@ -120,10 +120,4 @@ class WSSSoftPolicy(WSSPolicy.WSSPolicy):
         if sum_quota > mem_avail:
             self.logger.error('Sum VE quotas out of mem_avail limit')
 
-        # Dump stats of all active VEs for debugging.
-        if self.logger.isEnabledFor(logging.DEBUG):
-            self.logger.debug('=' * 4 + ' VE stats ' + '=' * 4)
-            for ve in active_ves:
-                self.logger.debug('%s: %s', ve, ve.policy_priv.dump())
-
         return {ve: ve.policy_priv.quota for ve in active_ves}

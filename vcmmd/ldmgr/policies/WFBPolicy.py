@@ -149,9 +149,6 @@ class WFBPolicy(Policy):
     REQUIRES_PERIODIC_UPDATES = True
     REQUIRES_IDLE_MEM_TRACKING = True
 
-    def __init__(self):
-        self.logger = logging.getLogger('vcmmd.Policy')
-
     def __grant_quota(self, active_ves, value):
         # There is an excess of quota. Grant it too all active VEs
         # proportionally to their weights, respecting configured limits.
@@ -219,12 +216,6 @@ class WFBPolicy(Policy):
             for ve in active_ves:
                 ve.policy_priv.quota = (ve.policy_priv.quota *
                                         mem_avail / sum_quota)
-
-        # Dump stats of all active VEs for debugging.
-        if self.logger.isEnabledFor(logging.DEBUG):
-            self.logger.debug('=' * 4 + ' VE stats ' + '=' * 4)
-            for ve in active_ves:
-                self.logger.debug('%s: %s', ve, ve.policy_priv.dump())
 
         return {ve: ve.policy_priv.quota for ve in active_ves}
 

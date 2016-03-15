@@ -303,6 +303,12 @@ class LoadManager(object):
             self.logger.error('Failed to get number of sharing pages: %s', err)
         return ret * _PAGE_SIZE
 
+    def _dump_ves(self, dump_fn):
+        for ve in self._active_ves:
+            s = self._policy.dump_ve(ve)
+            if s is not None:
+                dump_fn('%s: %s', ve, s)
+
     def _balance_ves(self):
         # Update VE stats if enough time has passed
         now = time.time()
@@ -349,6 +355,9 @@ class LoadManager(object):
                                       else ve.config.guarantee)
             except VEError as err:
                 self.logger.error('Failed to set quota for %s: %s', ve, err)
+
+        if self.logger.isEnabledFor(logging.DEBUG):
+            self._dump_ves(dump_fn=self.logger.debug)
 
         # We need to set memory.low for machine.slice to infinity, otherwise
         # memory.low in sub-cgroups won't have any effect. We can't do it on
@@ -525,16 +534,9 @@ class LoadManager(object):
         P('Reserved for system.slice: %s', self._sys_rsrv)
         P('Reserved for user.slice: %s', self._user_rsrv)
         P('Available for active VEs: %s', self._mem_avail)
-        P('Inactive VEs:')
+        P('Registered VEs:')
         for ve in self._registered_ves.itervalues():
-            if not ve.active:
-                P('  %s %s', ve, ve.config)
-        P('Active VEs:')
-        for ve in self._registered_ves.itervalues():
-            if ve.active:
-                P('%s %s', ve, ve.config)
-                ve_dump = self._policy.dump_ve(ve)
-                if ve_dump is not None:
-                    for l in ve_dump.split('\n'):
-                        P('  %s', l)
+            P('%s %s active=%s', ve, ve.config, 'yes' if ve.active else 'no')
+        P('VE stats:')
+        self._dump_ves(dump_fn=P)
         P('==== DUMP END ====')
