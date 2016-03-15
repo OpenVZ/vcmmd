@@ -56,27 +56,18 @@ class LoadManager(object):
 
         self._worker.start()
 
-    def _do_load_policy(self, policy_name):
-        policy_module = importlib.import_module('vcmmd.ldmgr.policies.' +
-                                                policy_name)
-        self._policy = getattr(policy_module, policy_name)()
-
-    def _load_policy(self):
-        policy_name = VCMMDConfig().get_str('LoadManager.Policy',
-                                            self.DEFAULT_POLICY)
+    def _load_policy(self, policy_name):
         try:
-            self._do_load_policy(policy_name)
+            policy_module = importlib.import_module(
+                'vcmmd.ldmgr.policies.' + policy_name)
         except ImportError:
-            assert policy_name != self.DEFAULT_POLICY
             self.logger.error("Policy '%s' not found", policy_name)
-            # Fallback on default policy
+            # fallback on default policy
             policy_name = self.DEFAULT_POLICY
-            self._do_load_policy(policy_name)
+            policy_module = importlib.import_module(
+                'vcmmd.ldmgr.policies.' + policy_name)
+        self._policy = self._policy = getattr(policy_module, policy_name)()
         self.logger.info("Loaded policy '%s'", policy_name)
-
-    def _init_update_interval(self):
-        self._update_interval = VCMMDConfig().get_num(
-            'LoadManager.UpdateInterval', default=5, integer=True, minimum=1)
 
     def _mem_size_from_config(self, name, default):
         cfg = VCMMDConfig()
@@ -87,28 +78,6 @@ class LoadManager(object):
         max_ = cfg.get_num('LoadManager.%s.Max' % name,
                            default=default[2], integer=True, minimum=0)
         return clamp(int(self._mem_total * share), min_, max_)
-
-    def _init_mem_avail(self):
-        self._mem_total = psutil.virtual_memory().total
-        self._host_rsrv = self._mem_size_from_config(
-            'HostMem', (0.04, 128 << 20, 320 << 20))
-        self._sys_rsrv = self._mem_size_from_config(
-            'SysMem', (0.04, 128 << 20, 320 << 20))
-        self._user_rsrv = self._mem_size_from_config(
-            'UserMem', (0.02, 32 << 20, 128 << 20))
-        self._mem_avail = (self._mem_total - self._host_rsrv -
-                           self._sys_rsrv - self._user_rsrv)
-        self.logger.info('%s bytes available for VEs', self._mem_avail)
-        if self._mem_avail < 0:
-            self.logger.error('Not enough memory to run VEs!')
-
-    def _reserve_inactive_ve_mem(self, ve, value):
-        assert ve not in self._inactive_ve_rsrv
-        self._inactive_ve_rsrv[ve] = value
-        self._mem_avail -= value
-
-    def _unreserve_inactive_ve_mem(self, ve):
-        self._mem_avail += self._inactive_ve_rsrv.pop(ve)
 
     def _set_slice_rsrv(self, name, value, verbose=True):
         memcg = MemoryCgroup(name + '.slice')
@@ -124,18 +93,39 @@ class LoadManager(object):
             if verbose:
                 self.logger.info('Reserved %s bytes for %s slice', value, name)
 
-    def _init_system_slices(self):
+    def _do_init(self):
+        cfg = VCMMDConfig()
+
+        self._load_policy(cfg.get_str('LoadManager.Policy',
+                                      self.DEFAULT_POLICY))
+
+        self._update_interval = cfg.get_num('LoadManager.UpdateInterval',
+                                            default=5, integer=True, minimum=1)
+
+        self._mem_total = psutil.virtual_memory().total
+        self._host_rsrv = self._mem_size_from_config(
+            'HostMem', (0.04, 128 << 20, 320 << 20))
+        self._sys_rsrv = self._mem_size_from_config(
+            'SysMem', (0.04, 128 << 20, 320 << 20))
+        self._user_rsrv = self._mem_size_from_config(
+            'UserMem', (0.02, 32 << 20, 128 << 20))
+        self._mem_avail = (self._mem_total - self._host_rsrv -
+                           self._sys_rsrv - self._user_rsrv)
+
         self._set_slice_rsrv('user', self._user_rsrv)
         self._set_slice_rsrv('system', self._sys_rsrv)
 
-    def _start_idle_mem_tracking(self):
-        cfg = VCMMDConfig()
-        period = cfg.get_num('LoadManager.IdleMemTracking.Period',
-                             default=60, integer=True, minimum=1)
-        sampling = cfg.get_num('LoadManager.IdleMemTracking.Sampling',
-                               default=0.1, minimum=0.01, maximum=1.0)
-        VE.enable_idle_mem_tracking(period, sampling)
-        self.logger.info('Started idle memory tracking')
+        self.logger.info('%s bytes available for VEs', self._mem_avail)
+        if self._mem_avail < 0:
+            self.logger.error('Not enough memory to run VEs!')
+
+        if self._policy.REQUIRES_IDLE_MEM_TRACKING:
+            VE.enable_idle_mem_tracking(
+                cfg.get_num('LoadManager.IdleMemTracking.Period',
+                            default=60, integer=True, minimum=1),
+                cfg.get_num('LoadManager.IdleMemTracking.Sampling',
+                            default=0.1, minimum=0.01, maximum=1.0))
+            self.logger.info('Started idle memory tracking')
 
     def _save_ve_state(self, ve):
         self._ve_state[ve.name] = {
@@ -209,12 +199,7 @@ class LoadManager(object):
             self._req_queue.task_done()
 
     def _worker_thread_fn(self):
-        self._init_update_interval()
-        self._init_mem_avail()
-        self._init_system_slices()
-        self._load_policy()
-        if self._policy.REQUIRES_IDLE_MEM_TRACKING:
-            self._start_idle_mem_tracking()
+        self._do_init()
         self._restore_ves()
         while not self._should_stop:
             self._process_request()
@@ -354,6 +339,14 @@ class LoadManager(object):
         # but VMs, each of which should have its memory.low configured
         # properly.
         self._set_slice_rsrv('machine', -1, verbose=False)
+
+    def _reserve_inactive_ve_mem(self, ve, value):
+        assert ve not in self._inactive_ve_rsrv
+        self._inactive_ve_rsrv[ve] = value
+        self._mem_avail -= value
+
+    def _unreserve_inactive_ve_mem(self, ve):
+        self._mem_avail += self._inactive_ve_rsrv.pop(ve)
 
     def _do_register_ve(self, ve_name, ve_type, ve_config):
         if ve_name in self._registered_ves:
