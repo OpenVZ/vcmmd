@@ -41,17 +41,6 @@ class LoadManager(object):
 
     _VE_STATE_FILE = '/var/run/vcmmd.state'
 
-    _DFLT_UPDATE_INTERVAL = 5  # seconds
-
-    # How much memory to reserve for host, system.slice, and user.slice
-    # (percentage, min, max)
-    _DFLT_HOST_MEM = (0.04, 128 << 20, 320 << 20)
-    _DFLT_SYS_MEM = (0.04, 128 << 20, 320 << 20)
-    _DFLT_USER_MEM = (0.02, 32 << 20, 128 << 20)
-
-    _DFLT_IDLE_MEM_PERIOD = 60  # seconds
-    _DFLT_IDLE_MEM_SAMPLING = 0.1
-
     def __init__(self):
         self.logger = logging.getLogger('vcmmd.LoadManager')
 
@@ -87,8 +76,7 @@ class LoadManager(object):
 
     def _init_update_interval(self):
         self._update_interval = VCMMDConfig().get_num(
-            'LoadManager.UpdateInterval',
-            default=self._DFLT_UPDATE_INTERVAL, integer=True, minimum=1)
+            'LoadManager.UpdateInterval', default=5, integer=True, minimum=1)
 
     def _mem_size_from_config(self, name, default):
         cfg = VCMMDConfig()
@@ -102,12 +90,12 @@ class LoadManager(object):
 
     def _init_mem_avail(self):
         self._mem_total = psutil.virtual_memory().total
-        self._host_rsrv = self._mem_size_from_config('HostMem',
-                                                     self._DFLT_HOST_MEM)
-        self._sys_rsrv = self._mem_size_from_config('SysMem',
-                                                    self._DFLT_SYS_MEM)
-        self._user_rsrv = self._mem_size_from_config('UserMem',
-                                                     self._DFLT_USER_MEM)
+        self._host_rsrv = self._mem_size_from_config(
+            'HostMem', (0.04, 128 << 20, 320 << 20))
+        self._sys_rsrv = self._mem_size_from_config(
+            'SysMem', (0.04, 128 << 20, 320 << 20))
+        self._user_rsrv = self._mem_size_from_config(
+            'UserMem', (0.02, 32 << 20, 128 << 20))
         self._mem_avail = (self._mem_total - self._host_rsrv -
                            self._sys_rsrv - self._user_rsrv)
         self.logger.info('%s bytes available for VEs', self._mem_avail)
@@ -143,11 +131,9 @@ class LoadManager(object):
     def _start_idle_mem_tracking(self):
         cfg = VCMMDConfig()
         period = cfg.get_num('LoadManager.IdleMemTracking.Period',
-                             default=self._DFLT_IDLE_MEM_PERIOD,
-                             integer=True, minimum=1)
+                             default=60, integer=True, minimum=1)
         sampling = cfg.get_num('LoadManager.IdleMemTracking.Sampling',
-                               default=self._DFLT_IDLE_MEM_SAMPLING,
-                               minimum=0.01, maximum=1.0)
+                               default=0.1, minimum=0.01, maximum=1.0)
         VE.enable_idle_mem_tracking(period, sampling)
         self.logger.info('Started idle memory tracking')
 
