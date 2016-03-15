@@ -4,6 +4,8 @@ import time
 import psutil
 from collections import namedtuple
 
+from vcmmd.config import VCMMDConfig
+from vcmmd.cgroup import MemoryCgroup
 from vcmmd.util.limits import UINT64_MAX
 
 _MAX_EFFECTIVE_LIMIT = psutil.virtual_memory().total
@@ -279,16 +281,18 @@ class VE(object):
         self.__prev_io_stats_raw = io_stats
 
     @staticmethod
-    def enable_idle_mem_tracking(period=60, sampling=1.0):
+    def enable_idle_mem_tracking():
         '''Enable idle memory tracking.
 
-        'period' is the period, in seconds, at which idle memory scanner scans
-        all eligible memory pages. 'sampling' sets the portion of memory to
-        scan.
+        Must be called for 'idle_ratio' to work.
         '''
+        cfg = VCMMDConfig()
+        sampling = cfg.get_num('VE.IdleMemTracking.Sampling',
+                               default=0.1, minimum=0.01, maximum=1.0)
+        period = cfg.get_num('VE.IdleMemTracking.Period',
+                             default=60, integer=True, minimum=1)
         # Both containers and VMs currently use the infrastructure provided by
         # memory cgroup for tracking idle memory.
-        from vcmmd.cgroup import MemoryCgroup
         MemoryCgroup.set_idle_mem_sampling(sampling)
         MemoryCgroup.set_idle_mem_period(period)
 
