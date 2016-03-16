@@ -168,6 +168,7 @@ class AbstractVE(object):
 
         self.logger = logging.getLogger('vcmmd.Policy')
         self.add_memstat = {}
+        self.stats_src = None
 
     def _update_stats(self):
         self._io = self._ve.io_stats.rd_req + self._ve.io_stats.wr_req
@@ -203,6 +204,7 @@ class AbstractVE(object):
         return required.issubset(collected)
 
     def update(self):
+        self.stats_src = 'balloon'
         self._update_stats()
         self._update_add_stat()
         self._update_quota()
@@ -264,13 +266,14 @@ class AbstractVE(object):
         self.quota = min(max(size, self._ve.config.guarantee),
                          self._ve.config.effective_limit)
 
-    _DUMP_FMT = '%s: wss=%d quota=%d actual=%d pgflt=%d/%d io=%d/%d'
+    _DUMP_FMT = '%s: wss=%d quota=%d actual=%d pgflt=%d/%d io=%d/%d ' \
+                'stats_src=%s'
 
     def dump(self):
         return self._DUMP_FMT % (self._ve, self.wss,
                                  self.quota, self._actual,
                                  self._pgflt, self._pgflt_avg,
-                                 self._io, self._io_avg)
+                                 self._io, self._io_avg, self.stats_src)
 
 
 class LinuxGuest(AbstractVE):
@@ -306,6 +309,7 @@ class LinuxGuest(AbstractVE):
 class LinuxVM(LinuxGuest):
 
     def _read_meminfo(self):
+        self.stats_src = 'guest_exec'
         status, out = self._ve_session.getstatusoutput(['cat',
                                                         '/proc/meminfo'])
         if status:
@@ -316,6 +320,7 @@ class LinuxVM(LinuxGuest):
 class LinuxCT(LinuxGuest):
 
     def _read_meminfo(self):
+        self.stats_src = 'host_proc'
         meminfo_path = '/proc/bc/%s/meminfo' % self._ve.name
         with open(meminfo_path) as f:
             return f.read()
