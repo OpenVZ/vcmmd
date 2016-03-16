@@ -266,12 +266,11 @@ class AbstractVE(object):
         self.quota = min(max(size, self._ve.config.guarantee),
                          self._ve.config.effective_limit)
 
-    _DUMP_FMT = '%s: wss=%d quota=%d actual=%d pgflt=%d/%d io=%d/%d ' \
+    _DUMP_FMT = 'wss=%d quota=%d actual=%d pgflt=%d/%d io=%d/%d ' \
                 'stats_src=%s'
 
     def dump(self):
-        return self._DUMP_FMT % (self._ve, self.wss,
-                                 self.quota, self._actual,
+        return self._DUMP_FMT % (self.wss, self.quota, self._actual,
                                  self._pgflt, self._pgflt_avg,
                                  self._io, self._io_avg, self.stats_src)
 
