@@ -9,6 +9,9 @@ from prlsdkapi import consts
 GUEST_LINUX = consts.PVS_GUEST_TYPE_LINUX
 GUEST_WINDOWS = consts.PVS_GUEST_TYPE_WINDOWS
 import logging
+# memory stats
+MEM_AVAILABLE = 'MemAvailable'
+COMMITTED_AS = 'Committed_AS'
 
 
 class VmGuestSession(object):
@@ -246,12 +249,12 @@ class LinuxGuest(AbstractVE):
 
     def _get_wss(self):
         # available  on  kernels  3.14
-        if not self.linux_memstat or 'MemAvailable' not in self.linux_memstat:
-            self.logger.error('Failed to get "MemAvailable" '
-                              'from linux guest(%s), using RSS' % self._ve)
+        if not self.linux_memstat or MEM_AVAILABLE not in self.linux_memstat:
+            self.logger.error('Failed to get %r from linux guest(%s), '
+                              'using RSS' % (MEM_AVAILABLE, self._ve))
             return self._ve.mem_stats.rss
 
-        return self._actual - self.linux_memstat['MemAvailable']
+        return self._actual - self.linux_memstat[MEM_AVAILABLE]
 
     def _read_meminfo(self):
         pass
