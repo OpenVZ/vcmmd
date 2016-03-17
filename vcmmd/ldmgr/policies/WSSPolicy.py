@@ -159,6 +159,8 @@ class AbstractVE(object):
         self._ve_session = session
 
         self.quota = ve.config.effective_limit
+        self.wss = self.quota
+        self._actual = self.quota
 
         self._io = 0
         self._io_avg = 0
