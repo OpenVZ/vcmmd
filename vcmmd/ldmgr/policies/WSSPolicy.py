@@ -181,6 +181,8 @@ class AbstractVE(object):
         self._actual = self._ve.mem_stats.actual
 
     def _update_add_stat(self):
+        if not isinstance(self._ve, VM):
+            return
         self.add_memstat = {}
         cmd = {"execute": "qom-get",
                "arguments":
