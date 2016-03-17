@@ -278,7 +278,7 @@ class AbstractVE(object):
 
 
 class LinuxGuest(AbstractVE):
-    X_STATS = {MEM_AVAILABLE: 'fff1', COMMITTED_AS: 'fff0'}
+    X_STATS = {MEM_AVAILABLE: 'fff0', COMMITTED_AS: 'fff1'}
 
     def _get_wss(self):
         # available  on  kernels  3.14
