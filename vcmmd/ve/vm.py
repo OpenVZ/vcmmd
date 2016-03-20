@@ -4,7 +4,7 @@ from libvirt import libvirtError
 from xml.etree import ElementTree as XMLET
 
 from vcmmd.cgroup import MemoryCgroup
-from vcmmd.ve import VE, Error, types as ve_types, MemStats, IOStats
+from vcmmd.ve import VE, Error, types as ve_types
 from vcmmd.config import VCMMDConfig
 from vcmmd.util.libvirt import virDomainProxy
 from vcmmd.util.systemd import escape_unit_name, Error as SystemdError
@@ -72,15 +72,15 @@ class VM(VE):
 
         # libvirt reports memory values in kB, so we need to convert them to
         # bytes
-        return MemStats(actual=stat.get('actual', -1) << 10,
-                        rss=stat.get('rss', -1) << 10,
-                        memtotal=stat.get('available', -1) << 10,
-                        memfree=stat.get('unused', -1) << 10,
-                        wss=stat.get('working_set_size', -1) << 10,
-                        swapin=stat.get('swap_in', -1) << 10,
-                        swapout=stat.get('swap_out', -1) << 10,
-                        minflt=stat.get('minor_fault', -1),
-                        majflt=stat.get('major_fault', -1))
+        return {'actual': stat.get('actual', -1) << 10,
+                'rss': stat.get('rss', -1) << 10,
+                'memtotal': stat.get('available', -1) << 10,
+                'memfree': stat.get('unused', -1) << 10,
+                'wss': stat.get('working_set_size', -1) << 10,
+                'swapin': stat.get('swap_in', -1) << 10,
+                'swapout': stat.get('swap_out', -1) << 10,
+                'minflt': stat.get('minor_fault', -1),
+                'majflt': stat.get('major_fault', -1)}
 
     def _fetch_io_stats(self):
         try:
@@ -88,10 +88,10 @@ class VM(VE):
         except libvirtError as err:
             raise Error(err)
 
-        return IOStats(rd_req=stat[0],
-                       rd_bytes=stat[1],
-                       wr_req=stat[2],
-                       wr_bytes=stat[3])
+        return {'rd_req': stat[0],
+                'rd_bytes': stat[1],
+                'wr_req': stat[2],
+                'wr_bytes': stat[3]}
 
     def set_mem_protection(self, value):
         # Use memcg/memory.low to protect the VM from host pressure.

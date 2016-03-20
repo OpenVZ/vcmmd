@@ -1,11 +1,11 @@
 from __future__ import absolute_import
 
-import time
 import psutil
 from collections import namedtuple
 
 from vcmmd.config import VCMMDConfig
 from vcmmd.cgroup import MemoryCgroup
+from vcmmd.ve.stats import MemStats, IOStats
 from vcmmd.util.limits import UINT64_MAX
 
 _MAX_EFFECTIVE_LIMIT = psutil.virtual_memory().total
@@ -73,72 +73,6 @@ DEFAULT_CONFIG = Config(guarantee=0,
                         swap=UINT64_MAX)
 
 
-_MEM_STATS_FIELDS = (
-    'rss',              # resident set size
-    'actual',           # actual amount of memory committed to the guest
-                        # (RAM size - balloon size for VM, memory limit for CT)
-    'memtotal',         # total amount of memory as seen by guest OS
-    'memfree',          # amount of memory left completely unused by guest OS
-    'wss',              # working set size reported by guest OS
-    'swapin',           # total amount of memory read in from swap space
-    'swapout',          # total amount of memory written out to swap space
-    'minflt',           # total # of minor page faults
-    'majflt',           # total # of major page faults
-)
-
-
-class MemStats(namedtuple('MemStats', _MEM_STATS_FIELDS)):
-    '''VE memory statistics.
-
-    All memory values are in bytes.
-
-    If a statistic is unavailable, its value will be < 0.
-    '''
-    pass
-
-MemStats.__new__.__defaults__ = (-1, ) * len(_MEM_STATS_FIELDS)
-
-
-_IO_STATS_FIELDS = (
-    'rd_req',           # number of read requests
-    'rd_bytes',         # number of read bytes
-    'wr_req',           # number of write requests
-    'wr_bytes',         # number of written bytes
-)
-
-
-class IOStats(namedtuple('IOStats', _IO_STATS_FIELDS)):
-    '''VE IO statistics.
-
-    If a statistic is unavailable, its value will be < 0.
-    '''
-    pass
-
-IOStats.__new__.__defaults__ = (-1, ) * len(_IO_STATS_FIELDS)
-
-
-def _stats_delta(cur, prev, fields, timeout):
-    '''Convert cumulative statistic counters to delta per sec.
-
-    'cur' and 'prev' is the current and the previous values of the statistics,
-    respectively. 'fields' is names of fields containing cumulative counters to
-    be converted; all other fields are copied from 'cur'. 'timeout' is the
-    time that has passed since the last update.
-
-    If 'prev' is None, all cumulative counters are set to -1.
-    '''
-    klass = type(cur)
-    cur = cur._asdict()
-    prev = prev._asdict() if prev is not None else {}
-    for f in fields:
-        cur_val = cur[f]
-        prev_val = prev.get(f, -1)
-        cur[f] = (int((cur_val - prev_val) / timeout)
-                  if cur_val >= 0 and prev_val >= 0 and timeout > 0
-                  else -1)
-    return klass(**cur)
-
-
 class VE(object):
 
     VE_TYPE = -1
@@ -148,12 +82,8 @@ class VE(object):
         self.__config = None
         self.__active = False
 
-        self.__last_stats_update = 0
-        self.__prev_mem_stats_raw = None
-        self.__prev_io_stats_raw = None
-
-        self.__mem_stats = MemStats()
-        self.__io_stats = IOStats()
+        self.mem_stats = MemStats()
+        self.io_stats = IOStats()
 
         # Additional memory that should be taken into account
         # when calculating memory.low
@@ -230,56 +160,13 @@ class VE(object):
         '''
         self.__active = False
 
-    @property
-    def mem_stats(self):
-        '''Return memory statistics for this VE.
-
-        The value is cached. To get up-to-date stats, one need to call
-        'update_stats' first.
-
-        Note, cumulative counters are reported as delta since the last update
-        per second.
-        '''
-        return self.__mem_stats
-
-    @property
-    def io_stats(self):
-        '''Return IO statistics for this VE.
-
-        The value is cached. To get up-to-date stats, one need to call
-        'update_stats' first.
-
-        Note, cumulative counters are reported as delta since the last update
-        per second.
-        '''
-        return self.__io_stats
-
     def update_stats(self):
         '''Update statistics for this VE.
 
         May raise Error.
         '''
-        mem_stats = self._fetch_mem_stats()
-        io_stats = self._fetch_io_stats()
-
-        now = time.time()
-        timeout = now - self.__last_stats_update
-        self.__last_stats_update = now
-
-        # Convert cumulative counters to delta per sec
-
-        self.__mem_stats = _stats_delta(mem_stats, self.__prev_mem_stats_raw,
-                                        ['swapin', 'swapout',
-                                         'minflt', 'majflt'],
-                                        timeout)
-
-        self.__io_stats = _stats_delta(io_stats, self.__prev_io_stats_raw,
-                                       ['rd_req', 'rd_bytes',
-                                        'wr_req', 'wr_bytes'],
-                                       timeout)
-
-        self.__prev_mem_stats_raw = mem_stats
-        self.__prev_io_stats_raw = io_stats
+        self.mem_stats._update(**self._fetch_mem_stats())
+        self.io_stats._update(**self._fetch_io_stats())
 
     @staticmethod
     def enable_idle_mem_tracking():
@@ -309,9 +196,7 @@ class VE(object):
         return 0.0
 
     def _fetch_mem_stats(self):
-        '''Fetch memory statistics for this VE.
-
-        Returns an object of MemStats class.
+        '''Fetch memory stats dict for this VE.
 
         May raise Error.
 
@@ -320,9 +205,7 @@ class VE(object):
         pass
 
     def _fetch_io_stats(self):
-        '''Fetch IO statistics for this VE.
-
-        Returns an object of IOStats class.
+        '''Fetch IO stats dict for this VE.
 
         May raise Error.
 

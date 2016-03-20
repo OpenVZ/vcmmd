@@ -1,7 +1,7 @@
 from __future__ import absolute_import
 
 from vcmmd.cgroup import MemoryCgroup, BlkIOCgroup
-from vcmmd.ve import VE, Error, types as ve_types, MemStats, IOStats
+from vcmmd.ve import VE, Error, types as ve_types
 from vcmmd.config import VCMMDConfig
 
 
@@ -39,12 +39,12 @@ class CT(VE):
         memtotal = max(high, current)
         memfree = max(high - current, 0)
 
-        return MemStats(rss=current,
-                        actual=memtotal,
-                        memtotal=memtotal,
-                        memfree=memfree,
-                        minflt=stat.get('pgfault', -1),
-                        majflt=stat.get('pgmajfault', -1))
+        return {'rss': current,
+                'actual': memtotal,
+                'memtotal': memtotal,
+                'memfree': memfree,
+                'minflt': stat.get('pgfault', -1),
+                'majflt': stat.get('pgmajfault', -1)}
 
     def _fetch_io_stats(self):
         try:
@@ -53,10 +53,10 @@ class CT(VE):
         except IOError as err:
             raise Error(err)
 
-        return IOStats(rd_req=serviced[0],
-                       rd_bytes=service_bytes[0],
-                       wr_req=serviced[1],
-                       wr_bytes=service_bytes[1])
+        return {'rd_req': serviced[0],
+                'rd_bytes': service_bytes[0],
+                'wr_req': serviced[1],
+                'wr_bytes': service_bytes[1]}
 
     def set_mem_protection(self, value):
         # Use memcg/memory.low to protect the CT from host pressure.
