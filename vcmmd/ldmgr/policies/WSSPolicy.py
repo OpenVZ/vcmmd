@@ -5,10 +5,6 @@ from vcmmd.ve.ct import CT
 from vcmmd.ve.vm import VM
 import prlsdkapi
 import os
-from StringIO import StringIO
-import json
-from libvirt_qemu import qemuMonitorCommand
-from libvirt_qemu import VIR_DOMAIN_QEMU_MONITOR_COMMAND_DEFAULT
 from prlsdkapi import consts
 GUEST_LINUX = consts.PVS_GUEST_TYPE_LINUX
 GUEST_WINDOWS = consts.PVS_GUEST_TYPE_WINDOWS
@@ -147,9 +143,6 @@ class AbstractVE(object):
     _DOWNHYSTERESIS = 8
     _UPHYSTERESIS = 1
 
-    X_STATS_NAME_TMPL = 'x-stat-%s'
-    X_STATS = {}
-
     def __init__(self, ve, session):
         self._ve = ve
         # _ve_session need only for collect
@@ -169,7 +162,6 @@ class AbstractVE(object):
         self._pgflt_avg = 0
 
         self.logger = logging.getLogger('vcmmd.Policy')
-        self.add_memstat = {}
         self.stats_src = None
 
     def _update_stats(self):
@@ -183,29 +175,7 @@ class AbstractVE(object):
         self._actual = self._ve.mem_stats.actual
 
     def _update_add_stat(self):
-        if not isinstance(self._ve, VM):
-            return
-        self.add_memstat = {}
-        cmd = {"execute": "qom-get",
-               "arguments":
-               {"path": "/machine/i440fx/pci.0/child[9]",
-                "property": "guest-stats"}}
-        io = StringIO()
-        json.dump(cmd, io)
-        dom = self._ve._libvirt_domain
-        out = qemuMonitorCommand(dom, io.getvalue(),
-                                 VIR_DOMAIN_QEMU_MONITOR_COMMAND_DEFAULT)
-        stats = eval(out)['return']['stats']
-        for k, v in self.X_STATS.iteritems():
-            name = self.X_STATS_NAME_TMPL % v
-            xs = stats.get(name, None)
-            if xs is not None:
-                self.add_memstat[k] = xs
-
-    def stats_collect_compl(self):
-        collected = set(self.add_memstat.keys())
-        required = set(self.X_STATS.keys())
-        return required.issubset(collected)
+        pass
 
     def update(self):
         self.stats_src = 'balloon'
@@ -280,25 +250,21 @@ class AbstractVE(object):
 
 
 class LinuxGuest(AbstractVE):
-    X_STATS = {MEM_AVAILABLE: 'fff0', COMMITTED_AS: 'fff1'}
 
     def _get_wss(self):
         # available  on  kernels  3.14
-        if not self.add_memstat or MEM_AVAILABLE not in self.add_memstat:
-            self.logger.error('Failed to get %s from linux guest(%s), '
+        if not self.linux_memstat or MEM_AVAILABLE not in self.linux_memstat:
+            self.logger.error('Failed to get %r from linux guest(%s), '
                               'using RSS' % (MEM_AVAILABLE, self._ve))
             return self._ve.mem_stats.rss
 
-        return self._actual - self.add_memstat[MEM_AVAILABLE]
+        return self._actual - self.linux_memstat[MEM_AVAILABLE]
 
     def _read_meminfo(self):
         pass
 
     def _update_add_stat(self):
-        super(LinuxGuest, self)._update_add_stat()
-        if self.stats_collect_compl():
-            return
-
+        self.linux_memstat = {}
         out = self._read_meminfo()
         if out is None:
             return
@@ -306,7 +272,7 @@ class LinuxGuest(AbstractVE):
             line = line.split()
             if not line:
                 continue
-            self.add_memstat[line[0].strip(':')] = int(line[1]) << 10
+            self.linux_memstat[line[0].strip(':')] = int(line[1]) << 10
 
 
 class LinuxVM(LinuxGuest):
