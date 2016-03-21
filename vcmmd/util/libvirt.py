@@ -84,22 +84,23 @@ class virDomainProxy(object):
 
         return True
 
-    def __do_call_real(self, name, args, kwargs):
-        return getattr(self.__dom, name)(*args, **kwargs)
+    def __check_conn(fn):
+        def wrapped(self, *args, **kwargs):
+            try:
+                # Stale connection? Update domain.
+                if self.__dom.connect() != self.__conn:
+                    self.__lookup_domain()
+                return fn(self, *args, **kwargs)
+            except libvirt.libvirtError as err:
+                if not self.__handle_conn_err():
+                    raise err
+                # Retry after reconnect.
+                return fn(self, *args, **kwargs)
+        return wrapped
 
+    @__check_conn
     def _call_real(self, name, args, kwargs):
-        try:
-            # Stale connection? Update domain.
-            if self.__dom.connect() != self.__conn:
-                self.__lookup_domain()
-
-            return self.__do_call_real(name, args, kwargs)
-        except libvirt.libvirtError as err:
-            if not self.__handle_conn_err():
-                raise err
-
-            # Retry after reconnect.
-            return self.__do_call_real(name, args, kwargs)
+        return getattr(self.__dom, name)(*args, **kwargs)
 
     def __getattr__(self, name):
         attr = getattr(self.__dom, name)
