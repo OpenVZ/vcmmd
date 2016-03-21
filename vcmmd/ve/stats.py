@@ -42,6 +42,8 @@ class MemStats(Stats):
         'memfree',      # amount of memory left completely unused by guest OS
         'memavail',     # an estimate of how much memory is available for
                         # starting new applications, without swapping
+        'committed',    # amount of memory presently allocated by applications
+                        # running inside the guest
         'wss',          # working set size reported by guest OS
     ]
 

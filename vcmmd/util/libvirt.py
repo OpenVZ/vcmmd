@@ -161,6 +161,6 @@ class virDomainProxy(object):
                 pass
 
         export_xstat(0xfff0, 'memavailable')
-        export_xstat(0xfff1, 'committed_as')
+        export_xstat(0xfff1, 'committed')
 
         return memstats

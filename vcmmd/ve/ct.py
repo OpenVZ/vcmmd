@@ -1,8 +1,13 @@
 from __future__ import absolute_import
 
-from vcmmd.cgroup import MemoryCgroup, BlkIOCgroup
+import os
+
+from vcmmd.cgroup import MemoryCgroup, BlkIOCgroup, BeancounterCgroup
 from vcmmd.ve import VE, Error, types as ve_types
 from vcmmd.config import VCMMDConfig
+
+
+_PAGE_SIZE = os.sysconf('SC_PAGE_SIZE')
 
 
 class CT(VE):
@@ -14,12 +19,16 @@ class CT(VE):
         # cgroup hierarchy.
         self._memcg = MemoryCgroup(self.name)
         self._blkcg = BlkIOCgroup(self.name)
+        self._bccg = BeancounterCgroup(self.name)
 
         if not self._memcg.exists():
             raise Error('CT memory cgroup does not exist')
 
         if not self._blkcg.exists():
             raise Error('CT blkio cgroup does not exist')
+
+        if not self._bccg.exists():
+            raise Error('CT beancounter cgroup does not exist')
 
         super(CT, self).activate()
 
@@ -32,6 +41,7 @@ class CT(VE):
         try:
             current = self._memcg.read_mem_current()
             high = self._memcg.read_mem_high()
+            committed = self._bccg.get_privvmpages() * _PAGE_SIZE
             stat = self._memcg.read_mem_stat()
         except IOError as err:
             raise Error(err)
@@ -45,6 +55,7 @@ class CT(VE):
                 'memtotal': memtotal,
                 'memfree': memfree,
                 'memavail': memavail,
+                'committed': committed,
                 'minflt': stat.get('pgfault', -1),
                 'majflt': stat.get('pgmajfault', -1)}
 
