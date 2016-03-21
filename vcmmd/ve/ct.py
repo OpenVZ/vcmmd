@@ -38,11 +38,13 @@ class CT(VE):
 
         memtotal = max(high, current)
         memfree = max(high - current, 0)
+        memavail = memfree + stat['cache']
 
         return {'rss': current,
                 'actual': memtotal,
                 'memtotal': memtotal,
                 'memfree': memfree,
+                'memavail': memavail,
                 'minflt': stat.get('pgfault', -1),
                 'majflt': stat.get('pgmajfault', -1)}
 

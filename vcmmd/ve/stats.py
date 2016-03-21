@@ -40,6 +40,8 @@ class MemStats(Stats):
                         # (RAM size - balloon size for VM, memory limit for CT)
         'memtotal',     # total amount of memory as seen by guest OS
         'memfree',      # amount of memory left completely unused by guest OS
+        'memavail',     # an estimate of how much memory is available for
+                        # starting new applications, without swapping
         'wss',          # working set size reported by guest OS
     ]
 

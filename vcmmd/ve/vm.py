@@ -76,6 +76,7 @@ class VM(VE):
                 'rss': stat.get('rss', -1) << 10,
                 'memtotal': stat.get('available', -1) << 10,
                 'memfree': stat.get('unused', -1) << 10,
+                'memavail': stat.get('memavailable', -1) << 10,
                 'wss': stat.get('working_set_size', -1) << 10,
                 'swapin': stat.get('swap_in', -1) << 10,
                 'swapout': stat.get('swap_out', -1) << 10,
