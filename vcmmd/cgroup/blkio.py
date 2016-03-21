@@ -21,10 +21,10 @@ class BlkIOCgroup(Cgroup):
         '''Return a tuple containing the total number of read and write
         requests issued by this cgroup.
         '''
-        return self._get_io_stats('blkio.io_serviced', ('Read', 'Write'))
+        return self._get_io_stats('io_serviced', ('Read', 'Write'))
 
     def get_io_service_bytes(self):
         '''Return a tuple containing the total number of bytes read and written
         by this cgroup.
         '''
-        return self._get_io_stats('blkio.io_service_bytes', ('Read', 'Write'))
+        return self._get_io_stats('io_service_bytes', ('Read', 'Write'))

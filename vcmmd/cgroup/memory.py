@@ -102,59 +102,59 @@ class MemoryCgroup(Cgroup):
         self._write_file_int(filename, value)
 
     def read_mem_current(self):
-        return self._read_file_int('memory.usage_in_bytes')
+        return self._read_file_int('usage_in_bytes')
 
     def read_swap_current(self):
-        mem = self._read_file_int('memory.usage_in_bytes')
-        memsw = self._read_file_int('memory.memsw.usage_in_bytes')
+        mem = self._read_file_int('usage_in_bytes')
+        memsw = self._read_file_int('memsw.usage_in_bytes')
         return max(memsw - mem, 0)
 
     def read_mem_low(self):
-        return self._read_file_int('memory.low')
+        return self._read_file_int('low')
 
     def write_mem_low(self, val):
-        self._write_file_mem_val('memory.low', val)
+        self._write_file_mem_val('low', val)
 
     def read_mem_high(self):
-        return self._read_file_int('memory.high')
+        return self._read_file_int('high')
 
     def write_mem_high(self, val):
-        self._write_file_mem_val('memory.high', val)
+        self._write_file_mem_val('high', val)
 
     def read_mem_max(self):
-        return self._read_file_int('memory.limit_in_bytes')
+        return self._read_file_int('limit_in_bytes')
 
     def write_mem_max(self, val):
-        mem = self._read_file_int('memory.limit_in_bytes')
-        memsw = self._read_file_int('memory.memsw.limit_in_bytes')
+        mem = self._read_file_int('limit_in_bytes')
+        memsw = self._read_file_int('memsw.limit_in_bytes')
         swp = max(memsw - mem, 0)
         if val > mem:
-            self._write_file_mem_val('memory.memsw.limit_in_bytes', val + swp)
-            self._write_file_mem_val('memory.limit_in_bytes', val)
+            self._write_file_mem_val('memsw.limit_in_bytes', val + swp)
+            self._write_file_mem_val('limit_in_bytes', val)
         else:
-            self._write_file_mem_val('memory.limit_in_bytes', val)
-            self._write_file_mem_val('memory.memsw.limit_in_bytes', val + swp)
+            self._write_file_mem_val('limit_in_bytes', val)
+            self._write_file_mem_val('memsw.limit_in_bytes', val + swp)
 
     def read_swap_max(self):
-        mem = self._read_file_int('memory.limit_in_bytes')
-        memsw = self._read_file_int('memory.memsw.limit_in_bytes')
+        mem = self._read_file_int('limit_in_bytes')
+        memsw = self._read_file_int('memsw.limit_in_bytes')
         return max(memsw - mem, 0)
 
     def write_swap_max(self, val):
-        mem = self._read_file_int('memory.limit_in_bytes')
-        self._write_file_mem_val('memory.memsw.limit_in_bytes', mem + val)
+        mem = self._read_file_int('limit_in_bytes')
+        self._write_file_mem_val('memsw.limit_in_bytes', mem + val)
 
     def read_mem_stat(self):
-        return self._read_file_kv('memory.stat')
+        return self._read_file_kv('stat')
 
     def write_tcp_mem_limit(self, val):
-        self._write_file_mem_val('memory.kmem.tcp.limit_in_bytes', val)
+        self._write_file_mem_val('kmem.tcp.limit_in_bytes', val)
 
     def write_udp_mem_limit(self, val):
-        self._write_file_mem_val('memory.kmem.udp.limit_in_bytes', val)
+        self._write_file_mem_val('kmem.udp.limit_in_bytes', val)
 
     def write_oom_guarantee(self, val):
-        self._write_file_mem_val('memory.oom_guarantee', val)
+        self._write_file_mem_val('oom_guarantee', val)
 
     @staticmethod
     def set_idle_mem_period(period):

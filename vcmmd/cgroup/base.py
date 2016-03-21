@@ -13,9 +13,10 @@ class Cgroup(object):
         path = path.strip('/')
         self._path = '/' + path
         self._abs_path = '/'.join([self._CGROUP_DIR, self.CONTROLLER, path])
+        self._file_fmt = '/'.join([self._abs_path, '%s.%%s' % self.CONTROLLER])
 
     def _file_path(self, name):
-        return '/'.join([self._abs_path, name])
+        return self._file_fmt % name
 
     def exists(self):
         return os.path.isdir(self._abs_path)
