@@ -253,18 +253,24 @@ class LinuxGuest(AbstractVE):
 
     def _get_wss(self):
         # available  on  kernels  3.14
-        if not self.linux_memstat or MEM_AVAILABLE not in self.linux_memstat:
+        memavail = self._ve.mem_stats.memavail
+        if memavail < 0 and MEM_AVAILABLE in self.linux_memstat:
+            memavail = self.linux_memstat[MEM_AVAILABLE]
+        if memavail < 0:
             self.logger.error('Failed to get %r from linux guest(%s), '
                               'using RSS' % (MEM_AVAILABLE, self._ve))
             return self._ve.mem_stats.rss
 
-        return self._actual - self.linux_memstat[MEM_AVAILABLE]
+        return self._actual - memavail
 
     def _read_meminfo(self):
         pass
 
     def _update_add_stat(self):
         self.linux_memstat = {}
+        if self._ve.mem_stats.memavail >= 0:
+            # Nothing to do. All we need is already in VE.mem_stats.
+            return
         out = self._read_meminfo()
         if out is None:
             return
