@@ -75,7 +75,8 @@ DEFAULT_CONFIG = Config(guarantee=0,
 
 _MEM_STATS_FIELDS = (
     'rss',              # resident set size
-    'actual',           # current balloon value
+    'actual',           # actual amount of memory committed to the guest
+                        # (RAM size - balloon size for VM, memory limit for CT)
     'memtotal',         # total amount of memory as seen by guest OS
     'memfree',          # amount of memory left completely unused by guest OS
     'wss',              # working set size reported by guest OS

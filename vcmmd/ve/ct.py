@@ -31,11 +31,18 @@ class CT(VE):
     def _fetch_mem_stats(self):
         try:
             current = self._memcg.read_mem_current()
+            high = self._memcg.read_mem_high()
             stat = self._memcg.read_mem_stat()
         except IOError as err:
             raise Error(err)
 
+        memtotal = max(high, current)
+        memfree = max(high - current, 0)
+
         return MemStats(rss=current,
+                        actual=memtotal,
+                        memtotal=memtotal,
+                        memfree=memfree,
                         minflt=stat.get('pgfault', -1),
                         majflt=stat.get('pgmajfault', -1))
 
