@@ -43,7 +43,7 @@ class _VEPrivate(object):
         self._pgflt_avg = 0
 
     def _update_unused(self):
-        unused = self._ve.mem_stats.unused
+        unused = self._ve.mem_stats.memfree
         # If no value is provided by guest OS, rely on rss.
         if unused < 0:
             unused = self.quota - self._ve.mem_stats.rss
