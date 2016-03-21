@@ -2,6 +2,8 @@ from __future__ import absolute_import
 
 import logging
 import libvirt
+from libvirt_qemu import (qemuMonitorCommand,
+                          VIR_DOMAIN_QEMU_MONITOR_COMMAND_DEFAULT)
 
 
 class _virDomainProxyMethod(object):
@@ -44,8 +46,33 @@ class virDomainProxy(object):
     def __open_connection(cls):
         cls.__conn = libvirt.open('qemu:///system')
 
+    def __lookup_balloon(self):
+        path = '/machine/i440fx/pci.0'
+        cmd = ('{'
+               '    "execute": "qom-list",'
+               '    "arguments": {'
+               '        "path": "%s"'
+               '    }'
+               '}' % path)
+        out = qemuMonitorCommand(self.__dom, cmd,
+                                 VIR_DOMAIN_QEMU_MONITOR_COMMAND_DEFAULT)
+        devlist = eval(out)['return']
+
+        for dev in devlist:
+            if dev['type'] == 'link<virtio-balloon-pci>':
+                self.__balloon_path = path + '/' + dev['name']
+                self.__logger.debug('VM %s: balloon at "%s"',
+                                    self.__uuid, self.__balloon_path)
+                break
+        else:
+            self.__logger.warn('Could not find balloon for VM %s. '
+                               'Some memory statistics may be unavailable' %
+                               self.__uuid)
+            self.__balloon_path = None
+
     def __lookup_domain(self):
         self.__dom = self.__conn.lookupByUUIDString(self.__uuid)
+        self.__lookup_balloon()
 
     def __do_connect(self):
         try:
@@ -107,3 +134,33 @@ class virDomainProxy(object):
         if not callable(attr):
             return attr
         return _virDomainProxyMethod(self, name)
+
+    @__check_conn
+    def memoryStats(self):
+        memstats = self.__dom.memoryStats()
+
+        if self.__balloon_path is None:
+            return memstats
+
+        cmd = ('{'
+               '    "execute": "qom-get",'
+               '    "arguments": {'
+               '        "path": "%s",'
+               '        "property": "guest-stats"'
+               '    }'
+               '}' % self.__balloon_path)
+        out = qemuMonitorCommand(self.__dom, cmd,
+                                 VIR_DOMAIN_QEMU_MONITOR_COMMAND_DEFAULT)
+        xstats = eval(out)['return']['stats']
+
+        def export_xstat(tag, name):
+            try:
+                # libvirt reports in kB, qemu in bytes
+                memstats[name] = xstats['x-stat-%04x' % tag] >> 10
+            except KeyError:
+                pass
+
+        export_xstat(0xfff0, 'memavailable')
+        export_xstat(0xfff1, 'committed_as')
+
+        return memstats
