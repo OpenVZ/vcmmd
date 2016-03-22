@@ -19,9 +19,6 @@ from vcmmd.ve.make import (make as make_ve,
 from vcmmd.util.misc import clamp
 
 
-_PAGE_SIZE = os.sysconf('SC_PAGE_SIZE')
-
-
 class Error(Exception):
     '''VCMMD service error.
 
@@ -261,18 +258,6 @@ class LoadManager(object):
         return (sum_guar - ve_to_update.config.guarantee +
                 new_config.guarantee <= self._mem_avail)
 
-    def _get_mem_sharing(self):
-        if not VCMMDConfig().get_bool('LoadManager.AccountSharedPages',
-                                      default=True):
-            return 0
-        ret = 0
-        try:
-            with open('/sys/kernel/mm/ksm/pages_sharing') as f:
-                ret = int(f.read())
-        except (IOError, ValueError) as err:
-            self.logger.error('Failed to get number of sharing pages: %s', err)
-        return ret * _PAGE_SIZE
-
     def _dump_ves(self, dump_fn):
         for ve in self._active_ves:
             s = self._policy.dump_ve(ve)
@@ -295,8 +280,7 @@ class LoadManager(object):
             stats_updated = False
 
         sum_overhead = sum(ve.mem_overhead for ve in self._active_ves)
-        mem_sharing = self._get_mem_sharing()
-        mem_avail = max(0, self._mem_avail + mem_sharing - sum_overhead)
+        mem_avail = max(0, self._mem_avail - sum_overhead)
 
         # Call the policy to calculate VEs' quotas.
         ve_quotas = self._policy.balance(self._active_ves, mem_avail,
@@ -336,8 +320,8 @@ class LoadManager(object):
         # Dump VE stats for debugging
         if (self.logger.isEnabledFor(logging.DEBUG) and
                 now >= self._last_dump + self._dump_interval):
-            self.logger.debug('sum_overhead=%s mem_sharing=%s mem_avail=%s',
-                              sum_overhead, mem_sharing, mem_avail)
+            self.logger.debug('sum_overhead=%s mem_avail=%s',
+                              sum_overhead, mem_avail)
             self._dump_ves(dump_fn=self.logger.debug)
             self._last_dump = now
 
