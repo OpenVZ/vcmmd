@@ -45,7 +45,7 @@ class VM(VE):
             for video_device in XMLET.fromstring(xml_desc).iter('video'):
                 vram += int(video_device.find('model').get('vram'))
             qemu_overhead = VCMMDConfig().get_num('VE.VM.QEMUOverhead',
-                                                  default=33554432,
+                                                  default=209715200,
                                                   integer=True, minimum=0)
             self.mem_overhead = qemu_overhead + (vram << 10)
         except libvirtError as err:
