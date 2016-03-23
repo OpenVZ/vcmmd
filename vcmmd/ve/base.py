@@ -78,9 +78,9 @@ class VE(object):
     VE_TYPE = -1
 
     def __init__(self, name):
-        self.__name = name
-        self.__config = None
-        self.__active = False
+        self.name = name
+        self.config = None
+        self.active = False
 
         self.mem_stats = MemStats()
         self.io_stats = IOStats()
@@ -93,18 +93,6 @@ class VE(object):
 
     def __str__(self):
         return "%s '%s'" % (self.__class__.__name__, self.name)
-
-    @property
-    def name(self):
-        '''Return VE name.
-        '''
-        return self.__name
-
-    @property
-    def config(self):
-        '''Return current VE config.
-        '''
-        return self.__config
 
     def _apply_config(self, config):
         '''Try to apply VE config.
@@ -126,17 +114,7 @@ class VE(object):
         '''
         if self.active:
             self._apply_config(config)
-        self.__config = config
-
-    @property
-    def active(self):
-        '''Return True iff VE is active.
-
-        Active VEs may be tuned by the load manager, while inactive ones may
-        not (adjusting configuration and statistics update are not supposed to
-        work for inactive VEs). To activate a VE call the 'activate' method.
-        '''
-        return self.__active
+        self.config = config
 
     def activate(self):
         '''Activate VE.
@@ -148,7 +126,7 @@ class VE(object):
         resumed.
         '''
         self._apply_config(self.config)
-        self.__active = True
+        self.active = True
 
     def deactivate(self):
         '''Deactivate VE.
@@ -158,7 +136,7 @@ class VE(object):
         This function is supposed to be called before pausing or suspending a
         VE.
         '''
-        self.__active = False
+        self.active = False
 
     def update_stats(self):
         '''Update statistics for this VE.
