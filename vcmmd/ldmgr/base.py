@@ -9,7 +9,7 @@ import importlib
 import shelve
 import psutil
 
-from vcmmd import errno as _errno
+from vcmmd.errno import *
 from vcmmd.config import VCMMDConfig
 from vcmmd.cgroup import MemoryCgroup
 from vcmmd.ve import VE, Config as VEConfig, Error as VEError
@@ -29,7 +29,7 @@ class Error(Exception):
         self.errno = errno
 
     def __str__(self):
-        return _errno.strerror(self.errno)
+        return strerror(self.errno)
 
 
 class LoadManager(object):
@@ -335,24 +335,24 @@ class LoadManager(object):
 
     def _do_register_ve(self, ve_name, ve_type, ve_config):
         if ve_name in self._registered_ves:
-            raise Error(_errno.VE_NAME_ALREADY_IN_USE)
+            raise Error(VCMMD_ERROR_VE_NAME_ALREADY_IN_USE)
 
         try:
             ve = make_ve(ve_name, ve_type)
         except InvalidVENameError:
-            raise Error(_errno.INVALID_VE_NAME)
+            raise Error(VCMMD_ERROR_INVALID_VE_NAME)
         except InvalidVETypeError:
-            raise Error(_errno.INVALID_VE_TYPE)
+            raise Error(VCMMD_ERROR_INVALID_VE_TYPE)
 
         try:
             ve_config = VEConfig.from_dict(ve_config)
         except ValueError:
-            raise Error(_errno.INVALID_VE_CONFIG)
+            raise Error(VCMMD_ERROR_INVALID_VE_CONFIG)
 
         ve.set_config(ve_config)
 
         if not self._may_register_ve(ve):
-            raise Error(_errno.NO_SPACE)
+            raise Error(VCMMD_ERROR_NO_SPACE)
 
         with self._registered_ves_lock:
             self._registered_ves[ve_name] = ve
@@ -370,13 +370,13 @@ class LoadManager(object):
 
     def _do_activate_ve(self, ve):
         if ve.active:
-            raise Error(_errno.VE_ALREADY_ACTIVE)
+            raise Error(VCMMD_ERROR_VE_ALREADY_ACTIVE)
 
         try:
             ve.activate()
         except VEError as err:
             self.logger.error('Failed to activate %s: %s', ve, err)
-            raise Error(_errno.VE_OPERATION_FAILED)
+            raise Error(VCMMD_ERROR_VE_OPERATION_FAILED)
 
         # Update stats for the newly activated VE before calling the balance
         # procedure.
@@ -392,7 +392,7 @@ class LoadManager(object):
     def activate_ve(self, ve_name):
         ve = self._registered_ves.get(ve_name)
         if ve is None:
-            raise Error(_errno.VE_NOT_REGISTERED)
+            raise Error(VCMMD_ERROR_VE_NOT_REGISTERED)
         self._do_activate_ve(ve)
         self._save_ve_state(ve)
         self.logger.info('Activated %s', ve)
@@ -402,23 +402,23 @@ class LoadManager(object):
     def update_ve(self, ve_name, ve_config):
         ve = self._registered_ves.get(ve_name)
         if ve is None:
-            raise Error(_errno.VE_NOT_REGISTERED)
+            raise Error(VCMMD_ERROR_VE_NOT_REGISTERED)
         if not ve.active:
-            raise Error(_errno.VE_NOT_ACTIVE)
+            raise Error(VCMMD_ERROR_VE_NOT_ACTIVE)
 
         try:
             ve_config = VEConfig.from_dict(ve_config, default=ve.config)
         except ValueError:
-            raise Error(_errno.INVALID_VE_CONFIG)
+            raise Error(VCMMD_ERROR_INVALID_VE_CONFIG)
 
         if not self._may_update_ve(ve, ve_config):
-            raise Error(_errno.NO_SPACE)
+            raise Error(VCMMD_ERROR_NO_SPACE)
 
         try:
             ve.set_config(ve_config)
         except VEError as err:
             self.logger.error('Failed to update %s: %s', ve, err)
-            raise Error(_errno.VE_OPERATION_FAILED)
+            raise Error(VCMMD_ERROR_VE_OPERATION_FAILED)
 
         self._save_ve_state(ve)
         self.logger.info('Updated %s %s', ve, ve.config)
@@ -428,10 +428,10 @@ class LoadManager(object):
     def deactivate_ve(self, ve_name):
         ve = self._registered_ves.get(ve_name)
         if ve is None:
-            raise Error(_errno.VE_NOT_REGISTERED)
+            raise Error(VCMMD_ERROR_VE_NOT_REGISTERED)
 
         if not ve.active:
-            raise Error(_errno.VE_NOT_ACTIVE)
+            raise Error(VCMMD_ERROR_VE_NOT_ACTIVE)
 
         # Update stats right before deactivating the VE. We need this to update
         # the VE's reservation below.
@@ -461,7 +461,7 @@ class LoadManager(object):
     def unregister_ve(self, ve_name):
         ve = self._registered_ves.get(ve_name)
         if ve is None:
-            raise Error(_errno.VE_NOT_REGISTERED)
+            raise Error(VCMMD_ERROR_VE_NOT_REGISTERED)
         self._do_unregister_ve(ve)
         self._delete_ve_state(ve)
         self.logger.info('Unregistered %s', ve)
@@ -472,14 +472,14 @@ class LoadManager(object):
             try:
                 return self._registered_ves[ve_name].active
             except KeyError:
-                raise Error(_errno.VE_NOT_REGISTERED)
+                raise Error(VCMMD_ERROR_VE_NOT_REGISTERED)
 
     def get_ve_config(self, ve_name):
         with self._registered_ves_lock:
             try:
                 return self._registered_ves[ve_name].config
             except KeyError:
-                raise Error(_errno.VE_NOT_REGISTERED)
+                raise Error(VCMMD_ERROR_VE_NOT_REGISTERED)
 
     def get_all_registered_ves(self):
         result = []
