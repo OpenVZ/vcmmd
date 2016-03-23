@@ -37,9 +37,9 @@ class virDomainProxy(object):
 
         try:
             self.__lookup_domain()
-        except libvirt.libvirtError as err:
+        except libvirt.libvirtError:
             if not self.__handle_conn_err():
-                raise err
+                raise
             # Reconnect lookups domain, so we're done.
 
     @classmethod
@@ -118,9 +118,9 @@ class virDomainProxy(object):
                 if self.__dom.connect() != self.__conn:
                     self.__lookup_domain()
                 return fn(self, *args, **kwargs)
-            except libvirt.libvirtError as err:
+            except libvirt.libvirtError:
                 if not self.__handle_conn_err():
-                    raise err
+                    raise
                 # Retry after reconnect.
                 return fn(self, *args, **kwargs)
         return wrapped
