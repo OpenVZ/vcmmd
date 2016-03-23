@@ -1,9 +1,12 @@
 from __future__ import absolute_import
 
 import logging
+import psutil
 import libvirt
 from libvirt_qemu import (qemuMonitorCommand,
                           VIR_DOMAIN_QEMU_MONITOR_COMMAND_DEFAULT)
+
+from vcmmd.cgroup import pid_cgroup
 
 
 class _virDomainProxyMethod(object):
@@ -161,3 +164,21 @@ class virDomainProxy(object):
         export_xstat(0xfff1, 'committed')
 
         return memstats
+
+
+def lookup_qemu_machine_pid(name):
+    '''Given the name of a QEMU machine, lookup its PID.
+    '''
+    for proc in psutil.process_iter():
+        cmd = proc.cmdline()
+        if not cmd or not cmd[0].endswith('qemu-kvm'):
+            continue
+        name_idx = cmd.index('-name') + 1
+        if name_idx < len(cmd) and cmd[name_idx] == name:
+            return proc.pid
+    raise OSError("No such process: '%s'" % name)
+
+
+def lookup_qemu_machine_cgroup(name):
+    pid = lookup_qemu_machine_pid(name)
+    return pid_cgroup(pid)

@@ -42,3 +42,19 @@ class Cgroup(object):
                 k, v = l.rsplit(' ', 1)
                 kv[k] = int(v)
         return kv
+
+
+def pid_cgroup(pid):
+    '''Get the cgroup which 'pid' is attached to.
+
+    Returns a dictionary mapping cgroup subsystem name to the relative path of
+    the cgroup which 'pid' is attached to.
+    '''
+    cgroup = {}
+    with open('/proc/%d/cgroup' % pid) as f:
+        for l in f.read().splitlines():
+            _, subsys, path = l.split(':')
+            subsys = subsys.split(',')
+            for s in subsys:
+                cgroup[s] = path
+    return cgroup
