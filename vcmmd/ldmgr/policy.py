@@ -3,7 +3,6 @@ class Policy(object):
     '''
 
     REQUIRES_PERIODIC_UPDATES = False
-    REQUIRES_IDLE_MEM_TRACKING = False
 
     def balance(self, active_ves, mem_avail, stats_updated):
         '''Calculate VE memory quotas.

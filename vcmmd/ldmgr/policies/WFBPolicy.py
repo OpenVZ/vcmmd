@@ -26,7 +26,6 @@ class _VEPrivate(object):
     _IO_REWARD = 4.
     _PGFLT_REWARD = 8.
     _UNUSED_FINE = 8.
-    _IDLE_FINE = [4., 2., 2., 1., 1.]
 
     def __init__(self, ve):
         self._ve = ve
@@ -82,10 +81,6 @@ class _VEPrivate(object):
         # Fine for memory left completely unused.
         weight -= self._unused * self._UNUSED_FINE / (self.quota + 1)
 
-        # Fine for allocated, but not actively used memory.
-        for i in range(len(self._IDLE_FINE)):
-            weight -= self._IDLE_FINE[i] * ve.idle_ratio(i)
-
         # Reward for page faults and io. Take into account both instant and
         # average values.
         weight += ((self._io > self._IO_THRESH) * self._IO_REWARD +
@@ -123,15 +118,13 @@ class _VEPrivate(object):
         # tiny VEs at once.
         return self.quota / self._weight
 
-    _DUMP_FMT = ('quota=%d weight=%.2f pgflt=%d/%d io=%d/%d unused=%d '
-                 'idle=%0.2f' + ':%0.2f' * 4)
+    _DUMP_FMT = ('quota=%d weight=%.2f pgflt=%d/%d io=%d/%d unused=%d')
 
     def dump(self):
         return (self._DUMP_FMT %
                 ((self.quota, self._weight,
                   self._pgflt, self._pgflt_avg,
-                  self._io, self._io_avg, self._unused) +
-                 tuple(self._ve.idle_ratio(i) for i in range(5))))
+                  self._io, self._io_avg, self._unused)))
 
 
 class WFBPolicy(Policy):
@@ -147,7 +140,6 @@ class WFBPolicy(Policy):
     '''
 
     REQUIRES_PERIODIC_UPDATES = True
-    REQUIRES_IDLE_MEM_TRACKING = True
 
     def __grant_quota(self, active_ves, value):
         # There is an excess of quota. Grant it too all active VEs

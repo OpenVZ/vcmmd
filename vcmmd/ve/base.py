@@ -146,33 +146,6 @@ class VE(object):
         self.mem_stats._update(**self._fetch_mem_stats())
         self.io_stats._update(**self._fetch_io_stats())
 
-    @staticmethod
-    def enable_idle_mem_tracking():
-        '''Enable idle memory tracking.
-
-        Must be called for 'idle_ratio' to work.
-        '''
-        cfg = VCMMDConfig()
-        sampling = cfg.get_num('VE.IdleMemTracking.Sampling',
-                               default=0.1, minimum=0.01, maximum=1.0)
-        period = cfg.get_num('VE.IdleMemTracking.Period',
-                             default=60, integer=True, minimum=1)
-        # Both containers and VMs currently use the infrastructure provided by
-        # memory cgroup for tracking idle memory.
-        MemoryCgroup.set_idle_mem_sampling(sampling)
-        MemoryCgroup.set_idle_mem_period(period)
-
-    def idle_ratio(self, age=0):
-        '''Return an estimate of the portion of memory that have been found
-        idle for more than 'age' idle scan periods.
-
-        Only relevant if 'enable_idle_mem_tracking' was called. The value is
-        updated each 'period' seconds.
-
-        This function is supposed to be overridden in sub-class.
-        '''
-        return 0.0
-
     def _fetch_mem_stats(self):
         '''Fetch memory stats dict for this VE.
 

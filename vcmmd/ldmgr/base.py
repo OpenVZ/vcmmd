@@ -119,10 +119,6 @@ class LoadManager(object):
         if self._mem_avail < 0:
             self.logger.error('Not enough memory to run VEs!')
 
-        if self._policy.REQUIRES_IDLE_MEM_TRACKING:
-            VE.enable_idle_mem_tracking()
-            self.logger.info('Started idle memory tracking')
-
     def _save_ve_state(self, ve):
         self._ve_state[ve.name] = {
             'type': ve.VE_TYPE,
