@@ -46,7 +46,6 @@ class LoadManager(object):
 
         self._req_queue = Queue.Queue()
         self._last_stats_update = 0
-        self._last_dump = 0
         self._worker = threading.Thread(target=self._worker_thread_fn)
         self._should_stop = False
 
@@ -98,8 +97,6 @@ class LoadManager(object):
 
         self._update_interval = cfg.get_num('LoadManager.UpdateInterval',
                                             default=5, integer=True, minimum=1)
-        self._dump_interval = cfg.get_num('LoadManager.DumpInterval',
-                                          default=0, integer=True, minimum=0)
 
         self._mem_total = psutil.virtual_memory().total
         self._host_rsrv = self._mem_size_from_config(
@@ -306,12 +303,10 @@ class LoadManager(object):
         self._set_slice_rsrv('machine', -1, verbose=False)
 
         # Dump VE stats for debugging
-        if (self.logger.isEnabledFor(logging.DEBUG) and
-                now >= self._last_dump + self._dump_interval):
+        if self.logger.isEnabledFor(logging.DEBUG):
             self.logger.debug('sum_overhead=%s mem_avail=%s',
                               sum_overhead, mem_avail)
             self._dump_ves(dump_fn=self.logger.debug)
-            self._last_dump = now
 
     def _reserve_inactive_ve_mem(self, ve, value):
         assert ve not in self._inactive_ve_rsrv
