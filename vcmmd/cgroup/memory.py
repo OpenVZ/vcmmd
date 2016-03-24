@@ -6,9 +6,12 @@ import threading
 from vcmmd.cgroup import idlememscan
 from vcmmd.cgroup.base import Cgroup
 from vcmmd.util.limits import INT64_MAX
+from vcmmd.util.singleton import Singleton
 
 
 class _IdleMemScanner:
+
+    __metaclass__ = Singleton
 
     class _StopScan(Exception):
         pass
@@ -86,8 +89,6 @@ class _IdleMemScanner:
     @property
     def result(self):
         return self.__result
-
-_idle_mem_scanner = _IdleMemScanner()
 
 
 class MemoryCgroup(Cgroup):
@@ -169,7 +170,7 @@ class MemoryCgroup(Cgroup):
         Note, the change will only take place after the current period
         completes.
         '''
-        _idle_mem_scanner.set_period(period)
+        _IdleMemScanner().set_period(period)
 
     @staticmethod
     def set_idle_mem_sampling(sampling):
@@ -180,10 +181,10 @@ class MemoryCgroup(Cgroup):
         Note, the change will only take place after the current period
         completes.
         '''
-        _idle_mem_scanner.set_sampling(sampling)
+        _IdleMemScanner().set_sampling(sampling)
 
     def _get_idle_mem_stat_raw(self):
-        return _idle_mem_scanner.result.get(self._path, None)
+        return _IdleMemScanner().result.get(self._path, None)
 
     def _get_idle_mem_portion(self, age, mem_types):
         if not isinstance(age, (int, long)):
