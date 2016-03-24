@@ -97,6 +97,8 @@ class LoadManager(object):
 
         self._update_interval = cfg.get_num('LoadManager.UpdateInterval',
                                             default=5, integer=True, minimum=1)
+        self.logger.info('Update interval is set to %ss',
+                         self._update_interval)
 
         self._mem_total = psutil.virtual_memory().total
         self._host_rsrv = self._mem_size_from_config(
