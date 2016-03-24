@@ -93,7 +93,10 @@ class CT(VE):
         # do so via config.
         if VCMMDConfig().get_bool('VE.CT.SoftMemTarget', False):
             value = MemoryCgroup.MAX_MEM_VAL
-        self._memcg.write_mem_high(value)
+        try:
+            self._memcg.write_mem_high(value)
+        except IOError as err:
+            raise Error(err)
 
     def _apply_config(self, config):
         try:
