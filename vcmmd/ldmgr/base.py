@@ -56,8 +56,9 @@ class LoadManager(object):
         try:
             policy_module = importlib.import_module(
                 'vcmmd.ldmgr.policies.' + policy_name)
-        except ImportError:
-            self.logger.error("Policy '%s' not found", policy_name)
+        except ImportError as err:
+            self.logger.error("Failed to load policy '%s': %s",
+                              policy_name, err)
             # fallback on default policy
             policy_name = self.DEFAULT_POLICY
             policy_module = importlib.import_module(
