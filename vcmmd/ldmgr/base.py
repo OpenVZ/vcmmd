@@ -282,8 +282,6 @@ class LoadManager(object):
         for ve, quota in ve_quotas.iteritems():
             assert ve.active
             try:
-                ve.set_mem_target(quota)
-
                 # If sum quota calculated by the policy is less than the amount
                 # of available memory, we strive to protect the whole VE
                 # allocation from host pressure so as to avoid costly swapping.
@@ -291,10 +289,9 @@ class LoadManager(object):
                 # If sum quota is greater than the amount of available memory,
                 # we can't do that obviously. In this case we protect as much
                 # as configured guarantees.
-                overhead = ve.mem_overhead
-                ve.set_mem_protection(quota + overhead
-                                      if sum_quota <= mem_avail
-                                      else ve.config.guarantee)
+                ve.set_mem(target=quota, protection=(quota + ve.mem_overhead
+                                                     if sum_quota <= mem_avail
+                                                     else ve.config.guarantee))
             except VEError as err:
                 self.logger.error('Failed to set quota for %s: %s', ve, err)
 

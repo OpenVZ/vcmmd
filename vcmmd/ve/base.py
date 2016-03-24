@@ -233,8 +233,8 @@ class VE(object):
         self.mem_stats._update(**self._obj.get_mem_stats())
         self.io_stats._update(**self._obj.get_io_stats())
 
-    def set_mem_protection(self, value):
-        self._obj.set_mem_protection(value)
-
-    def set_mem_target(self, value):
-        self._obj.set_mem_target(value)
+    def set_mem(self, target, protection):
+        '''Set VE memory consumption target.
+        '''
+        self._obj.set_mem_target(target)
+        self._obj.set_mem_protection(protection)
