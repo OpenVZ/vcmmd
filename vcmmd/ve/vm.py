@@ -4,20 +4,21 @@ from libvirt import libvirtError
 from xml.etree import ElementTree as XMLET
 
 from vcmmd.cgroup import MemoryCgroup
-from vcmmd.ve import VE, Error
+from vcmmd.ve.base import Error, VEImpl, register_ve_impl
 from vcmmd.ve.types import VE_TYPE_VM
 from vcmmd.config import VCMMDConfig
 from vcmmd.util.libvirt import virDomainProxy, lookup_qemu_machine_cgroup
 from vcmmd.util.misc import roundup
 
 
-class VM(VE):
+class VMImpl(VEImpl):
 
     VE_TYPE = VE_TYPE_VM
+    VE_TYPE_NAME = 'VM'
 
-    def __init_libvirt_domain(self):
+    def __init_libvirt_domain(self, name):
         try:
-            self._libvirt_domain = virDomainProxy(self.name)
+            self._libvirt_domain = virDomainProxy(name)
 
             # libvirt must be explicitly told to collect memory statistics
             period = VCMMDConfig().get_num('VE.VM.MemStatsPeriod',
@@ -47,19 +48,21 @@ class VM(VE):
             qemu_overhead = VCMMDConfig().get_num('VE.VM.QEMUOverhead',
                                                   default=209715200,
                                                   integer=True, minimum=0)
-            self.mem_overhead = qemu_overhead + (vram << 10)
+            self._mem_overhead = qemu_overhead + (vram << 10)
         except libvirtError as err:
             raise Error(err)
         except (XMLET.ParseError, ValueError) as err:
             raise Error("Failed to parse VM's XML descriptor: %s" % err)
 
-    def activate(self):
-        self.__init_libvirt_domain()
+    def __init__(self, name):
+        self.__init_libvirt_domain(name)
         self.__init_cgroup()
         self.__init_mem_overhead()
-        super(VM, self).activate()
 
-    def _fetch_mem_stats(self):
+    def get_mem_overhead(self):
+        return self._mem_overhead
+
+    def get_mem_stats(self):
         try:
             stat = self._libvirt_domain.memoryStats()
         except libvirtError as err:
@@ -79,7 +82,7 @@ class VM(VE):
                 'minflt': stat.get('minor_fault', -1),
                 'majflt': stat.get('major_fault', -1)}
 
-    def _fetch_io_stats(self):
+    def get_io_stats(self):
         try:
             stat = self._libvirt_domain.blockStats('')
         except libvirtError as err:
@@ -119,7 +122,7 @@ class VM(VE):
                "</memory>").format(memsize=value)
         self._libvirt_domain.attachDevice(xml)
 
-    def _apply_config(self, config):
+    def set_config(self, config):
         # Set protection against OOM killer according to configured guarantee
         try:
             self._memcg.write_oom_guarantee(config.guarantee)
@@ -141,3 +144,5 @@ class VM(VE):
                 self._hotplug_memory(value - max_mem)
         except libvirtError as err:
             raise Error(err)
+
+register_ve_impl(VMImpl)

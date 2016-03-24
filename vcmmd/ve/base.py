@@ -21,6 +21,14 @@ class Error(Exception):
     pass
 
 
+class InvalidVENameError(Error):
+    pass
+
+
+class InvalidVETypeError(Error):
+    pass
+
+
 class Config(namedtuple('Config', _CONFIG_FIELDS)):
     '''Represents a VE's memory configuration.
 
@@ -73,94 +81,37 @@ DEFAULT_CONFIG = Config(guarantee=0,
                         swap=UINT64_MAX)
 
 
-class VE(object):
+class VEImpl(object):
+    '''VE implementation.
+
+    This class defines the interface to an underlying VE implementation
+    (such as libvirt or cgroup).
+
+    Any of the functions defined by this interface may raise Error.
+    '''
 
     VE_TYPE = -1
+    VE_TYPE_NAME = 'VE'
 
     def __init__(self, name):
-        self.name = name
-        self.config = None
-        self.active = False
+        pass
 
-        self.mem_stats = MemStats()
-        self.io_stats = IOStats()
+    def get_mem_overhead(self):
+        '''Return memory overhead.
 
-        # Additional memory that should be taken into account
-        # when calculating memory.low
-        self.mem_overhead = 0
-
-        self.policy_priv = None
-
-    def __str__(self):
-        return "%s '%s'" % (self.__class__.__name__, self.name)
-
-    def _apply_config(self, config):
-        '''Try to apply VE config.
-
-        A sub-class is supposed to override this function to propagate config
-        changes to the underlying implementation.
-
-        This function May raise Error, in which case config update will be
-        aborted.
+        This function is supposed to return the amount of memory beyond the
+        configured limit which is required to run the VE smoothly. For VMs this
+        will be VRAM size plus emulator process RSS.
         '''
         pass
 
-    def set_config(self, config):
-        '''Update VE config.
-
-        If the VE is active, it will try to apply the new config right away and
-        throw Error in case of failure. Otherwise, config will be applied only
-        when VE gets activated.
-        '''
-        if self.active:
-            self._apply_config(config)
-        self.config = config
-
-    def activate(self):
-        '''Activate VE.
-
-        This function marks a VE as active. It also tries to apply the VE
-        config. The latter may fail hence this function may throw Error.
-
-        This function is supposed to be called after a VE has been started or
-        resumed.
-        '''
-        self._apply_config(self.config)
-        self.active = True
-
-    def deactivate(self):
-        '''Deactivate VE.
-
-        This function marks a VE as inactive. It never raises an exception.
-
-        This function is supposed to be called before pausing or suspending a
-        VE.
-        '''
-        self.active = False
-
-    def update_stats(self):
-        '''Update statistics for this VE.
-
-        May raise Error.
-        '''
-        self.mem_stats._update(**self._fetch_mem_stats())
-        self.io_stats._update(**self._fetch_io_stats())
-
-    def _fetch_mem_stats(self):
-        '''Fetch memory stats dict for this VE.
-
-        May raise Error.
-
-        This function is supposed to be overridden in sub-class.
+    def get_mem_stats(self):
+        '''Return memory stats dict {name: value}.
         '''
         pass
 
-    def _fetch_io_stats(self):
-        '''Fetch IO stats dict for this VE.
-
-        May raise Error.
-
-        This function is supposed to be overridden in sub-class.
+    def get_io_stats(self):
+        '''Return io stats dict {name: value}.
         '''
         pass
 
@@ -170,10 +121,6 @@ class VE(object):
         If memory usage of a VE is below this value, the VE's memory shouldn't
         be reclaimed on host pressure if memory can be reclaimed from
         unprotected VEs.
-
-        May raise Error.
-
-        This function is supposed to be overridden in sub-class.
         '''
         pass
 
@@ -186,9 +133,108 @@ class VE(object):
         in case allocation is reduced. However, reducing the value will put the
         VE under heavy local memory pressure forcing it to release its memory
         to the host.
-
-        May raise Error.
-
-        This function is supposed to be overridden in sub-class.
         '''
         pass
+
+    def set_config(self, config):
+        '''Set new config.
+        '''
+        pass
+
+
+_VE_IMPL_MAP = {}  # VE type -> VE implementation class
+
+
+def register_ve_impl(ve_impl):
+    assert ve_impl.VE_TYPE not in _VE_IMPL_MAP
+    _VE_IMPL_MAP[ve_impl.VE_TYPE] = ve_impl
+
+
+def _lookup_ve_impl(ve_type):
+    try:
+        return _VE_IMPL_MAP[ve_type]
+    except KeyError:
+        raise InvalidVETypeError
+
+
+def _check_ve_name(name):
+    if not name or '/' in name:
+        raise InvalidVENameError
+
+
+class VE(object):
+
+    def __init__(self, ve_type, name):
+        _check_ve_name(name)
+
+        self._impl = _lookup_ve_impl(ve_type)
+        self._obj = None
+
+        self.name = name
+        self.config = None
+
+        self.mem_overhead = 0
+        self.mem_stats = MemStats()
+        self.io_stats = IOStats()
+
+        self.policy_priv = None
+
+    def __str__(self):
+        return "%s '%s'" % (self.VE_TYPE_NAME, self.name)
+
+    @property
+    def VE_TYPE(self):
+        return self._impl.VE_TYPE
+
+    @property
+    def VE_TYPE_NAME(self):
+        return self._impl.VE_TYPE_NAME
+
+    def set_config(self, config):
+        '''Update VE config.
+
+        If the VE is active, it will try to apply the new config right away and
+        throw Error in case of failure. Otherwise, config will be applied only
+        when VE gets activated.
+        '''
+        if self._obj is not None:
+            self._obj.set_config(config)
+        self.config = config
+
+    @property
+    def active(self):
+        return self._obj is not None
+
+    def activate(self):
+        '''Activate VE.
+
+        This function marks a VE as active. It also tries to apply the VE
+        config. The latter may fail hence this function may throw Error.
+
+        This function is supposed to be called after a VE has been started or
+        resumed.
+        '''
+        obj = self._impl(self.name)
+        obj.set_config(self.config)
+        self._obj = obj
+
+    def deactivate(self):
+        '''Deactivate VE.
+
+        This function marks a VE as inactive. It never raises an exception.
+
+        This function is supposed to be called before pausing or suspending a
+        VE.
+        '''
+        self._obj = None
+
+    def update_stats(self):
+        self.mem_overhead = self._obj.get_mem_overhead()
+        self.mem_stats._update(**self._obj.get_mem_stats())
+        self.io_stats._update(**self._obj.get_io_stats())
+
+    def set_mem_protection(self, value):
+        self._obj.set_mem_protection(value)
+
+    def set_mem_target(self, value):
+        self._obj.set_mem_target(value)

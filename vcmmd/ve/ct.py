@@ -3,7 +3,7 @@ from __future__ import absolute_import
 import os
 
 from vcmmd.cgroup import MemoryCgroup, BlkIOCgroup, BeancounterCgroup
-from vcmmd.ve import VE, Error
+from vcmmd.ve.base import Error, VEImpl, register_ve_impl
 from vcmmd.ve.types import VE_TYPE_CT
 from vcmmd.config import VCMMDConfig
 
@@ -11,16 +11,17 @@ from vcmmd.config import VCMMDConfig
 _PAGE_SIZE = os.sysconf('SC_PAGE_SIZE')
 
 
-class CT(VE):
+class CTImpl(VEImpl):
 
     VE_TYPE = VE_TYPE_CT
+    VE_TYPE_NAME = 'CT'
 
-    def activate(self):
+    def __init__(self, name):
         # Currently, containers' cgroups are located at the first level of the
         # cgroup hierarchy.
-        self._memcg = MemoryCgroup(self.name)
-        self._blkcg = BlkIOCgroup(self.name)
-        self._bccg = BeancounterCgroup(self.name)
+        self._memcg = MemoryCgroup(name)
+        self._blkcg = BlkIOCgroup(name)
+        self._bccg = BeancounterCgroup(name)
 
         if not self._memcg.exists():
             raise Error('CT memory cgroup does not exist')
@@ -31,9 +32,10 @@ class CT(VE):
         if not self._bccg.exists():
             raise Error('CT beancounter cgroup does not exist')
 
-        super(CT, self).activate()
+    def get_mem_overhead(self):
+        return 0  # containers do not have memory overhead
 
-    def _fetch_mem_stats(self):
+    def get_mem_stats(self):
         try:
             current = self._memcg.read_mem_current()
             high = self._memcg.read_mem_high()
@@ -55,7 +57,7 @@ class CT(VE):
                 'minflt': stat.get('pgfault', -1),
                 'majflt': stat.get('pgmajfault', -1)}
 
-    def _fetch_io_stats(self):
+    def get_io_stats(self):
         try:
             serviced = self._blkcg.get_io_serviced()
             service_bytes = self._blkcg.get_io_service_bytes()
@@ -94,7 +96,7 @@ class CT(VE):
         except IOError as err:
             raise Error(err)
 
-    def _apply_config(self, config):
+    def set_config(self, config):
         try:
             self._memcg.write_oom_guarantee(config.guarantee)
             self._memcg.write_mem_max(config.limit)
@@ -103,3 +105,5 @@ class CT(VE):
             self._memcg.write_swap_max(config.swap)
         except IOError as err:
             raise Error(err)
+
+register_ve_impl(CTImpl)

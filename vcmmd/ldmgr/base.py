@@ -12,10 +12,8 @@ import psutil
 from vcmmd.errno import *
 from vcmmd.config import VCMMDConfig
 from vcmmd.cgroup import MemoryCgroup
-from vcmmd.ve import VE, Config as VEConfig, Error as VEError
-from vcmmd.ve.make import (make as make_ve,
-                           InvalidVENameError,
-                           InvalidVETypeError)
+from vcmmd.ve import (VE, Config as VEConfig, Error as VEError,
+                      InvalidVENameError, InvalidVETypeError)
 from vcmmd.util.misc import clamp
 
 
@@ -330,7 +328,7 @@ class LoadManager(object):
             raise Error(VCMMD_ERROR_VE_NAME_ALREADY_IN_USE)
 
         try:
-            ve = make_ve(ve_name, ve_type)
+            ve = VE(ve_type, ve_name)
         except InvalidVENameError:
             raise Error(VCMMD_ERROR_INVALID_VE_NAME)
         except InvalidVETypeError:

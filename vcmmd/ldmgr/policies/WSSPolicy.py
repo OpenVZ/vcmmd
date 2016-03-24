@@ -1,8 +1,7 @@
 from __future__ import absolute_import
 
 from vcmmd.ldmgr import Policy
-from vcmmd.ve.ct import CT
-from vcmmd.ve.vm import VM
+from vcmmd.ve.types import *
 import prlsdkapi
 import os
 from prlsdkapi import consts
@@ -330,10 +329,10 @@ class WSSPolicy(Policy):
             vepriv = ve.policy_priv
             if vepriv is None:
                 TypeGuest = None
-                if isinstance(ve, CT):
+                if ve.VE_TYPE == VE_TYPE_CT:
                     session = None
                     TypeGuest = LinuxCT
-                elif isinstance(ve, VM):
+                elif ve.VE_TYPE == VE_TYPE_VM:
                     session = VmGuestSession(ve.name)
                     TypeGuest = {GUEST_LINUX: LinuxVM,
                                  GUEST_WINDOWS: WindowsVM}[session.os_type]
