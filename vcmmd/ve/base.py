@@ -164,14 +164,14 @@ def _check_ve_name(name):
 
 class VE(object):
 
-    def __init__(self, ve_type, name):
+    def __init__(self, ve_type, name, config):
         _check_ve_name(name)
 
         self._impl = _lookup_ve_impl(ve_type)
         self._obj = None
 
         self.name = name
-        self.config = None
+        self.config = config
 
         self.mem_overhead = 0
         self.mem_stats = MemStats()
@@ -189,17 +189,6 @@ class VE(object):
     @property
     def VE_TYPE_NAME(self):
         return self._impl.VE_TYPE_NAME
-
-    def set_config(self, config):
-        '''Set VE config.
-
-        If the VE is active, it will try to apply the new config right away and
-        throw Error in case of failure. Otherwise, config will be applied only
-        when VE gets activated.
-        '''
-        if self._obj is not None:
-            self._obj.set_config(config)
-        self.config = config
 
     @property
     def active(self):
@@ -240,3 +229,9 @@ class VE(object):
         '''
         self._obj.set_mem_target(target)
         self._obj.set_mem_protection(protection)
+
+    def set_config(self, config):
+        '''Set VE config.
+        '''
+        self._obj.set_config(config)
+        self.config = config

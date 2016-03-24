@@ -321,18 +321,16 @@ class LoadManager(object):
             raise Error(VCMMD_ERROR_VE_NAME_ALREADY_IN_USE)
 
         try:
-            ve = VE(ve_type, ve_name)
-        except InvalidVENameError:
-            raise Error(VCMMD_ERROR_INVALID_VE_NAME)
-        except InvalidVETypeError:
-            raise Error(VCMMD_ERROR_INVALID_VE_TYPE)
-
-        try:
             ve_config = VEConfig.from_dict(ve_config)
         except ValueError:
             raise Error(VCMMD_ERROR_INVALID_VE_CONFIG)
 
-        ve.set_config(ve_config)
+        try:
+            ve = VE(ve_type, ve_name, ve_config)
+        except InvalidVENameError:
+            raise Error(VCMMD_ERROR_INVALID_VE_NAME)
+        except InvalidVETypeError:
+            raise Error(VCMMD_ERROR_INVALID_VE_TYPE)
 
         if not self._may_register_ve(ve):
             raise Error(VCMMD_ERROR_NO_SPACE)
