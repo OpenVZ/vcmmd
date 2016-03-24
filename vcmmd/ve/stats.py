@@ -24,7 +24,10 @@ class Stats(object):
         self._raw_stats = stats
 
         for k in self.ABSOLUTE_STATS:
-            setattr(self, k, stats.get(k, -1))
+            v = stats.get(k, -1)
+            if v < 0:  # stat unavailable => return -1
+                v = -1
+            setattr(self, k, v)
 
         now = time.time()
         delta_t = now - self._last_update
@@ -32,7 +35,7 @@ class Stats(object):
 
         for k in self.CUMULATIVE_STATS:
             cur, prev = stats.get(k, -1), prev_stats.get(k, -1)
-            if cur < 0 or prev < 0:
+            if cur < 0 or prev < 0:  # stat unavailable => return -1
                 delta = -1
             else:
                 delta = int((cur - prev) / delta_t)
