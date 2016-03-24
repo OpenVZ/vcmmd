@@ -203,6 +203,7 @@ class VE(object):
         This function is supposed to be called after a VE has been started or
         resumed.
         '''
+        assert not self.active
         obj = self._impl(self.name)
         obj.set_config(self.config)
         self._obj = obj
@@ -215,11 +216,13 @@ class VE(object):
         This function is supposed to be called before pausing or suspending a
         VE.
         '''
+        assert self.active
         self._obj = None
 
     def update(self):
         '''Update VE state.
         '''
+        assert self.active
         self.mem_overhead = self._obj.get_mem_overhead()
         self.mem_stats._update(**self._obj.get_mem_stats())
         self.io_stats._update(**self._obj.get_io_stats())
@@ -227,11 +230,13 @@ class VE(object):
     def set_mem(self, target, protection):
         '''Set VE memory consumption target.
         '''
+        assert self.active
         self._obj.set_mem_target(target)
         self._obj.set_mem_protection(protection)
 
     def set_config(self, config):
         '''Set VE config.
         '''
+        assert self.active
         self._obj.set_config(config)
         self.config = config
