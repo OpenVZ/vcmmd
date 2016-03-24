@@ -12,6 +12,9 @@ class Stats(object):
         self._raw_stats = {}
         self._last_update = 0
 
+        for k in self.ABSOLUTE_STATS + self.CUMULATIVE_STATS:
+            setattr(self, k, -1)
+
     def _update(self, **stats):
         prev_stats = self._raw_stats
         self._raw_stats = stats
