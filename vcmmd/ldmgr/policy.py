@@ -2,8 +2,6 @@ class Policy(object):
     '''Load manager policy interface.
     '''
 
-    REQUIRES_PERIODIC_UPDATES = False
-
     def balance(self, active_ves, mem_avail, stats_updated):
         '''Calculate VE memory quotas.
 

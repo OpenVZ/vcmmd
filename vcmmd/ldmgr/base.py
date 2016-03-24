@@ -175,13 +175,9 @@ class LoadManager(object):
         self._req_queue.put(req)
 
     def _process_request(self):
-        if self._policy.REQUIRES_PERIODIC_UPDATES:
-            timeout = (self._last_stats_update +
-                       self._update_interval - time.time())
-            block = timeout > 0
-        else:
-            timeout = None
-            block = True
+        timeout = (self._last_stats_update +
+                   self._update_interval - time.time())
+        block = timeout > 0
         try:
             req = self._req_queue.get(block=block, timeout=timeout)
         except Queue.Empty:

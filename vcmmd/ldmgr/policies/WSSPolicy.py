@@ -321,8 +321,6 @@ class WSSPolicy(Policy):
     The new quota size based on WS size.
     '''
 
-    REQUIRES_PERIODIC_UPDATES = True
-
     def __init__(self):
         self.logger = logging.getLogger('vcmmd.Policy')
 
