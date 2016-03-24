@@ -37,7 +37,7 @@ class LoadManager(object):
     _VE_STATE_FILE = '/var/run/vcmmd.state'
 
     def __init__(self):
-        self.logger = logging.getLogger('vcmmd.LoadManager')
+        self.logger = logging.getLogger('vcmmd.ldmgr')
 
         self._active_ves = []
         self._registered_ves = {}  # str -> VE

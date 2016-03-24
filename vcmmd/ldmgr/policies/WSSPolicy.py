@@ -160,7 +160,7 @@ class AbstractVE(object):
         self._pgflt = 0
         self._pgflt_avg = 0
 
-        self.logger = logging.getLogger('vcmmd.Policy')
+        self.logger = logging.getLogger('vcmmd.ldmgr.policy')
         self.stats_src = None
 
     def _update_stats(self):
@@ -321,7 +321,7 @@ class WSSPolicy(Policy):
     '''
 
     def __init__(self):
-        self.logger = logging.getLogger('vcmmd.Policy')
+        self.logger = logging.getLogger('vcmmd.ldmgr.policy')
 
     def balance(self, active_ves, mem_avail, stats_updated):
         sum_quota = 0
