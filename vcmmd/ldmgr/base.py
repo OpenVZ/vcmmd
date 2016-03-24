@@ -257,11 +257,7 @@ class LoadManager(object):
         now = time.time()
         if now >= self._last_stats_update + self._update_interval:
             for ve in self._active_ves:
-                try:
-                    ve.update()
-                except VEError as err:
-                    self.logger.error('Failed to update stats for %s: %s',
-                                      ve, err)
+                ve.update()
             self._last_stats_update = now
             stats_updated = True
         else:
@@ -277,20 +273,16 @@ class LoadManager(object):
 
         # Apply the quotas.
         for ve, quota in ve_quotas.iteritems():
-            assert ve.active
-            try:
-                # If sum quota calculated by the policy is less than the amount
-                # of available memory, we strive to protect the whole VE
-                # allocation from host pressure so as to avoid costly swapping.
-                #
-                # If sum quota is greater than the amount of available memory,
-                # we can't do that obviously. In this case we protect as much
-                # as configured guarantees.
-                ve.set_mem(target=quota, protection=(quota + ve.mem_overhead
-                                                     if sum_quota <= mem_avail
-                                                     else ve.config.guarantee))
-            except VEError as err:
-                self.logger.error('Failed to set quota for %s: %s', ve, err)
+            # If sum quota calculated by the policy is less than the amount of
+            # available memory, we strive to protect the whole VE allocation
+            # from host pressure so as to avoid costly swapping.
+            #
+            # If sum quota is greater than the amount of available memory, we
+            # can't do that obviously. In this case we protect as much as
+            # configured guarantees.
+            ve.set_mem(target=quota, protection=(quota + ve.mem_overhead
+                                                 if sum_quota <= mem_avail
+                                                 else ve.config.guarantee))
 
         # We need to set memory.low for machine.slice to infinity, otherwise
         # memory.low in sub-cgroups won't have any effect. We can't do it on
@@ -353,18 +345,12 @@ class LoadManager(object):
         if ve.active:
             raise Error(VCMMD_ERROR_VE_ALREADY_ACTIVE)
 
-        try:
-            ve.activate()
-        except VEError as err:
-            self.logger.error('Failed to activate %s: %s', ve, err)
+        if not ve.activate():
             raise Error(VCMMD_ERROR_VE_OPERATION_FAILED)
 
         # Update stats for the newly activated VE before calling the balance
         # procedure.
-        try:
-            ve.update()
-        except VEError as err:
-            self.logger.error('Failed to update stats for %s: %s', ve, err)
+        ve.update()
 
         self._active_ves.append(ve)
         self._unreserve_inactive_ve_mem(ve)
@@ -376,7 +362,6 @@ class LoadManager(object):
             raise Error(VCMMD_ERROR_VE_NOT_REGISTERED)
         self._do_activate_ve(ve)
         self._save_ve_state(ve)
-        self.logger.info('Activated %s', ve)
         self._balance_ves()
 
     @_request()
@@ -395,14 +380,10 @@ class LoadManager(object):
         if not self._may_update_ve(ve, ve_config):
             raise Error(VCMMD_ERROR_NO_SPACE)
 
-        try:
-            ve.set_config(ve_config)
-        except VEError as err:
-            self.logger.error('Failed to update %s: %s', ve, err)
+        if not ve.set_config(ve_config):
             raise Error(VCMMD_ERROR_VE_OPERATION_FAILED)
 
         self._save_ve_state(ve)
-        self.logger.info('Updated %s %s', ve, ve.config)
         self._balance_ves()
 
     @_request()
@@ -416,10 +397,7 @@ class LoadManager(object):
 
         # Update stats right before deactivating the VE. We need this to update
         # the VE's reservation below.
-        try:
-            ve.update()
-        except VEError as err:
-            self.logger.error('Failed to update stats for %s: %s', ve, err)
+        ve.update()
 
         ve.deactivate()
 
@@ -427,7 +405,6 @@ class LoadManager(object):
         self._reserve_inactive_ve_mem(ve, ve.mem_stats.rss)
 
         self._save_ve_state(ve)
-        self.logger.info('Deactivated %s', ve)
         self._balance_ves()
 
     def _do_unregister_ve(self, ve):

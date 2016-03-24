@@ -1,5 +1,6 @@
 from __future__ import absolute_import
 
+import logging
 import psutil
 from collections import namedtuple
 
@@ -170,6 +171,8 @@ class VE(object):
         self._impl = _lookup_ve_impl(ve_type)
         self._obj = None
 
+        self._logger = logging.getLogger('vcmmd.ve')
+
         self.name = name
         self.config = config
 
@@ -181,6 +184,9 @@ class VE(object):
 
     def __str__(self):
         return "%s '%s'" % (self.VE_TYPE_NAME, self.name)
+
+    def _log(self, lvl, msg, *args, **kwargs):
+        self._logger.log(lvl, str(self) + ': ' + msg, *args, **kwargs)
 
     @property
     def VE_TYPE(self):
@@ -195,48 +201,71 @@ class VE(object):
         return self._obj is not None
 
     def activate(self):
-        '''Activate VE.
+        '''Try to mark VE active. Return True on success, False on failure.
 
-        This function marks a VE as active. It also tries to apply the VE
-        config. The latter may fail hence this function may throw Error.
-
-        This function is supposed to be called after a VE has been started or
-        resumed.
+        This function is supposed to be called after a VE switched to a running
+        state. If it succeeds, the VE's state may be updated and its runtime
+        memory parameters may be reconfigured.
         '''
         assert not self.active
-        obj = self._impl(self.name)
-        obj.set_config(self.config)
+
+        try:
+            obj = self._impl(self.name)
+            obj.set_config(self.config)
+        except Error as err:
+            self._log(logging.ERROR, 'Failed to activate: %s', err)
+            return False
+
         self._obj = obj
+        self._log(logging.INFO, 'Activated')
+        return True
 
     def deactivate(self):
-        '''Deactivate VE.
+        '''Mark VE inactive.
 
-        This function marks a VE as inactive. It never raises an exception.
-
-        This function is supposed to be called before pausing or suspending a
-        VE.
+        This function is supposed to be called before switching a VE to a state
+        in which its runtime memory parameters cannot be changed any more (e.g.
+        suspended or paused).
         '''
         assert self.active
+
         self._obj = None
+        self._log(logging.INFO, 'Deactivated')
 
     def update(self):
         '''Update VE state.
         '''
         assert self.active
-        self.mem_overhead = self._obj.get_mem_overhead()
-        self.mem_stats._update(**self._obj.get_mem_stats())
-        self.io_stats._update(**self._obj.get_io_stats())
+
+        try:
+            self.mem_overhead = self._obj.get_mem_overhead()
+            self.mem_stats._update(**self._obj.get_mem_stats())
+            self.io_stats._update(**self._obj.get_io_stats())
+        except Error as err:
+            self._log(logging.ERROR, 'Failed to update state: %s', err)
 
     def set_mem(self, target, protection):
         '''Set VE memory consumption target.
         '''
         assert self.active
-        self._obj.set_mem_target(target)
-        self._obj.set_mem_protection(protection)
+
+        try:
+            self._obj.set_mem_target(target)
+            self._obj.set_mem_protection(protection)
+        except Error as err:
+            self._log(logging.ERROR, 'Failed to tune allocation: %s', err)
 
     def set_config(self, config):
-        '''Set VE config.
+        '''Set VE config. Return True on success, False on failure.
         '''
         assert self.active
-        self._obj.set_config(config)
+
+        try:
+            self._obj.set_config(config)
+        except Error as err:
+            self._log(logging.ERROR, 'Failed to set config: %s', err)
+            return False
+
         self.config = config
+        self._log(logging.INFO, 'Config updated: %s', config)
+        return True
