@@ -3,7 +3,8 @@ from __future__ import absolute_import
 import os
 
 from vcmmd.cgroup import MemoryCgroup, BlkIOCgroup, BeancounterCgroup
-from vcmmd.ve import VE, Error, types as ve_types
+from vcmmd.ve import VE, Error
+from vcmmd.ve.types import VE_TYPE_CT
 from vcmmd.config import VCMMDConfig
 
 
@@ -12,7 +13,7 @@ _PAGE_SIZE = os.sysconf('SC_PAGE_SIZE')
 
 class CT(VE):
 
-    VE_TYPE = ve_types.CT
+    VE_TYPE = VE_TYPE_CT
 
     def activate(self):
         # Currently, containers' cgroups are located at the first level of the

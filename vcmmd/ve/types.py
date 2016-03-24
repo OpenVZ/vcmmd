@@ -1,2 +1,2 @@
-CT = 0
-VM = 1
+VE_TYPE_CT = 0
+VE_TYPE_VM = 1

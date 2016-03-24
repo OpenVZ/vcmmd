@@ -4,7 +4,8 @@ from libvirt import libvirtError
 from xml.etree import ElementTree as XMLET
 
 from vcmmd.cgroup import MemoryCgroup
-from vcmmd.ve import VE, Error, types as ve_types
+from vcmmd.ve import VE, Error
+from vcmmd.ve.types import VE_TYPE_VM
 from vcmmd.config import VCMMDConfig
 from vcmmd.util.libvirt import virDomainProxy, lookup_qemu_machine_cgroup
 from vcmmd.util.misc import roundup
@@ -12,7 +13,7 @@ from vcmmd.util.misc import roundup
 
 class VM(VE):
 
-    VE_TYPE = ve_types.VM
+    VE_TYPE = VE_TYPE_VM
 
     def __init_libvirt_domain(self):
         try:
