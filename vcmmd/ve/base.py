@@ -57,7 +57,7 @@ class Config(namedtuple('Config', _CONFIG_FIELDS)):
             raise ValueError('guarantee must be <= limit')
 
     def __str__(self):
-        return '(guarantee=%s, limit=%s, swap=%s)' % self
+        return 'guar:%s limit:%s swap:%s' % self
 
     @property
     def effective_limit(self):

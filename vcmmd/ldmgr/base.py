@@ -149,7 +149,7 @@ class LoadManager(object):
                     self._do_unregister_ve(ve)
                     stale_ves.append(ve)
             else:
-                self.logger.info('Restored %s %s %s',
+                self.logger.info('Restored %s %s (%s)',
                                  'active' if ve.active else 'inactive',
                                  ve, ve.config)
         for ve in stale_ves:
@@ -340,7 +340,7 @@ class LoadManager(object):
     def register_ve(self, ve_name, ve_type, ve_config):
         ve = self._do_register_ve(ve_name, ve_type, ve_config)
         self._save_ve_state(ve)
-        self.logger.info('Registered %s %s', ve, ve.config)
+        self.logger.info('Registered %s (%s)', ve, ve.config)
         self._balance_ves()
 
     def _do_activate_ve(self, ve):
