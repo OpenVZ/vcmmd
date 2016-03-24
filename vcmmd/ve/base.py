@@ -243,6 +243,10 @@ class VE(object):
             self.io_stats._update(**self._obj.get_io_stats())
         except Error as err:
             self._log(logging.ERROR, 'Failed to update state: %s', err)
+        else:
+            if self._logger.isEnabledFor(logging.DEBUG):
+                self._log(logging.DEBUG, 'State updated: overhead:%d %s %s',
+                          self.mem_overhead, self.mem_stats, self.io_stats)
 
     def set_mem(self, target, protection):
         '''Set VE memory consumption target.
@@ -254,6 +258,9 @@ class VE(object):
             self._obj.set_mem_protection(protection)
         except Error as err:
             self._log(logging.ERROR, 'Failed to tune allocation: %s', err)
+        else:
+            self._log(logging.DEBUG, 'Allocation tuned: target:%d protection:%d',
+                      target, protection)
 
     def set_config(self, config):
         '''Set VE config. Return True on success, False on failure.

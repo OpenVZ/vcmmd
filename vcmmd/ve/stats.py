@@ -15,6 +15,10 @@ class Stats(object):
         for k in self.ABSOLUTE_STATS + self.CUMULATIVE_STATS:
             setattr(self, k, -1)
 
+    def __str__(self):
+        return ' '.join('%s:%d' % (k, getattr(self, k))
+                        for k in self.ABSOLUTE_STATS + self.CUMULATIVE_STATS)
+
     def _update(self, **stats):
         prev_stats = self._raw_stats
         self._raw_stats = stats
