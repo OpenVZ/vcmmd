@@ -261,7 +261,7 @@ class LoadManager(object):
         if now >= self._last_stats_update + self._update_interval:
             for ve in self._active_ves:
                 try:
-                    ve.update_stats()
+                    ve.update()
                 except VEError as err:
                     self.logger.error('Failed to update stats for %s: %s',
                                       ve, err)
@@ -369,7 +369,7 @@ class LoadManager(object):
         # Update stats for the newly activated VE before calling the balance
         # procedure.
         try:
-            ve.update_stats()
+            ve.update()
         except VEError as err:
             self.logger.error('Failed to update stats for %s: %s', ve, err)
 
@@ -424,7 +424,7 @@ class LoadManager(object):
         # Update stats right before deactivating the VE. We need this to update
         # the VE's reservation below.
         try:
-            ve.update_stats()
+            ve.update()
         except VEError as err:
             self.logger.error('Failed to update stats for %s: %s', ve, err)
 

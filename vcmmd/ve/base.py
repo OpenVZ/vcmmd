@@ -191,7 +191,7 @@ class VE(object):
         return self._impl.VE_TYPE_NAME
 
     def set_config(self, config):
-        '''Update VE config.
+        '''Set VE config.
 
         If the VE is active, it will try to apply the new config right away and
         throw Error in case of failure. Otherwise, config will be applied only
@@ -228,7 +228,9 @@ class VE(object):
         '''
         self._obj = None
 
-    def update_stats(self):
+    def update(self):
+        '''Update VE state.
+        '''
         self.mem_overhead = self._obj.get_mem_overhead()
         self.mem_stats._update(**self._obj.get_mem_stats())
         self.io_stats._update(**self._obj.get_io_stats())
