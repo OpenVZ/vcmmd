@@ -15,18 +15,19 @@ class Policy(object):
         '''
         self.ve_list.remove(ve)
 
-    def balance(self, mem_avail, stats_updated):
+    def ve_updated(self, ve):
+        '''Called right after a VE's stats get updated.
+        '''
+        pass
+
+    def balance(self, mem_avail):
         '''Calculate VE memory quotas.
 
         This function is called by the load manager on VE configuration changes
-        and periodically when VE statistics get updated. In the latter case
-        'stats_updated' is set to True. The function should return a mapping
-        VE -> quota, where quota is the memory consumption target that should
-        be set for a VE.
-
-        'mem_avail' is the amount of memory available for active VEs.
-        'stats_updated' is set to True if VE statistics has been updated since
-        the last time this function was called.
+        and periodically when VE statistics get updated. It is passed the
+        amount of memory available for all managed VEs. It should return a
+        mapping VE -> quota, where quota is the memory consumption target that
+        should be set for a VE.
 
         This function must be overridden in sub-class.
         '''

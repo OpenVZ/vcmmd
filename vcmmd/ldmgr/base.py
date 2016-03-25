@@ -266,12 +266,13 @@ class LoadManager(object):
             if ve.active:
                 if need_update:
                     ve.update()
+                    self._policy.ve_updated(ve)
                 sum_overhead += ve.mem_overhead
 
         mem_avail = max(0, self._mem_avail - sum_overhead)
 
         # Call the policy to calculate VEs' quotas.
-        ve_quotas = self._policy.balance(mem_avail, need_update)
+        ve_quotas = self._policy.balance(mem_avail)
         sum_quota = sum(ve_quotas.itervalues())
 
         # Apply the quotas.

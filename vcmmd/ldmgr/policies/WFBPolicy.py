@@ -147,6 +147,10 @@ class WFBPolicy(Policy):
         Policy.ve_deactivated(self, ve)
         ve.policy_priv = None
 
+    def ve_updated(self, ve):
+        Policy.ve_updated(self, ve)
+        ve.policy_priv.update()
+
     def __grant_quota(self, value):
         # There is an excess of quota. Grant it too all active VEs
         # proportionally to their weights, respecting configured limits.
@@ -187,12 +191,10 @@ class WFBPolicy(Policy):
         if left > (16 << 20):
             self.__subtract_quota(left)
 
-    def balance(self, mem_avail, stats_updated):
+    def balance(self, mem_avail):
         sum_quota = 0
         for ve in self.ve_list:
             vepriv = ve.policy_priv
-            if stats_updated:
-                vepriv.update()
             vepriv.quota = clamp(vepriv.quota, ve.config.guarantee,
                                  ve.config.effective_limit)
             sum_quota += vepriv.quota

@@ -11,5 +11,5 @@ class NoOpPolicy(Policy):
     VEs effectively and is smart enough to detect a VE's working set by itself.
     '''
 
-    def balance(self, mem_avail, stats_updated):
+    def balance(self, mem_avail):
         return {ve: ve.config.limit for ve in self.ve_list}

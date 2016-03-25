@@ -341,17 +341,14 @@ class WSSPolicy(Policy):
         Policy.ve_deactivated(self, ve)
         ve.policy_priv = None
 
-    def balance(self, mem_avail, stats_updated):
-        sum_quota = 0
-        for ve in self.ve_list:
-            vepriv = ve.policy_priv
-            if stats_updated:
-                vepriv.update()
-            sum_quota += vepriv.quota
+    def ve_updated(self, ve):
+        Policy.ve_updated(self, ve)
+        ve.policy_priv.update()
 
+    def balance(self, mem_avail):
+        sum_quota = sum(ve.policy_priv.quota for ve in self.ve_list)
         if sum_quota > mem_avail:
             self.logger.error('Sum VE quotas out of mem_avail limit')
-
         return {ve: ve.policy_priv.quota for ve in self.ve_list}
 
     def dump_ve(self, ve):
