@@ -141,36 +141,36 @@ class WFBPolicy(Policy):
 
     def ve_activated(self, ve):
         Policy.ve_activated(self, ve)
-        ve.policy_priv = _VEPrivate(ve)
+        ve.policy_data = _VEPrivate(ve)
 
     def ve_deactivated(self, ve):
         Policy.ve_deactivated(self, ve)
-        ve.policy_priv = None
+        ve.policy_data = None
 
     def ve_updated(self, ve):
         Policy.ve_updated(self, ve)
-        ve.policy_priv.update()
+        ve.policy_data.update()
 
     def ve_config_updated(self, ve):
         Policy.ve_config_updated(self, ve)
-        ve.policy_priv.quota = clamp(ve.policy_priv.quota,
+        ve.policy_data.quota = clamp(ve.policy_data.quota,
                                      ve.config.guarantee,
                                      ve.config.effective_limit)
 
     def __grant_quota(self, value):
         # There is an excess of quota. Grant it too all active VEs
         # proportionally to their weights, respecting configured limits.
-        denominator = sum(ve.policy_priv.weight for ve in self.ve_list)
+        denominator = sum(ve.policy_data.weight for ve in self.ve_list)
         if denominator == 0:
             return
 
         left = 0
         for ve in self.ve_list:
-            vepriv = ve.policy_priv
-            vepriv.quota += int(value * ve.policy_priv.weight / denominator)
-            if vepriv.quota > ve.config.effective_limit:
-                left += vepriv.quota - ve.config.effective_limit
-                vepriv.quota = ve.config.effective_limit
+            p = ve.policy_data
+            p.quota += int(value * ve.policy_data.weight / denominator)
+            if p.quota > ve.config.effective_limit:
+                left += p.quota - ve.config.effective_limit
+                p.quota = ve.config.effective_limit
 
         # Ignore delta < 16 Mb.
         if left > (16 << 20):
@@ -180,25 +180,24 @@ class WFBPolicy(Policy):
         # There is a shortage of quota. Subtract it from all active VEs
         # inversely proportionally to their weights, respecting configured
         # guarantees.
-        denominator = sum(ve.policy_priv.inv_weight for ve in self.ve_list)
+        denominator = sum(ve.policy_data.inv_weight for ve in self.ve_list)
         if denominator == 0:
             return
 
         left = 0
         for ve in self.ve_list:
-            vepriv = ve.policy_priv
-            vepriv.quota -= int(value * ve.policy_priv.inv_weight /
-                                denominator)
-            if vepriv.quota < ve.config.guarantee:
-                left += ve.config.guarantee - vepriv.quota
-                vepriv.quota = ve.config.guarantee
+            p = ve.policy_data
+            p.quota -= int(value * ve.policy_data.inv_weight / denominator)
+            if p.quota < ve.config.guarantee:
+                left += ve.config.guarantee - p.quota
+                p.quota = ve.config.guarantee
 
         # Ignore delta < 16 Mb.
         if left > (16 << 20):
             self.__subtract_quota(left)
 
     def balance(self, mem_avail):
-        sum_quota = sum(ve.policy_priv.quota for ve in self.ve_list)
+        sum_quota = sum(ve.policy_data.quota for ve in self.ve_list)
         if sum_quota < mem_avail:
             self.__grant_quota(mem_avail - sum_quota)
         elif sum_quota > mem_avail:
@@ -208,13 +207,13 @@ class WFBPolicy(Policy):
         # greater than mem_avail. We don't want it, because that would reset
         # memory protections, so we scale down quotas proportionally in this
         # case.
-        sum_quota = sum(ve.policy_priv.quota for ve in self.ve_list)
+        sum_quota = sum(ve.policy_data.quota for ve in self.ve_list)
         if sum_quota > mem_avail:
             for ve in self.ve_list:
-                ve.policy_priv.quota = (ve.policy_priv.quota *
+                ve.policy_data.quota = (ve.policy_data.quota *
                                         mem_avail / sum_quota)
 
-        return {ve: ve.policy_priv.quota for ve in self.ve_list}
+        return {ve: ve.policy_data.quota for ve in self.ve_list}
 
     def dump_ve(self, ve):
-        return ve.policy_priv.dump()
+        return ve.policy_data.dump()

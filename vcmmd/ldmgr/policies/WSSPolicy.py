@@ -335,27 +335,27 @@ class WSSPolicy(Policy):
             TypeGuest = {GUEST_LINUX: LinuxVM,
                          GUEST_WINDOWS: WindowsVM}[session.os_type]
         assert TypeGuest, 'Unknown guest type'
-        ve.policy_priv = TypeGuest(ve, session)
+        ve.policy_data = TypeGuest(ve, session)
 
     def ve_deactivated(self, ve):
         Policy.ve_deactivated(self, ve)
-        ve.policy_priv = None
+        ve.policy_data = None
 
     def ve_updated(self, ve):
         Policy.ve_updated(self, ve)
-        ve.policy_priv.update()
+        ve.policy_data.update()
 
     def ve_config_updated(self, ve):
         Policy.ve_config_updated(self, ve)
-        ve.policy_priv.quota = min(max(ve.policy_priv.quota,
+        ve.policy_data.quota = min(max(ve.policy_data.quota,
                                        ve.config.guarantee),
                                    ve.config.effective_limit)
 
     def balance(self, mem_avail):
-        sum_quota = sum(ve.policy_priv.quota for ve in self.ve_list)
+        sum_quota = sum(ve.policy_data.quota for ve in self.ve_list)
         if sum_quota > mem_avail:
             self.logger.error('Sum VE quotas out of mem_avail limit')
-        return {ve: ve.policy_priv.quota for ve in self.ve_list}
+        return {ve: ve.policy_data.quota for ve in self.ve_list}
 
     def dump_ve(self, ve):
-        return ve.policy_priv.dump()
+        return ve.policy_data.dump()
