@@ -139,15 +139,23 @@ class WFBPolicy(Policy):
     actively using their allocation.
     '''
 
-    def __grant_quota(self, active_ves, value):
+    def ve_activated(self, ve):
+        Policy.ve_activated(self, ve)
+        ve.policy_priv = _VEPrivate(ve)
+
+    def ve_deactivated(self, ve):
+        Policy.ve_deactivated(self, ve)
+        ve.policy_priv = None
+
+    def __grant_quota(self, value):
         # There is an excess of quota. Grant it too all active VEs
         # proportionally to their weights, respecting configured limits.
-        denominator = sum(ve.policy_priv.weight for ve in active_ves)
+        denominator = sum(ve.policy_priv.weight for ve in self.ve_list)
         if denominator == 0:
             return
 
         left = 0
-        for ve in active_ves:
+        for ve in self.ve_list:
             vepriv = ve.policy_priv
             vepriv.quota += int(value * ve.policy_priv.weight / denominator)
             if vepriv.quota > ve.config.effective_limit:
@@ -156,18 +164,18 @@ class WFBPolicy(Policy):
 
         # Ignore delta < 16 Mb.
         if left > (16 << 20):
-            self.__grant_quota(active_ves, left)
+            self.__grant_quota(left)
 
-    def __subtract_quota(self, active_ves, value):
+    def __subtract_quota(self, value):
         # There is a shortage of quota. Subtract it from all active VEs
         # inversely proportionally to their weights, respecting configured
         # guarantees.
-        denominator = sum(ve.policy_priv.inv_weight for ve in active_ves)
+        denominator = sum(ve.policy_priv.inv_weight for ve in self.ve_list)
         if denominator == 0:
             return
 
         left = 0
-        for ve in active_ves:
+        for ve in self.ve_list:
             vepriv = ve.policy_priv
             vepriv.quota -= int(value * ve.policy_priv.inv_weight /
                                 denominator)
@@ -177,15 +185,12 @@ class WFBPolicy(Policy):
 
         # Ignore delta < 16 Mb.
         if left > (16 << 20):
-            self.__subtract_quota(active_ves, left)
+            self.__subtract_quota(left)
 
-    def balance(self, active_ves, mem_avail, stats_updated):
+    def balance(self, mem_avail, stats_updated):
         sum_quota = 0
-        for ve in active_ves:
+        for ve in self.ve_list:
             vepriv = ve.policy_priv
-            if vepriv is None:
-                vepriv = _VEPrivate(ve)
-                ve.policy_priv = vepriv
             if stats_updated:
                 vepriv.update()
             vepriv.quota = clamp(vepriv.quota, ve.config.guarantee,
@@ -193,21 +198,21 @@ class WFBPolicy(Policy):
             sum_quota += vepriv.quota
 
         if sum_quota < mem_avail:
-            self.__grant_quota(active_ves, mem_avail - sum_quota)
+            self.__grant_quota(mem_avail - sum_quota)
         elif sum_quota > mem_avail:
-            self.__subtract_quota(active_ves, sum_quota - mem_avail)
+            self.__subtract_quota(sum_quota - mem_avail)
 
         # Due to calculation errors, it might turn out that sum_quota is still
         # greater than mem_avail. We don't want it, because that would reset
         # memory protections, so we scale down quotas proportionally in this
         # case.
-        sum_quota = sum(ve.policy_priv.quota for ve in active_ves)
+        sum_quota = sum(ve.policy_priv.quota for ve in self.ve_list)
         if sum_quota > mem_avail:
-            for ve in active_ves:
+            for ve in self.ve_list:
                 ve.policy_priv.quota = (ve.policy_priv.quota *
                                         mem_avail / sum_quota)
 
-        return {ve: ve.policy_priv.quota for ve in active_ves}
+        return {ve: ve.policy_priv.quota for ve in self.ve_list}
 
     def dump_ve(self, ve):
         return ve.policy_priv.dump()

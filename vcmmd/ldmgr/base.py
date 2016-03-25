@@ -39,13 +39,12 @@ class LoadManager(object):
     def __init__(self):
         self.logger = logging.getLogger('vcmmd.ldmgr')
 
-        self._active_ves = []
         self._registered_ves = {}  # str -> VE
         self._registered_ves_lock = threading.Lock()
         self._inactive_ve_rsrv = {}  # ve -> reservation
 
         self._req_queue = Queue.Queue()
-        self._last_stats_update = 0
+        self._last_update = 0
         self._worker = threading.Thread(target=self._worker_thread_fn)
         self._should_stop = False
 
@@ -173,8 +172,7 @@ class LoadManager(object):
         self._req_queue.put(req)
 
     def _process_request(self):
-        timeout = (self._last_stats_update +
-                   self._update_interval - time.time())
+        timeout = (self._last_update + self._update_interval - time.time())
         block = timeout > 0
         try:
             req = self._req_queue.get(block=block, timeout=timeout)
@@ -239,17 +237,17 @@ class LoadManager(object):
     def _may_register_ve(self, new_ve):
         # Check that the sum of guarantees plus the new VE's guarantee fit in
         # available memory.
-        sum_guar = sum(ve.config.guarantee for ve in self._active_ves)
+        sum_guar = sum(ve.config.guarantee for ve in self._policy.ve_list)
         return sum_guar + new_ve.config.guarantee <= self._mem_avail
 
     def _may_update_ve(self, ve_to_update, new_config):
         # Check that the sum of guarantees still fit in available memory.
-        sum_guar = sum(ve.config.guarantee for ve in self._active_ves)
+        sum_guar = sum(ve.config.guarantee for ve in self._policy.ve_list)
         return (sum_guar - ve_to_update.config.guarantee +
                 new_config.guarantee <= self._mem_avail)
 
     def _dump_ves(self, dump_fn):
-        for ve in self._active_ves:
+        for ve in self._policy.ve_list:
             s = self._policy.dump_ve(ve)
             if s is not None:
                 dump_fn('%s: %s', ve, s)
@@ -257,20 +255,23 @@ class LoadManager(object):
     def _balance_ves(self):
         # Update VE stats if enough time has passed
         now = time.time()
-        if now >= self._last_stats_update + self._update_interval:
-            for ve in self._active_ves:
-                ve.update()
-            self._last_stats_update = now
-            stats_updated = True
+        if now > self._last_update + self._update_interval:
+            self._last_update = now
+            need_update = True
         else:
-            stats_updated = False
+            need_update = False
 
-        sum_overhead = sum(ve.mem_overhead for ve in self._active_ves)
+        sum_overhead = 0
+        for ve in self._registered_ves.itervalues():
+            if ve.active:
+                if need_update:
+                    ve.update()
+                sum_overhead += ve.mem_overhead
+
         mem_avail = max(0, self._mem_avail - sum_overhead)
 
         # Call the policy to calculate VEs' quotas.
-        ve_quotas = self._policy.balance(self._active_ves, mem_avail,
-                                         stats_updated)
+        ve_quotas = self._policy.balance(mem_avail, need_update)
         sum_quota = sum(ve_quotas.itervalues())
 
         # Apply the quotas.
@@ -354,7 +355,7 @@ class LoadManager(object):
         # procedure.
         ve.update()
 
-        self._active_ves.append(ve)
+        self._policy.ve_activated(ve)
         self._unreserve_inactive_ve_mem(ve)
 
     @_request()
@@ -403,7 +404,7 @@ class LoadManager(object):
 
         ve.deactivate()
 
-        self._active_ves.remove(ve)
+        self._policy.ve_deactivated(ve)
         self._reserve_inactive_ve_mem(ve, ve.mem_stats.rss)
 
         self._save_ve_state(ve)
@@ -413,7 +414,7 @@ class LoadManager(object):
         with self._registered_ves_lock:
             del self._registered_ves[ve.name]
         if ve.active:
-            self._active_ves.remove(ve)
+            self._policy.ve_deactivated(ve)
         else:
             self._unreserve_inactive_ve_mem(ve)
 

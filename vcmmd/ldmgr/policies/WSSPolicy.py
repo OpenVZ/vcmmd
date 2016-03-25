@@ -321,24 +321,30 @@ class WSSPolicy(Policy):
     '''
 
     def __init__(self):
+        Policy.__init__(self)
         self.logger = logging.getLogger('vcmmd.ldmgr.policy')
 
-    def balance(self, active_ves, mem_avail, stats_updated):
+    def ve_activated(self, ve):
+        Policy.ve_activated(self, ve)
+        TypeGuest = None
+        if ve.VE_TYPE == VE_TYPE_CT:
+            session = None
+            TypeGuest = LinuxCT
+        elif ve.VE_TYPE == VE_TYPE_VM:
+            session = VmGuestSession(ve.name)
+            TypeGuest = {GUEST_LINUX: LinuxVM,
+                         GUEST_WINDOWS: WindowsVM}[session.os_type]
+        assert TypeGuest, 'Unknown guest type'
+        ve.policy_priv = TypeGuest(ve, session)
+
+    def ve_deactivated(self, ve):
+        Policy.ve_deactivated(self, ve)
+        ve.policy_priv = None
+
+    def balance(self, mem_avail, stats_updated):
         sum_quota = 0
-        for ve in active_ves:
+        for ve in self.ve_list:
             vepriv = ve.policy_priv
-            if vepriv is None:
-                TypeGuest = None
-                if ve.VE_TYPE == VE_TYPE_CT:
-                    session = None
-                    TypeGuest = LinuxCT
-                elif ve.VE_TYPE == VE_TYPE_VM:
-                    session = VmGuestSession(ve.name)
-                    TypeGuest = {GUEST_LINUX: LinuxVM,
-                                 GUEST_WINDOWS: WindowsVM}[session.os_type]
-                assert TypeGuest, 'Unknown guest type'
-                vepriv = TypeGuest(ve, session)
-                ve.policy_priv = vepriv
             if stats_updated:
                 vepriv.update()
             sum_quota += vepriv.quota
@@ -346,7 +352,7 @@ class WSSPolicy(Policy):
         if sum_quota > mem_avail:
             self.logger.error('Sum VE quotas out of mem_avail limit')
 
-        return {ve: ve.policy_priv.quota for ve in active_ves}
+        return {ve: ve.policy_priv.quota for ve in self.ve_list}
 
     def dump_ve(self, ve):
         return ve.policy_priv.dump()
