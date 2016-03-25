@@ -41,7 +41,6 @@ class LoadManager(object):
 
         self._registered_ves = {}  # str -> VE
         self._registered_ves_lock = threading.Lock()
-        self._inactive_ve_rsrv = {}  # ve -> reservation
 
         self._req_queue = Queue.Queue()
         self._last_update = 0
@@ -64,7 +63,7 @@ class LoadManager(object):
         self._policy = self._policy = getattr(policy_module, policy_name)()
         self.logger.info("Loaded policy '%s'", policy_name)
 
-    def _mem_size_from_config(self, name, default):
+    def _mem_size_from_config(self, name, mem_total, default):
         cfg = VCMMDConfig()
         share = cfg.get_num('LoadManager.%s.Share' % name,
                             default=default[0], minimum=0.0, maximum=1.0)
@@ -72,9 +71,9 @@ class LoadManager(object):
                            default=default[1], integer=True, minimum=0)
         max_ = cfg.get_num('LoadManager.%s.Max' % name,
                            default=default[2], integer=True, minimum=0)
-        return clamp(int(self._mem_total * share), min_, max_)
+        return clamp(int(mem_total * share), min_, max_)
 
-    def _set_slice_rsrv(self, name, value, verbose=True):
+    def _set_slice_mem(self, name, value, verbose=True):
         memcg = MemoryCgroup(name + '.slice')
         if not memcg.exists():
             return
@@ -91,28 +90,29 @@ class LoadManager(object):
     def _do_init(self):
         cfg = VCMMDConfig()
 
+        # Load a policy
         self._load_policy(cfg.get_str('LoadManager.Policy',
                                       self.DEFAULT_POLICY))
 
+        # Configure update interval
         self._update_interval = cfg.get_num('LoadManager.UpdateInterval',
                                             default=5, integer=True, minimum=1)
-        self.logger.info('Update interval is set to %ss',
-                         self._update_interval)
+        self.logger.info('Update interval set to %ds', self._update_interval)
 
-        self._mem_total = psutil.virtual_memory().total
-        self._host_rsrv = self._mem_size_from_config(
-            'HostMem', (0.04, 128 << 20, 320 << 20))
-        self._sys_rsrv = self._mem_size_from_config(
-            'SysMem', (0.04, 128 << 20, 320 << 20))
-        self._user_rsrv = self._mem_size_from_config(
-            'UserMem', (0.02, 32 << 20, 128 << 20))
-        self._mem_avail = (self._mem_total - self._host_rsrv -
-                           self._sys_rsrv - self._user_rsrv)
+        # Reserve memory for the system
+        total_mem = psutil.virtual_memory().total
+        host_mem = self._mem_size_from_config('HostMem', total_mem,
+                                              (0.04, 128 << 20, 320 << 20))
+        sys_mem = self._mem_size_from_config('SysMem', total_mem,
+                                             (0.04, 128 << 20, 320 << 20))
+        user_mem = self._mem_size_from_config('UserMem', total_mem,
+                                              (0.02, 32 << 20, 128 << 20))
+        self._set_slice_mem('user', user_mem)
+        self._set_slice_mem('system', sys_mem)
 
-        self._set_slice_rsrv('user', self._user_rsrv)
-        self._set_slice_rsrv('system', self._sys_rsrv)
-
-        self.logger.info('%s bytes available for VEs', self._mem_avail)
+        # Calculate size of memory available for VEs
+        self._mem_avail = (total_mem - host_mem - sys_mem - user_mem)
+        self.logger.info('%d bytes available for VEs', self._mem_avail)
         if self._mem_avail < 0:
             self.logger.error('Not enough memory to run VEs!')
 
@@ -237,14 +237,13 @@ class LoadManager(object):
     def _may_register_ve(self, new_ve):
         # Check that the sum of guarantees plus the new VE's guarantee fit in
         # available memory.
-        mem_min = sum(ve.config.guarantee + ve.overhead
-                      for ve in self._policy.ve_list + [new_ve])
+        mem_min = sum(ve.mem_min for ve in self._registered_ves.itervalues())
+        mem_min += new_ve.mem_min
         return mem_min <= self._mem_avail
 
     def _may_update_ve_config(self, ve_to_update, new_config):
         # Check that the sum of guarantees still fit in available memory.
-        mem_min = sum(ve.config.guarantee + ve.overhead
-                      for ve in self._policy.ve_list)
+        mem_min = sum(ve.mem_min for ve in self._registered_ves.itervalues())
         mem_min += new_config.guarantee - ve_to_update.config.guarantee
         return mem_min <= self._mem_avail
 
@@ -263,15 +262,20 @@ class LoadManager(object):
         else:
             need_update = False
 
-        sum_overhead = 0
+        # Calculate size of memory available for applications running inside
+        # active VEs, i.e. total memory available for all VEs minus memory
+        # reserved for inactive VEs minus memory overhead of active VEs.
+        mem_avail = self._mem_avail
         for ve in self._registered_ves.itervalues():
             if ve.active:
                 if need_update:
                     ve.update()
                     self._policy.ve_updated(ve)
-                sum_overhead += ve.overhead
+                mem_avail -= ve.overhead
+            else:
+                mem_avail -= ve.mem_min
 
-        mem_avail = max(0, self._mem_avail - sum_overhead)
+        mem_avail = max(mem_avail, 0)
 
         # Call the policy to calculate VEs' quotas.
         ve_quotas = self._policy.balance(mem_avail)
@@ -286,10 +290,9 @@ class LoadManager(object):
             # If sum quota is greater than the amount of available memory, we
             # can't do that obviously. In this case we protect as much as
             # configured guarantees.
-            protection = (quota if sum_quota <= mem_avail
-                          else ve.config.guarantee)
-            protection += ve.overhead
-            ve.set_mem(target=quota, protection=protection)
+            ve.set_mem(target=quota, protection=(quota + ve.overhead
+                                                 if sum_quota <= mem_avail
+                                                 else ve.mem_min))
 
         # We need to set memory.low for machine.slice to infinity, otherwise
         # memory.low in sub-cgroups won't have any effect. We can't do it on
@@ -299,20 +302,12 @@ class LoadManager(object):
         # This is safe, because there is nothing running inside machine.slice
         # but VMs, each of which should have its memory.low configured
         # properly.
-        self._set_slice_rsrv('machine', -1, verbose=False)
+        self._set_slice_mem('machine', -1, verbose=False)
 
         # Dump VE stats for debugging
         if self.logger.isEnabledFor(logging.DEBUG):
             self.logger.debug('mem_avail=%s', mem_avail)
             self._dump_ves(dump_fn=self.logger.debug)
-
-    def _reserve_inactive_ve_mem(self, ve, value):
-        assert ve not in self._inactive_ve_rsrv
-        self._inactive_ve_rsrv[ve] = value
-        self._mem_avail -= value
-
-    def _unreserve_inactive_ve_mem(self, ve):
-        self._mem_avail += self._inactive_ve_rsrv.pop(ve)
 
     def _do_register_ve(self, ve_name, ve_type, ve_config):
         if ve_name in self._registered_ves:
@@ -339,8 +334,6 @@ class LoadManager(object):
         with self._registered_ves_lock:
             self._registered_ves[ve_name] = ve
 
-        self._reserve_inactive_ve_mem(ve, ve.config.guarantee + ve.overhead)
-
         return ve
 
     @_request()
@@ -353,16 +346,11 @@ class LoadManager(object):
     def _do_activate_ve(self, ve):
         if ve.active:
             raise Error(VCMMD_ERROR_VE_ALREADY_ACTIVE)
-
         if not ve.activate():
             raise Error(VCMMD_ERROR_VE_OPERATION_FAILED)
 
-        # Update stats for the newly activated VE before calling the balance
-        # procedure.
         ve.update()
-
         self._policy.ve_activated(ve)
-        self._unreserve_inactive_ve_mem(ve)
 
     @_request()
     def activate_ve(self, ve_name):
@@ -401,18 +389,14 @@ class LoadManager(object):
         ve = self._registered_ves.get(ve_name)
         if ve is None:
             raise Error(VCMMD_ERROR_VE_NOT_REGISTERED)
-
         if not ve.active:
             raise Error(VCMMD_ERROR_VE_NOT_ACTIVE)
 
-        # Update stats right before deactivating the VE. We need this to update
-        # the VE's reservation below.
+        # We need uptodate rss for inactive VEs - see VE.mem_min
         ve.update()
 
         ve.deactivate()
-
         self._policy.ve_deactivated(ve)
-        self._reserve_inactive_ve_mem(ve, ve.mem_stats.rss)
 
         self._save_ve_state(ve)
         self._balance_ves()
@@ -422,8 +406,6 @@ class LoadManager(object):
             del self._registered_ves[ve.name]
         if ve.active:
             self._policy.ve_deactivated(ve)
-        else:
-            self._unreserve_inactive_ve_mem(ve)
 
     @_request()
     def unregister_ve(self, ve_name):
@@ -461,11 +443,7 @@ class LoadManager(object):
         P = self.logger.info
         P('==== DUMP BEGIN ====')
         P('Active policy: %s', self._policy.__class__.__name__)
-        P('Memory total: %s', self._mem_total)
-        P('Reserved for host: %s', self._host_rsrv)
-        P('Reserved for system.slice: %s', self._sys_rsrv)
-        P('Reserved for user.slice: %s', self._user_rsrv)
-        P('Available for active VEs: %s', self._mem_avail)
+        P('Memory available: %s', self._mem_avail)
         P('Registered VEs:')
         for ve in self._registered_ves.itervalues():
             P('%s %s active=%s', ve, ve.config, 'yes' if ve.active else 'no')

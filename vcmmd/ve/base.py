@@ -256,6 +256,19 @@ class VE(object):
                 self._log(logging.DEBUG, 'Stats updated: %s %s',
                           self.mem_stats, self.io_stats)
 
+    @property
+    def mem_min(self):
+        '''Return min memory size required by this VE.
+
+        For an active VE it simply returns configured guarantee plus overhead.
+        However, for an inactive VE the result is biased above the RSS, because
+        its allocation cannot be tuned any more.
+        '''
+        val = self.config.guarantee + self.overhead
+        if not self.active:
+            val = max(val, self.mem_stats.rss)
+        return val
+
     def set_mem(self, target, protection):
         '''Set VE memory consumption target.
         '''
