@@ -1,7 +1,5 @@
 from __future__ import absolute_import
 
-import logging
-
 from vcmmd.ldmgr import Policy
 from vcmmd.util.misc import clamp
 

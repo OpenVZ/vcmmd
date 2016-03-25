@@ -1,8 +1,12 @@
+import logging
+
+
 class Policy(object):
     '''Load manager policy interface.
     '''
 
     def __init__(self):
+        self.logger = logging.getLogger('vcmmd.ldmgr.policy')
         self.ve_list = []  # List of all managed VEs
 
     def ve_activated(self, ve):

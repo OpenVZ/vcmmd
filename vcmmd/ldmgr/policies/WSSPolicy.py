@@ -7,7 +7,6 @@ import os
 from prlsdkapi import consts
 GUEST_LINUX = consts.PVS_GUEST_TYPE_LINUX
 GUEST_WINDOWS = consts.PVS_GUEST_TYPE_WINDOWS
-import logging
 # memory stats
 MEM_AVAILABLE = 'MemAvailable'
 COMMITTED_AS = 'Committed_AS'
@@ -160,7 +159,6 @@ class AbstractVE(object):
         self._pgflt = 0
         self._pgflt_avg = 0
 
-        self.logger = logging.getLogger('vcmmd.ldmgr.policy')
         self.stats_src = None
 
     def _update_stats(self):
@@ -320,10 +318,6 @@ class WSSPolicy(Policy):
     The new quota size based on WS size.
     '''
 
-    def __init__(self):
-        Policy.__init__(self)
-        self.logger = logging.getLogger('vcmmd.ldmgr.policy')
-
     def ve_activated(self, ve):
         Policy.ve_activated(self, ve)
         TypeGuest = None
@@ -336,6 +330,7 @@ class WSSPolicy(Policy):
                          GUEST_WINDOWS: WindowsVM}[session.os_type]
         assert TypeGuest, 'Unknown guest type'
         ve.policy_data = TypeGuest(ve, session)
+        ve.policy_data.logger = self.logger
 
     def ve_deactivated(self, ve):
         Policy.ve_deactivated(self, ve)
