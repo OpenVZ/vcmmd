@@ -35,7 +35,7 @@ class RPCProxy(object):
         if err:
             raise RPCError(err)
 
-    def update_ve(self, ve_name, ve_config):
+    def update_ve_config(self, ve_name, ve_config):
         err = self._iface.UpdateVE(ve_name,
                                    ve_config_to_kv_array(ve_config))
         if err:

@@ -90,7 +90,7 @@ def _handle_update(args):
         parser.error('VE name not specified')
     ve_name = args[0]
 
-    RPCProxy().update_ve(ve_name, _ve_config_from_options(options))
+    RPCProxy().update_ve_config(ve_name, _ve_config_from_options(options))
 
 
 def _handle_deactivate(args):

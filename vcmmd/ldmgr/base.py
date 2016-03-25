@@ -240,7 +240,7 @@ class LoadManager(object):
         sum_guar = sum(ve.config.guarantee for ve in self._policy.ve_list)
         return sum_guar + new_ve.config.guarantee <= self._mem_avail
 
-    def _may_update_ve(self, ve_to_update, new_config):
+    def _may_update_ve_config(self, ve_to_update, new_config):
         # Check that the sum of guarantees still fit in available memory.
         sum_guar = sum(ve.config.guarantee for ve in self._policy.ve_list)
         return (sum_guar - ve_to_update.config.guarantee +
@@ -369,7 +369,7 @@ class LoadManager(object):
         self._balance_ves()
 
     @_request()
-    def update_ve(self, ve_name, ve_config):
+    def update_ve_config(self, ve_name, ve_config):
         ve = self._registered_ves.get(ve_name)
         if ve is None:
             raise Error(VCMMD_ERROR_VE_NOT_REGISTERED)
@@ -381,7 +381,7 @@ class LoadManager(object):
         except ValueError:
             raise Error(VCMMD_ERROR_INVALID_VE_CONFIG)
 
-        if not self._may_update_ve(ve, ve_config):
+        if not self._may_update_ve_config(ve, ve_config):
             raise Error(VCMMD_ERROR_NO_SPACE)
 
         if not ve.set_config(ve_config):

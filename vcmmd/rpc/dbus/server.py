@@ -48,7 +48,7 @@ class _LoadManagerObject(dbus.service.Object):
         ve_name = str(ve_name)
         ve_config = ve_config_from_kv_array(ve_config)
         try:
-            self.ldmgr.update_ve(ve_name, ve_config)
+            self.ldmgr.update_ve_config(ve_name, ve_config)
         except LoadManagerError as err:
             return err.errno
         else:
