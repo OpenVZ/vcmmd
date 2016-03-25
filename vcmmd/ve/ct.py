@@ -32,9 +32,6 @@ class CTImpl(VEImpl):
         if not self._bccg.exists():
             raise Error('CT beancounter cgroup does not exist')
 
-    def get_mem_overhead(self):
-        return 0  # containers do not have memory overhead
-
     def get_mem_stats(self):
         try:
             current = self._memcg.read_mem_current()

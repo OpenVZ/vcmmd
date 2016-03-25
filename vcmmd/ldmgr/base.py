@@ -237,14 +237,16 @@ class LoadManager(object):
     def _may_register_ve(self, new_ve):
         # Check that the sum of guarantees plus the new VE's guarantee fit in
         # available memory.
-        sum_guar = sum(ve.config.guarantee for ve in self._policy.ve_list)
-        return sum_guar + new_ve.config.guarantee <= self._mem_avail
+        mem_min = sum(ve.config.guarantee + ve.overhead
+                      for ve in self._policy.ve_list + [new_ve])
+        return mem_min <= self._mem_avail
 
     def _may_update_ve_config(self, ve_to_update, new_config):
         # Check that the sum of guarantees still fit in available memory.
-        sum_guar = sum(ve.config.guarantee for ve in self._policy.ve_list)
-        return (sum_guar - ve_to_update.config.guarantee +
-                new_config.guarantee <= self._mem_avail)
+        mem_min = sum(ve.config.guarantee + ve.overhead
+                      for ve in self._policy.ve_list)
+        mem_min += new_config.guarantee - ve_to_update.config.guarantee
+        return mem_min <= self._mem_avail
 
     def _dump_ves(self, dump_fn):
         for ve in self._policy.ve_list:
@@ -267,7 +269,7 @@ class LoadManager(object):
                 if need_update:
                     ve.update()
                     self._policy.ve_updated(ve)
-                sum_overhead += ve.mem_overhead
+                sum_overhead += ve.overhead
 
         mem_avail = max(0, self._mem_avail - sum_overhead)
 
@@ -284,9 +286,10 @@ class LoadManager(object):
             # If sum quota is greater than the amount of available memory, we
             # can't do that obviously. In this case we protect as much as
             # configured guarantees.
-            ve.set_mem(target=quota, protection=(quota + ve.mem_overhead
-                                                 if sum_quota <= mem_avail
-                                                 else ve.config.guarantee))
+            protection = (quota if sum_quota <= mem_avail
+                          else ve.config.guarantee)
+            protection += ve.overhead
+            ve.set_mem(target=quota, protection=protection)
 
         # We need to set memory.low for machine.slice to infinity, otherwise
         # memory.low in sub-cgroups won't have any effect. We can't do it on
@@ -300,8 +303,7 @@ class LoadManager(object):
 
         # Dump VE stats for debugging
         if self.logger.isEnabledFor(logging.DEBUG):
-            self.logger.debug('sum_overhead=%s mem_avail=%s',
-                              sum_overhead, mem_avail)
+            self.logger.debug('mem_avail=%s', mem_avail)
             self._dump_ves(dump_fn=self.logger.debug)
 
     def _reserve_inactive_ve_mem(self, ve, value):
@@ -327,6 +329,9 @@ class LoadManager(object):
             raise Error(VCMMD_ERROR_INVALID_VE_NAME)
         except InvalidVETypeError:
             raise Error(VCMMD_ERROR_INVALID_VE_TYPE)
+        except VEError as err:
+            self.logger.error("Failed to register '%s': %s", ve_name, err)
+            raise Error(VCMMD_ERROR_VE_OPERATION_FAILED)
 
         if not self._may_register_ve(ve):
             raise Error(VCMMD_ERROR_NO_SPACE)
@@ -334,7 +339,7 @@ class LoadManager(object):
         with self._registered_ves_lock:
             self._registered_ves[ve_name] = ve
 
-        self._reserve_inactive_ve_mem(ve, ve.config.guarantee)
+        self._reserve_inactive_ve_mem(ve, ve.config.guarantee + ve.overhead)
 
         return ve
 

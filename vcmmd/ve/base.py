@@ -97,14 +97,20 @@ class VEImpl(object):
     def __init__(self, name):
         pass
 
-    def get_mem_overhead(self):
-        '''Return memory overhead.
+    @classmethod
+    def estimate_overhead(cls, name):
+        '''Return an estimate of memory overhead.
 
         This function is supposed to return the amount of memory beyond the
         configured limit which is required to run the VE smoothly. For VMs this
         will be VRAM size plus emulator process RSS.
+
+        Note, this is a class method, because it is called before a VE gets
+        activated, i.e. when a VEImpl object hasn't been created yet. In
+        particular this means that its implementation can only check persistent
+        VE configuration.
         '''
-        pass
+        return 0
 
     def get_mem_stats(self):
         '''Return memory stats dict {name: value}.
@@ -176,7 +182,8 @@ class VE(object):
         self.name = name
         self.config = config
 
-        self.mem_overhead = 0
+        self.overhead = self._impl.estimate_overhead(name)
+
         self.mem_stats = MemStats()
         self.io_stats = IOStats()
 
@@ -235,20 +242,19 @@ class VE(object):
         self._log(logging.INFO, 'Deactivated')
 
     def update(self):
-        '''Update VE state.
+        '''Update VE stats.
         '''
         assert self.active
 
         try:
-            self.mem_overhead = self._obj.get_mem_overhead()
             self.mem_stats._update(**self._obj.get_mem_stats())
             self.io_stats._update(**self._obj.get_io_stats())
         except Error as err:
-            self._log(logging.ERROR, 'Failed to update state: %s', err)
+            self._log(logging.ERROR, 'Failed to update stats: %s', err)
         else:
             if self._logger.isEnabledFor(logging.DEBUG):
-                self._log(logging.DEBUG, 'State updated: overhead:%d %s %s',
-                          self.mem_overhead, self.mem_stats, self.io_stats)
+                self._log(logging.DEBUG, 'Stats updated: %s %s',
+                          self.mem_stats, self.io_stats)
 
     def set_mem(self, target, protection):
         '''Set VE memory consumption target.

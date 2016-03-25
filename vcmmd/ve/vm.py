@@ -1,6 +1,7 @@
 from __future__ import absolute_import
 
-from libvirt import libvirtError
+import logging
+from libvirt import libvirtError, VIR_DOMAIN_XML_INACTIVE
 from xml.etree import ElementTree as XMLET
 
 from vcmmd.cgroup import MemoryCgroup
@@ -16,7 +17,7 @@ class VMImpl(VEImpl):
     VE_TYPE = VE_TYPE_VM
     VE_TYPE_NAME = 'VM'
 
-    def __init_libvirt_domain(self, name):
+    def __init__(self, name):
         try:
             self._libvirt_domain = virDomainProxy(name)
 
@@ -27,7 +28,6 @@ class VMImpl(VEImpl):
         except libvirtError as err:
             raise Error(err)
 
-    def __init_cgroup(self):
         # QEMU places every virtual machine in its own memory cgroup under
         # machine.slice
         try:
@@ -39,28 +39,30 @@ class VMImpl(VEImpl):
         if not self._memcg.exists():
             raise Error('VM memory cgroup does not exist')
 
-    def __init_mem_overhead(self):
+    @classmethod
+    def estimate_overhead(cls, name):
+        # VM overhad = QEMU process overhead + VRAM
+        #
+        # We assume the former to be constant. We retrieve the latter from the
+        # persistent domain config.
+
+        vram = 0
         try:
-            vram = 0
-            xml_desc = self._libvirt_domain.XMLDesc()
+            # Domain may be inactive when this function is called
+            xml_desc = virDomainProxy(name).XMLDesc(VIR_DOMAIN_XML_INACTIVE)
             for video_device in XMLET.fromstring(xml_desc).iter('video'):
                 vram += int(video_device.find('model').get('vram'))
-            qemu_overhead = VCMMDConfig().get_num('VE.VM.QEMUOverhead',
-                                                  default=209715200,
-                                                  integer=True, minimum=0)
-            self._mem_overhead = qemu_overhead + (vram << 10)
+            vram <<= 10  # libvirt reports in KB
         except libvirtError as err:
             raise Error(err)
         except (XMLET.ParseError, ValueError) as err:
             raise Error("Failed to parse VM's XML descriptor: %s" % err)
 
-    def __init__(self, name):
-        self.__init_libvirt_domain(name)
-        self.__init_cgroup()
-        self.__init_mem_overhead()
+        qemu_overhead = VCMMDConfig().get_num('VE.VM.QEMUOverhead',
+                                              default=209715200,
+                                              integer=True, minimum=0)
 
-    def get_mem_overhead(self):
-        return self._mem_overhead
+        return qemu_overhead + vram
 
     def get_mem_stats(self):
         try:
