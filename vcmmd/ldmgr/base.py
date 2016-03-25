@@ -388,6 +388,7 @@ class LoadManager(object):
             raise Error(VCMMD_ERROR_VE_OPERATION_FAILED)
 
         self._save_ve_state(ve)
+        self._policy.ve_config_updated(ve)
         self._balance_ves()
 
     @_request()

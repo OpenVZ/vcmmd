@@ -20,6 +20,11 @@ class Policy(object):
         '''
         pass
 
+    def ve_config_updated(self, ve):
+        '''Called right after a VE's configuration update.
+        '''
+        pass
+
     def balance(self, mem_avail):
         '''Calculate VE memory quotas.
 

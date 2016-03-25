@@ -345,6 +345,12 @@ class WSSPolicy(Policy):
         Policy.ve_updated(self, ve)
         ve.policy_priv.update()
 
+    def ve_config_updated(self, ve):
+        Policy.ve_config_updated(self, ve)
+        ve.policy_priv.quota = min(max(ve.policy_priv.quota,
+                                       ve.config.guarantee),
+                                   ve.config.effective_limit)
+
     def balance(self, mem_avail):
         sum_quota = sum(ve.policy_priv.quota for ve in self.ve_list)
         if sum_quota > mem_avail:
