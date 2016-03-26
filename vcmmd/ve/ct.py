@@ -4,7 +4,7 @@ import os
 
 from vcmmd.cgroup import MemoryCgroup, BlkIOCgroup, BeancounterCgroup
 from vcmmd.ve.base import Error, VEImpl, register_ve_impl
-from vcmmd.ve.types import VE_TYPE_CT
+from vcmmd.ve_type import VE_TYPE_CT
 from vcmmd.config import VCMMDConfig
 
 
@@ -14,7 +14,6 @@ _PAGE_SIZE = os.sysconf('SC_PAGE_SIZE')
 class CTImpl(VEImpl):
 
     VE_TYPE = VE_TYPE_CT
-    VE_TYPE_NAME = 'CT'
 
     def __init__(self, name):
         # Currently, containers' cgroups are located at the first level of the

@@ -4,6 +4,9 @@ import sys
 from optparse import OptionParser, OptionGroup
 
 from vcmmd.error import VCMMDError
+from vcmmd.ve_type import (get_ve_type_name,
+                           lookup_ve_type_by_name,
+                           get_all_ve_type_names)
 from vcmmd.rpc.dbus.client import RPCProxy
 from vcmmd.util.limits import INT64_MAX
 from vcmmd.util.optparse import OptionWithMemsize
@@ -33,8 +36,9 @@ def _ve_config_from_options(options):
 
 
 def _handle_register(args):
-    parser = OptionParser('Usage: %prog register {CT|VM} <VE name> '
-                          '[VE config options]',
+    parser = OptionParser('Usage: %%prog register {%s} <VE name> '
+                          '[VE config options]' %
+                          '|'.join(get_all_ve_type_names()),
                           description='Register a VE with the VCMMD service.',
                           option_class=OptionWithMemsize)
     _add_ve_config_options(parser)
@@ -46,12 +50,9 @@ def _handle_register(args):
     if len(args) < 1:
         parser.error('VE type not specified')
     try:
-        ve_type = {
-            'CT': 0,
-            'VM': 1,
-        }[args[0]]
+        ve_type = lookup_ve_type_by_name(args[0])
     except KeyError:
-        parser.error('VE type must be either CT or VM')
+        parser.error('invalid VE type')
 
     if len(args) < 2:
         parser.error('VE name not specified')
@@ -195,14 +196,10 @@ def _handle_list(args):
     print fmt % ('name', 'type', 'active', 'guarantee', 'limit', 'swap')
     for ve_name, ve_type, ve_active, ve_config in ve_list:
         try:
-            ve_type_str = {
-                0: 'CT',
-                1: 'VM',
-            }[ve_type]
+            ve_type_name = get_ve_type_name(ve_type)
         except KeyError:
-            ve_type_str = '?'
-        print fmt % (ve_name,
-                     ve_type_str,
+            ve_type_name = '?'
+        print fmt % (ve_name, ve_type_name,
                      'yes' if ve_active else 'no',
                      _str_memval(ve_config['guarantee'], options),
                      _str_memval(ve_config['limit'], options),

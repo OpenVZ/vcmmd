@@ -6,6 +6,7 @@ from collections import namedtuple
 
 from vcmmd.config import VCMMDConfig
 from vcmmd.cgroup import MemoryCgroup
+from vcmmd.ve_type import get_ve_type_name
 from vcmmd.ve.stats import MemStats, IOStats
 from vcmmd.util.limits import UINT64_MAX
 
@@ -90,9 +91,6 @@ class VEImpl(object):
 
     Any of the functions defined by this interface may raise Error.
     '''
-
-    VE_TYPE = -1
-    VE_TYPE_NAME = 'VE'
 
     def __init__(self, name):
         pass
@@ -192,7 +190,7 @@ class VE(object):
         self.policy_data = None
 
     def __str__(self):
-        return "%s '%s'" % (self.VE_TYPE_NAME, self.name)
+        return "%s '%s'" % (get_ve_type_name(self.VE_TYPE), self.name)
 
     def _log(self, lvl, msg, *args, **kwargs):
         self._logger.log(lvl, str(self) + ': ' + msg, *args, **kwargs)
@@ -200,10 +198,6 @@ class VE(object):
     @property
     def VE_TYPE(self):
         return self._impl.VE_TYPE
-
-    @property
-    def VE_TYPE_NAME(self):
-        return self._impl.VE_TYPE_NAME
 
     @property
     def active(self):

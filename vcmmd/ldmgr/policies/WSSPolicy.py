@@ -1,7 +1,7 @@
 from __future__ import absolute_import
 
 from vcmmd.ldmgr import Policy
-from vcmmd.ve.types import *
+from vcmmd.ve_type import VE_TYPE_CT, VE_TYPE_VM
 import prlsdkapi
 import os
 from prlsdkapi import consts

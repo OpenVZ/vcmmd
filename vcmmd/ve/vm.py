@@ -6,7 +6,7 @@ from xml.etree import ElementTree as XMLET
 
 from vcmmd.cgroup import MemoryCgroup
 from vcmmd.ve.base import Error, VEImpl, register_ve_impl
-from vcmmd.ve.types import VE_TYPE_VM
+from vcmmd.ve_type import VE_TYPE_VM
 from vcmmd.config import VCMMDConfig
 from vcmmd.util.libvirt import virDomainProxy, lookup_qemu_machine_cgroup
 from vcmmd.util.misc import roundup
@@ -15,7 +15,6 @@ from vcmmd.util.misc import roundup
 class VMImpl(VEImpl):
 
     VE_TYPE = VE_TYPE_VM
-    VE_TYPE_NAME = 'VM'
 
     def __init__(self, name):
         try:
