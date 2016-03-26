@@ -32,6 +32,7 @@ class virDomainProxy(object):
     def __init__(self, uuid):
         self.__logger = logging.getLogger('vcmmd.libvirt')
         self.__uuid = uuid
+        self.__balloon_path = None
 
         if self.__conn is None:
             self.__connect()
@@ -50,6 +51,9 @@ class virDomainProxy(object):
         cls.__conn = libvirt.open('qemu:///system')
 
     def __lookup_balloon(self):
+        if self.__balloon_path is not None:
+            return self.__balloon_path
+
         path = '/machine/i440fx/pci.0'
         cmd = ('{'
                '    "execute": "qom-list",'
@@ -71,11 +75,12 @@ class virDomainProxy(object):
             self.__logger.warn('Could not find balloon for VM %s. '
                                'Some memory statistics may be unavailable' %
                                self.__uuid)
-            self.__balloon_path = None
+            self.__balloon_path = ''
+
+        return self.__balloon_path
 
     def __lookup_domain(self):
         self.__dom = self.__conn.lookupByUUIDString(self.__uuid)
-        self.__lookup_balloon()
 
     def __do_connect(self):
         try:
@@ -139,7 +144,8 @@ class virDomainProxy(object):
     def memoryStats(self):
         memstats = self.__dom.memoryStats()
 
-        if self.__balloon_path is None:
+        balloon_path = self.__lookup_balloon()
+        if not balloon_path:
             return memstats
 
         cmd = ('{'
@@ -148,7 +154,7 @@ class virDomainProxy(object):
                '        "path": "%s",'
                '        "property": "guest-stats"'
                '    }'
-               '}' % self.__balloon_path)
+               '}' % balloon_path)
         out = qemuMonitorCommand(self.__dom, cmd,
                                  VIR_DOMAIN_QEMU_MONITOR_COMMAND_DEFAULT)
         xstats = eval(out)['return']['stats']
