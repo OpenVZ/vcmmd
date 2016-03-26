@@ -112,3 +112,13 @@ class VCMMDConfig(object):
             if maximum is not None and val > maximum:
                 raise ValueError("must be <= %s, got %s" % (maximum, val))
         return self.get(name, default, checkfn)
+
+    def get_choice(self, name, choices, default=None):
+        def checkfn(val):
+            t = type(val)
+            if t not in (str, unicode):
+                raise TypeError("expected string, got '%s'" % t.__name__)
+            if val not in choices:
+                raise ValueError("must be one of %s, got %r" %
+                                 (tuple(choices), str(val)))
+        return self.get(name, default, checkfn)

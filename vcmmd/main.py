@@ -14,7 +14,7 @@ import daemon.pidfile
 from vcmmd.config import VCMMDConfig
 from vcmmd.ldmgr import LoadManager
 from vcmmd.rpc.dbus.server import RPCServer
-from vcmmd.util.logging import LoggerWriter
+from vcmmd.util.logging import LOG_LEVELS, LoggerWriter
 from vcmmd.util.threading import setup_thread_excepthook
 
 
@@ -72,8 +72,9 @@ class _App(object):
 
         cfg = VCMMDConfig()
         cfg.load(self.opts.config)
-        if cfg.get_bool('Logging.Debug', False):
-            self.logger.setLevel(logging.DEBUG)
+        lvl = cfg.get_choice('Logging.Level', choices=LOG_LEVELS)
+        lvl = LOG_LEVELS[lvl] if lvl is not None else logging.INFO
+        self.logger.setLevel(lvl)
 
         ldmgr = LoadManager()
         rpcsrv = RPCServer(ldmgr)
