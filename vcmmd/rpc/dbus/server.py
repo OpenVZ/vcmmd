@@ -1,5 +1,6 @@
 from __future__ import absolute_import
 
+import logging
 import threading
 
 import dbus
@@ -93,6 +94,10 @@ class _LoadManagerObject(dbus.service.Object):
     @dbus.service.method(IFACE, in_signature='', out_signature='a(sibat)')
     def GetAllRegisteredVEs(self):
         return self.ldmgr.get_all_registered_ves()
+
+    @dbus.service.method(IFACE, in_signature='i', out_signature='')
+    def SetLogLevel(self, lvl):
+        logging.getLogger('vcmmd').setLevel(lvl)
 
 
 class RPCServer(object):

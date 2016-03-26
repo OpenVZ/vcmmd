@@ -6,6 +6,7 @@ from optparse import OptionParser, OptionGroup
 from vcmmd.rpc.dbus.client import RPCProxy, RPCError
 from vcmmd.util.limits import INT64_MAX
 from vcmmd.util.optparse import OptionWithMemsize
+from vcmmd.util.logging import LOG_LEVELS
 
 
 def _add_ve_config_options(parser):
@@ -207,10 +208,30 @@ def _handle_list(args):
                      _str_memval(ve_config['swap'], options))
 
 
+def _handle_log_level(args):
+    parser = OptionParser('Usage: %%prog set-log-level {%s}' %
+                          '|'.join(LOG_LEVELS),
+                          description='Set VCMMD logging level.')
+
+    (options, args) = parser.parse_args(args)
+    if len(args) > 1:
+        parser.error('superfluous arguments')
+
+    if len(args) < 1:
+        parser.error('logging level not specified')
+
+    try:
+        lvl = LOG_LEVELS[args[0]]
+    except KeyError:
+        parser.error('invalid value for logging level')
+
+    RPCProxy().set_log_level(lvl)
+
+
 def main():
     parser = OptionParser('Usage: %prog <command> <args>...\n'
                           'command := register | activate | update | '
-                          'deactivate | unregister | list',
+                          'deactivate | unregister | list | set-log-level',
                           description='Call a command on the VCMMD service. '
                           'See \'%prog <command> --help\' to read about a '
                           'specific subcommand.',
@@ -230,6 +251,7 @@ def main():
             'deactivate': _handle_deactivate,
             'unregister': _handle_unregister,
             'list': _handle_list,
+            'set-log-level': _handle_log_level,
         }[args[0]]
     except KeyError:
         parser.error('invalid command')

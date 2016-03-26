@@ -55,3 +55,6 @@ class RPCProxy(object):
         lst = self._iface.GetAllRegisteredVEs()
         return [(str(name), int(typ), bool(actv), ve_config_from_array(cfg))
                 for name, typ, actv, cfg in lst]
+
+    def set_log_level(self, lvl):
+        self._iface.SetLogLevel(lvl)

@@ -1,3 +1,13 @@
+# hardcode logging constants to avoid importing the logging module
+LOG_LEVELS = {
+    'debug': 10,
+    'info': 20,
+    'warn': 30,
+    'error': 40,
+    'critical': 50,
+}
+
+
 class LoggerWriter:
     '''Helper for redirecting stdout/stderr to a logger.
 
