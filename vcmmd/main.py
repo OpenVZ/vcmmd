@@ -34,11 +34,9 @@ class _App(object):
             self.run_daemon()
 
     def parse_args(self):
-        parser = optparse.OptionParser("Usage: %prog [-i] [-d]")
+        parser = optparse.OptionParser("Usage: %prog [-i] [-c CONFIG]")
         parser.add_option("-i", action="store_true", dest="interactive",
                           help="run interactive (not a daemon)")
-        parser.add_option("-d", action="store_true", dest="debug",
-                          help="increase verbosity to debug level")
         parser.add_option("-c", type="string", dest="config",
                           default=self.DEFAULT_CONFIG,
                           help="path to config file")
@@ -51,7 +49,6 @@ class _App(object):
 
     def init_logging(self):
         logger = logging.getLogger('vcmmd')
-        logger.setLevel(logging.DEBUG if self.opts.debug else logging.INFO)
 
         fmt = logging.Formatter(
             "%(asctime)s %(levelname)s %(name)s: %(message)s",
