@@ -247,12 +247,6 @@ class LoadManager(object):
         mem_min += new_config.guarantee - ve_to_update.config.guarantee
         return mem_min <= self._mem_avail
 
-    def _dump_ves(self, dump_fn):
-        for ve in self._policy.ve_list:
-            s = self._policy.dump_ve(ve)
-            if s is not None:
-                dump_fn('%s: %s', ve, s)
-
     def _balance_ves(self):
         # Update VE stats if enough time has passed
         now = time.time()
@@ -276,6 +270,7 @@ class LoadManager(object):
                 mem_avail -= ve.mem_min
 
         mem_avail = max(mem_avail, 0)
+        self.logger.debug('mem_avail:%s', mem_avail)
 
         # Call the policy to calculate VEs' quotas.
         ve_quotas = self._policy.balance(mem_avail)
@@ -303,11 +298,6 @@ class LoadManager(object):
         # but VMs, each of which should have its memory.low configured
         # properly.
         self._set_slice_mem('machine', -1, verbose=False)
-
-        # Dump VE stats for debugging
-        if self.logger.isEnabledFor(logging.DEBUG):
-            self.logger.debug('mem_avail=%s', mem_avail)
-            self._dump_ves(dump_fn=self.logger.debug)
 
     def _do_register_ve(self, ve_name, ve_type, ve_config):
         if ve_name in self._registered_ves:
@@ -437,16 +427,3 @@ class LoadManager(object):
             for ve in self._registered_ves.itervalues():
                 result.append((ve.name, ve.VE_TYPE, ve.active, ve.config))
         return result
-
-    @_request()
-    def dump(self):
-        P = self.logger.info
-        P('==== DUMP BEGIN ====')
-        P('Active policy: %s', self._policy.__class__.__name__)
-        P('Memory available: %s', self._mem_avail)
-        P('Registered VEs:')
-        for ve in self._registered_ves.itervalues():
-            P('%s %s active=%s', ve, ve.config, 'yes' if ve.active else 'no')
-        P('VE stats:')
-        self._dump_ves(dump_fn=P)
-        P('==== DUMP END ====')

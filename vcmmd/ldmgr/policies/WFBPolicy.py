@@ -95,6 +95,11 @@ class _VEPrivate(object):
         self._update_pgflt()
         self._update_quota()
         self._update_weight()
+        self.logger.debug('%s: quota:%d weight:%.2f '
+                          'pgflt:%d/%d io:%d/%d unused:%d',
+                          self._ve, self.quota, self._weight,
+                          self._pgflt, self._pgflt_avg,
+                          self._io, self._io_avg, self._unused)
 
     @property
     def weight(self):
@@ -116,14 +121,6 @@ class _VEPrivate(object):
         # tiny VEs at once.
         return self.quota / self._weight
 
-    _DUMP_FMT = ('quota=%d weight=%.2f pgflt=%d/%d io=%d/%d unused=%d')
-
-    def dump(self):
-        return (self._DUMP_FMT %
-                ((self.quota, self._weight,
-                  self._pgflt, self._pgflt_avg,
-                  self._io, self._io_avg, self._unused)))
-
 
 class WFBPolicy(Policy):
     '''Weighted feedback-based policy.
@@ -140,6 +137,7 @@ class WFBPolicy(Policy):
     def ve_activated(self, ve):
         Policy.ve_activated(self, ve)
         ve.policy_data = _VEPrivate(ve)
+        ve.policy_data.logger = self.logger
 
     def ve_deactivated(self, ve):
         Policy.ve_deactivated(self, ve)
@@ -212,6 +210,3 @@ class WFBPolicy(Policy):
                                         mem_avail / sum_quota)
 
         return {ve: ve.policy_data.quota for ve in self.ve_list}
-
-    def dump_ve(self, ve):
-        return ve.policy_data.dump()

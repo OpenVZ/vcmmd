@@ -179,6 +179,11 @@ class AbstractVE(object):
         self._update_stats()
         self._update_add_stat()
         self._update_quota()
+        self.logger.debug('%s: wss=%d quota=%d actual=%d '
+                          'pgflt=%d/%d io=%d/%d stats_src=%s',
+                          self._ve, self.wss, self.quota, self._actual,
+                          self._pgflt, self._pgflt_avg,
+                          self._io, self._io_avg, self.stats_src)
 
     @align
     def _choose_gap(self, wss):
@@ -236,14 +241,6 @@ class AbstractVE(object):
 
         self.quota = min(max(size, self._ve.config.guarantee),
                          self._ve.config.effective_limit)
-
-    _DUMP_FMT = 'wss=%d quota=%d actual=%d pgflt=%d/%d io=%d/%d ' \
-                'stats_src=%s'
-
-    def dump(self):
-        return self._DUMP_FMT % (self.wss, self.quota, self._actual,
-                                 self._pgflt, self._pgflt_avg,
-                                 self._io, self._io_avg, self.stats_src)
 
 
 class LinuxGuest(AbstractVE):
@@ -351,6 +348,3 @@ class WSSPolicy(Policy):
         if sum_quota > mem_avail:
             self.logger.error('Sum VE quotas out of mem_avail limit')
         return {ve: ve.policy_data.quota for ve in self.ve_list}
-
-    def dump_ve(self, ve):
-        return ve.policy_data.dump()

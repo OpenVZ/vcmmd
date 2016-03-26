@@ -207,22 +207,10 @@ def _handle_list(args):
                      _str_memval(ve_config['swap'], options))
 
 
-def _handle_dump(args):
-    parser = OptionParser('Usage: %prog dump',
-                          description='Tell VCMMD to dump info about all '
-                          'running VEs to the log.')
-
-    (options, args) = parser.parse_args(args)
-    if len(args) > 0:
-        parser.error('superfluous arguments')
-
-    RPCProxy().dump()
-
-
 def main():
     parser = OptionParser('Usage: %prog <command> <args>...\n'
                           'command := register | activate | update | '
-                          'deactivate | unregister | list | dump',
+                          'deactivate | unregister | list',
                           description='Call a command on the VCMMD service. '
                           'See \'%prog <command> --help\' to read about a '
                           'specific subcommand.',
@@ -242,7 +230,6 @@ def main():
             'deactivate': _handle_deactivate,
             'unregister': _handle_unregister,
             'list': _handle_list,
-            'dump': _handle_dump,
         }[args[0]]
     except KeyError:
         parser.error('invalid command')
