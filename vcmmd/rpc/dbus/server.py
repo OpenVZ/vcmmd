@@ -8,7 +8,7 @@ import dbus.service
 import dbus.mainloop.glib
 import gobject
 
-from vcmmd.ldmgr import Error as LoadManagerError
+from vcmmd.error import VCMMDError
 from vcmmd.rpc.dbus.common import (PATH, BUS_NAME, IFACE,
                                    ve_config_from_kv_array)
 
@@ -29,7 +29,7 @@ class _LoadManagerObject(dbus.service.Object):
         ve_config = ve_config_from_kv_array(ve_config)
         try:
             self.ldmgr.register_ve(ve_name, ve_type, ve_config)
-        except LoadManagerError as err:
+        except VCMMDError as err:
             return err.errno
         else:
             return 0
@@ -39,7 +39,7 @@ class _LoadManagerObject(dbus.service.Object):
         ve_name = str(ve_name)
         try:
             self.ldmgr.activate_ve(ve_name)
-        except LoadManagerError as err:
+        except VCMMDError as err:
             return err.errno
         else:
             return 0
@@ -50,7 +50,7 @@ class _LoadManagerObject(dbus.service.Object):
         ve_config = ve_config_from_kv_array(ve_config)
         try:
             self.ldmgr.update_ve_config(ve_name, ve_config)
-        except LoadManagerError as err:
+        except VCMMDError as err:
             return err.errno
         else:
             return 0
@@ -60,7 +60,7 @@ class _LoadManagerObject(dbus.service.Object):
         ve_name = str(ve_name)
         try:
             self.ldmgr.deactivate_ve(ve_name)
-        except LoadManagerError as err:
+        except VCMMDError as err:
             return err.errno
         else:
             return 0
@@ -70,7 +70,7 @@ class _LoadManagerObject(dbus.service.Object):
         ve_name = str(ve_name)
         try:
             self.ldmgr.unregister_ve(ve_name)
-        except LoadManagerError as err:
+        except VCMMDError as err:
             return err.errno
         else:
             return 0
@@ -80,7 +80,7 @@ class _LoadManagerObject(dbus.service.Object):
         ve_name = str(ve_name)
         try:
             return (0, self.ldmgr.is_ve_active(ve_name))
-        except LoadManagerError as err:
+        except VCMMDError as err:
             return (err.errno, False)
 
     @dbus.service.method(IFACE, in_signature='s', out_signature='iat')
@@ -88,7 +88,7 @@ class _LoadManagerObject(dbus.service.Object):
         ve_name = str(ve_name)
         try:
             return (0, self.ldmgr.get_ve_config(ve_name))
-        except LoadManagerError as err:
+        except VCMMDError as err:
             return (err.errno, [])
 
     @dbus.service.method(IFACE, in_signature='', out_signature='a(sibat)')

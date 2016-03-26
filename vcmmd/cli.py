@@ -3,7 +3,8 @@ from __future__ import absolute_import
 import sys
 from optparse import OptionParser, OptionGroup
 
-from vcmmd.rpc.dbus.client import RPCProxy, RPCError
+from vcmmd.error import VCMMDError
+from vcmmd.rpc.dbus.client import RPCProxy
 from vcmmd.util.limits import INT64_MAX
 from vcmmd.util.optparse import OptionWithMemsize
 from vcmmd.util.logging import LOG_LEVELS
@@ -258,7 +259,7 @@ def main():
 
     try:
         handler(args[1:])
-    except RPCError as err:
+    except VCMMDError as err:
         sys.stderr.write('VCMMD returned error: %s\n' % err)
         sys.exit(1)
 

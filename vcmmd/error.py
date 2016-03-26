@@ -24,5 +24,10 @@ _ERRSTR = {
 }
 
 
-def strerror(err):
-    return _ERRSTR.get(err, 'Unknown error')
+class VCMMDError(Exception):
+
+    def __init__(self, errno):
+        self.errno = errno
+
+    def __str__(self):
+        return _ERRSTR.get(self.errno, 'Unknown error')
