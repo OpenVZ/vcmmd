@@ -19,9 +19,10 @@ from vcmmd.error import (VCMMDError,
                          VCMMD_ERROR_VE_OPERATION_FAILED,
                          VCMMD_ERROR_NO_SPACE,
                          VCMMD_ERROR_VE_NOT_ACTIVE)
+from vcmmd.ve_config import VEConfig, DefaultVEConfig
 from vcmmd.config import VCMMDConfig
 from vcmmd.cgroup import MemoryCgroup
-from vcmmd.ve import (VE, Config as VEConfig, Error as VEError,
+from vcmmd.ve import (VE, Error as VEError,
                       InvalidVENameError, InvalidVETypeError)
 from vcmmd.util.misc import clamp
 
@@ -116,7 +117,7 @@ class LoadManager(object):
         self._ve_state[ve.name] = {
             'type': ve.VE_TYPE,
             'active': ve.active,
-            'config': ve.config._asdict(),
+            'config': ve.config.as_dict(),
         }
         self._ve_state.sync()
 
@@ -132,9 +133,8 @@ class LoadManager(object):
         for ve_name, ve_params in self._ve_state.iteritems():
             ve = None
             try:
-                ve = self._do_register_ve(ve_name,
-                                          ve_params['type'],
-                                          ve_params['config'])
+                ve = self._do_register_ve(ve_name, ve_params['type'],
+                                          VEConfig(**ve_params['config']))
                 if ve_params['active']:
                     self._do_activate_ve(ve)
             except VCMMDError as err:
@@ -299,9 +299,8 @@ class LoadManager(object):
         if ve_name in self._registered_ves:
             raise VCMMDError(VCMMD_ERROR_VE_NAME_ALREADY_IN_USE)
 
-        try:
-            ve_config = VEConfig.from_dict(ve_config)
-        except ValueError:
+        ve_config.complete(DefaultVEConfig)
+        if not ve_config.is_valid():
             raise VCMMDError(VCMMD_ERROR_INVALID_VE_CONFIG)
 
         try:
@@ -355,9 +354,8 @@ class LoadManager(object):
         if not ve.active:
             raise VCMMDError(VCMMD_ERROR_VE_NOT_ACTIVE)
 
-        try:
-            ve_config = VEConfig.from_dict(ve_config, default=ve.config)
-        except ValueError:
+        ve_config.complete(ve.config)
+        if not ve_config.is_valid():
             raise VCMMDError(VCMMD_ERROR_INVALID_VE_CONFIG)
 
         if not self._may_update_ve_config(ve, ve_config):
@@ -413,7 +411,7 @@ class LoadManager(object):
     def get_ve_config(self, ve_name):
         with self._registered_ves_lock:
             try:
-                return self._registered_ves[ve_name].config
+                return self._registered_ves[ve_name].config.as_tuple()
             except KeyError:
                 raise VCMMDError(VCMMD_ERROR_VE_NOT_REGISTERED)
 
@@ -421,5 +419,6 @@ class LoadManager(object):
         result = []
         with self._registered_ves_lock:
             for ve in self._registered_ves.itervalues():
-                result.append((ve.name, ve.VE_TYPE, ve.active, ve.config))
+                result.append((ve.name, ve.VE_TYPE, ve.active,
+                               ve.config.as_tuple()))
         return result

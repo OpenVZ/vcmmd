@@ -7,6 +7,7 @@ from vcmmd.error import VCMMDError
 from vcmmd.ve_type import (get_ve_type_name,
                            lookup_ve_type_by_name,
                            get_all_ve_type_names)
+from vcmmd.ve_config import VEConfig
 from vcmmd.rpc.dbus.client import RPCProxy
 from vcmmd.util.limits import INT64_MAX
 from vcmmd.util.optparse import OptionWithMemsize
@@ -25,14 +26,14 @@ def _add_ve_config_options(parser):
 
 
 def _ve_config_from_options(options):
-    ve_config = {}
+    kv = {}
     if options.guarantee is not None:
-        ve_config['guarantee'] = options.guarantee
+        kv['guarantee'] = options.guarantee
     if options.limit is not None:
-        ve_config['limit'] = options.limit
+        kv['limit'] = options.limit
     if options.swap is not None:
-        ve_config['swap'] = options.swap
-    return ve_config
+        kv['swap'] = options.swap
+    return VEConfig(**kv)
 
 
 def _handle_register(args):
@@ -201,9 +202,9 @@ def _handle_list(args):
             ve_type_name = '?'
         print fmt % (ve_name, ve_type_name,
                      'yes' if ve_active else 'no',
-                     _str_memval(ve_config['guarantee'], options),
-                     _str_memval(ve_config['limit'], options),
-                     _str_memval(ve_config['swap'], options))
+                     _str_memval(ve_config.guarantee, options),
+                     _str_memval(ve_config.limit, options),
+                     _str_memval(ve_config.swap, options))
 
 
 def _handle_log_level(args):

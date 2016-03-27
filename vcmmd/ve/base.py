@@ -1,22 +1,9 @@
 from __future__ import absolute_import
 
 import logging
-import psutil
-from collections import namedtuple
 
-from vcmmd.config import VCMMDConfig
-from vcmmd.cgroup import MemoryCgroup
 from vcmmd.ve_type import get_ve_type_name
 from vcmmd.ve.stats import MemStats, IOStats
-from vcmmd.util.limits import UINT64_MAX
-
-_MAX_EFFECTIVE_LIMIT = psutil.virtual_memory().total
-
-_CONFIG_FIELDS = (
-    'guarantee',
-    'limit',
-    'swap',
-)
 
 
 class Error(Exception):
@@ -29,58 +16,6 @@ class InvalidVENameError(Error):
 
 class InvalidVETypeError(Error):
     pass
-
-
-class Config(namedtuple('Config', _CONFIG_FIELDS)):
-    '''Represents a VE's memory configuration.
-
-    guarantee:      VE memory guarantee
-
-                    A VE should be always given at least as much memory as
-                    specified by this parameter.
-
-    limit:          VE memory limit
-
-                    Maximal size of host memory that can be used by a VE.
-                    Must be >= guarantee.
-
-    swap:           VE swap limit
-
-                    Maximal size of host swap that can be used by a VE.
-
-    All values are in bytes.
-    '''
-
-    def __init__(self, *args, **kwargs):
-        super(Config, self).__init__(*args, **kwargs)
-
-        if self.guarantee > self.limit:
-            raise ValueError('guarantee must be <= limit')
-
-    def __str__(self):
-        return 'guar:%s limit:%s swap:%s' % self
-
-    @property
-    def effective_limit(self):
-        return min(self.limit, _MAX_EFFECTIVE_LIMIT)
-
-    @staticmethod
-    def from_dict(dict_, default=None):
-        '''Make a Config from a dict.
-
-        Some fields may be omitted in which case values given in 'default' will
-        be used. 'default' must be an instance of a Config or None. If it is
-        None, global default values will be used for omitted fields.
-        '''
-        if default is None:
-            default = DEFAULT_CONFIG
-        kv = default._asdict()
-        kv.update(dict_)
-        return Config(**kv)
-
-DEFAULT_CONFIG = Config(guarantee=0,
-                        limit=UINT64_MAX,
-                        swap=UINT64_MAX)
 
 
 class VEImpl(object):

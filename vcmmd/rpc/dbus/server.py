@@ -9,8 +9,8 @@ import dbus.mainloop.glib
 import gobject
 
 from vcmmd.error import VCMMDError
-from vcmmd.rpc.dbus.common import (PATH, BUS_NAME, IFACE,
-                                   ve_config_from_kv_array)
+from vcmmd.ve_config import VEConfig
+from vcmmd.rpc.dbus.common import PATH, BUS_NAME, IFACE
 
 
 class _LoadManagerObject(dbus.service.Object):
@@ -26,7 +26,7 @@ class _LoadManagerObject(dbus.service.Object):
     def RegisterVE(self, ve_name, ve_type, ve_config):
         ve_name = str(ve_name)
         ve_type = int(ve_type)
-        ve_config = ve_config_from_kv_array(ve_config)
+        ve_config = VEConfig.from_array(ve_config)
         try:
             self.ldmgr.register_ve(ve_name, ve_type, ve_config)
         except VCMMDError as err:
@@ -47,7 +47,7 @@ class _LoadManagerObject(dbus.service.Object):
     @dbus.service.method(IFACE, in_signature='sa(qt)', out_signature='i')
     def UpdateVE(self, ve_name, ve_config):
         ve_name = str(ve_name)
-        ve_config = ve_config_from_kv_array(ve_config)
+        ve_config = VEConfig.from_array(ve_config)
         try:
             self.ldmgr.update_ve_config(ve_name, ve_config)
         except VCMMDError as err:

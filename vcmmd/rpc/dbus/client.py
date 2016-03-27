@@ -3,9 +3,8 @@ from __future__ import absolute_import
 import dbus
 
 from vcmmd.error import VCMMDError
-from vcmmd.rpc.dbus.common import (PATH, BUS_NAME, IFACE,
-                                   ve_config_to_kv_array,
-                                   ve_config_from_array)
+from vcmmd.ve_config import VEConfig
+from vcmmd.rpc.dbus.common import PATH, BUS_NAME, IFACE
 
 
 class RPCProxy(object):
@@ -16,8 +15,7 @@ class RPCProxy(object):
         self._iface = dbus.Interface(obj, IFACE)
 
     def register_ve(self, ve_name, ve_type, ve_config):
-        err = self._iface.RegisterVE(ve_name, ve_type,
-                                     ve_config_to_kv_array(ve_config))
+        err = self._iface.RegisterVE(ve_name, ve_type, ve_config.as_array())
         if err:
             raise VCMMDError(err)
 
@@ -27,8 +25,7 @@ class RPCProxy(object):
             raise VCMMDError(err)
 
     def update_ve_config(self, ve_name, ve_config):
-        err = self._iface.UpdateVE(ve_name,
-                                   ve_config_to_kv_array(ve_config))
+        err = self._iface.UpdateVE(ve_name, ve_config.as_array())
         if err:
             raise VCMMDError(err)
 
@@ -44,7 +41,7 @@ class RPCProxy(object):
 
     def get_all_registered_ves(self):
         lst = self._iface.GetAllRegisteredVEs()
-        return [(str(name), int(typ), bool(actv), ve_config_from_array(cfg))
+        return [(str(name), int(typ), bool(actv), VEConfig.from_tuple(cfg))
                 for name, typ, actv, cfg in lst]
 
     def set_log_level(self, lvl):
