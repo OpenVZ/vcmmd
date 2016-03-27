@@ -63,13 +63,12 @@ class _VEPrivate(object):
 
         # High io/pgflt rate and not much free memory? Looks like the VE is
         # thrashing, so consider increasing its quota.
-        mem_low = clamp(int(self._ve.config.effective_limit * self._MEM_LOW),
+        mem_low = clamp(int(self._ve.config.limit * self._MEM_LOW),
                         self._MEM_LOW_MIN, self._MEM_LOW_MAX)
         if (self._unused <= mem_low and
                 (self._io > self._IO_THRESH or
                  self._pgflt > self._PGFLT_THRESH)):
-            self.quota += int(self._ve.config.effective_limit *
-                              self._QUOTA_INC)
+            self.quota += int(self._ve.config.limit * self._QUOTA_INC)
 
     def _update_weight(self):
         ve = self._ve
@@ -104,7 +103,7 @@ class _VEPrivate(object):
     @property
     def weight(self):
         # This VE can't consume more memory.
-        if self.quota >= self._ve.config.effective_limit:
+        if self.quota >= self._ve.config.limit:
             return 0
 
         # Normalize weight by quota so as not to grant/subtract too much from
@@ -150,8 +149,7 @@ class WFBPolicy(Policy):
     def ve_config_updated(self, ve):
         Policy.ve_config_updated(self, ve)
         ve.policy_data.quota = clamp(ve.policy_data.quota,
-                                     ve.config.guarantee,
-                                     ve.config.effective_limit)
+                                     ve.config.guarantee, ve.config.limit)
 
     def __grant_quota(self, value):
         # There is an excess of quota. Grant it too all active VEs
@@ -164,9 +162,9 @@ class WFBPolicy(Policy):
         for ve in self.ve_list:
             p = ve.policy_data
             p.quota += int(value * ve.policy_data.weight / denominator)
-            if p.quota > ve.config.effective_limit:
-                left += p.quota - ve.config.effective_limit
-                p.quota = ve.config.effective_limit
+            if p.quota > ve.config.limit:
+                left += p.quota - ve.config.limit
+                p.quota = ve.config.limit
 
         # Ignore delta < 16 Mb.
         if left > (16 << 20):

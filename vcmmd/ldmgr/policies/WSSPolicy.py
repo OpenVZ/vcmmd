@@ -149,7 +149,7 @@ class AbstractVE(object):
         # for init in the future
         self._ve_session = session
 
-        self.quota = ve.config.effective_limit
+        self.quota = ve.config.limit
         self.wss = self.quota
         self._actual = self.quota
 
@@ -240,7 +240,7 @@ class AbstractVE(object):
         size = self._app_hysteresis(self._actual, size)
 
         self.quota = min(max(size, self._ve.config.guarantee),
-                         self._ve.config.effective_limit)
+                         self._ve.config.limit)
 
 
 class LinuxGuest(AbstractVE):
@@ -341,7 +341,7 @@ class WSSPolicy(Policy):
         Policy.ve_config_updated(self, ve)
         ve.policy_data.quota = min(max(ve.policy_data.quota,
                                        ve.config.guarantee),
-                                   ve.config.effective_limit)
+                                   ve.config.limit)
 
     def balance(self, mem_avail):
         sum_quota = sum(ve.policy_data.quota for ve in self.ve_list)

@@ -1,11 +1,6 @@
 from __future__ import absolute_import
 
-import psutil
-
 from vcmmd.util.limits import UINT64_MAX
-
-
-_MAX_EFFECTIVE_LIMIT = psutil.virtual_memory().total
 
 
 _VEConfigFields = [     # tag
@@ -60,10 +55,6 @@ class VEConfig(object):
         return ' '.join('%s:%d' % (k, self._kv[k])
                         for k in _VEConfigFields if k in self._kv)
 
-    @property
-    def effective_limit(self):
-        return min(self.limit, _MAX_EFFECTIVE_LIMIT)
-
     def is_valid(self):
         '''Check that the config has all fields initialized and its values pass
         all sanity checks.
@@ -77,6 +68,11 @@ class VEConfig(object):
         for k, v in config._kv.iteritems():
             if k not in self._kv:
                 self._kv[k] = v
+
+    def confine(self, mem_max):
+        '''Confine memory limit to 'mem_max'.
+        '''
+        self._kv['limit'] = min(self._kv['limit'], mem_max)
 
     def as_dict(self):
         '''Convert to a dictionary.

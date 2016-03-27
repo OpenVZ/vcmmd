@@ -309,6 +309,9 @@ class LoadManager(object):
         if not self._may_register_ve(ve):
             raise VCMMDError(VCMMD_ERROR_NO_SPACE)
 
+        ve.config.confine(self._mem_avail)
+        assert ve.config.is_valid()
+
         with self._registered_ves_lock:
             self._registered_ves[ve_name] = ve
 
@@ -353,6 +356,9 @@ class LoadManager(object):
 
         if not self._may_update_ve_config(ve, ve_config):
             raise VCMMDError(VCMMD_ERROR_NO_SPACE)
+
+        ve_config.confine(self._mem_avail)
+        assert ve_config.is_valid()
 
         if not ve.set_config(ve_config):
             raise VCMMDError(VCMMD_ERROR_VE_OPERATION_FAILED)
