@@ -77,7 +77,6 @@ class VMImpl(VEImpl):
                 'memfree': stat.get('unused', -1) << 10,
                 'memavail': stat.get('memavailable', -1) << 10,
                 'committed': stat.get('committed', -1) << 10,
-                'wss': stat.get('working_set_size', -1) << 10,
                 'swapin': stat.get('swap_in', -1) << 10,
                 'swapout': stat.get('swap_out', -1) << 10,
                 'minflt': stat.get('minor_fault', -1),

@@ -220,8 +220,6 @@ class AbstractVE(object):
 
     @align
     def _get_wss(self):
-        if self._ve.mem_stats.wss > 0:
-            return self._ve.mem_stats.wss
         return super(AbstractVE, self)._get_wss()
 
     def _update_quota(self):

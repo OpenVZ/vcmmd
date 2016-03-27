@@ -54,7 +54,6 @@ class MemStats(Stats):
                         # starting new applications, without swapping
         'committed',    # amount of memory presently allocated by applications
                         # running inside the guest
-        'wss',          # working set size reported by guest OS
     ]
 
     CUMULATIVE_STATS = [
