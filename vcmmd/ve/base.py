@@ -2,19 +2,14 @@ from __future__ import absolute_import
 
 import logging
 
+from vcmmd.error import (VCMMDError,
+                         VCMMD_ERROR_INVALID_VE_NAME,
+                         VCMMD_ERROR_INVALID_VE_TYPE)
 from vcmmd.ve_type import get_ve_type_name
 from vcmmd.ve.stats import MemStats, IOStats
 
 
 class Error(Exception):
-    pass
-
-
-class InvalidVENameError(Error):
-    pass
-
-
-class InvalidVETypeError(Error):
     pass
 
 
@@ -94,12 +89,12 @@ def _lookup_ve_impl(ve_type):
     try:
         return _VE_IMPL_MAP[ve_type]
     except KeyError:
-        raise InvalidVETypeError
+        raise VCMMDError(VCMMD_ERROR_INVALID_VE_TYPE)
 
 
 def _check_ve_name(name):
     if not name or '/' in name:
-        raise InvalidVENameError
+        raise VCMMDError(VCMMD_ERROR_INVALID_VE_NAME)
 
 
 class VE(object):

@@ -10,8 +10,6 @@ import shelve
 import psutil
 
 from vcmmd.error import (VCMMDError,
-                         VCMMD_ERROR_INVALID_VE_NAME,
-                         VCMMD_ERROR_INVALID_VE_TYPE,
                          VCMMD_ERROR_INVALID_VE_CONFIG,
                          VCMMD_ERROR_VE_NAME_ALREADY_IN_USE,
                          VCMMD_ERROR_VE_NOT_REGISTERED,
@@ -22,8 +20,7 @@ from vcmmd.error import (VCMMDError,
 from vcmmd.ve_config import VEConfig, DefaultVEConfig
 from vcmmd.config import VCMMDConfig
 from vcmmd.cgroup import MemoryCgroup
-from vcmmd.ve import (VE, Error as VEError,
-                      InvalidVENameError, InvalidVETypeError)
+from vcmmd.ve import VE, Error as VEError
 from vcmmd.util.misc import clamp
 
 
@@ -305,10 +302,6 @@ class LoadManager(object):
 
         try:
             ve = VE(ve_type, ve_name, ve_config)
-        except InvalidVENameError:
-            raise VCMMDError(VCMMD_ERROR_INVALID_VE_NAME)
-        except InvalidVETypeError:
-            raise VCMMDError(VCMMD_ERROR_INVALID_VE_TYPE)
         except VEError as err:
             self.logger.error("Failed to register '%s': %s", ve_name, err)
             raise VCMMDError(VCMMD_ERROR_VE_OPERATION_FAILED)
