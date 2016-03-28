@@ -6,7 +6,7 @@ VCMMD_ERROR_VE_NAME_ALREADY_IN_USE = 4
 VCMMD_ERROR_VE_NOT_REGISTERED = 5
 VCMMD_ERROR_VE_ALREADY_ACTIVE = 6
 VCMMD_ERROR_VE_OPERATION_FAILED = 7
-VCMMD_ERROR_NO_SPACE = 8
+VCMMD_ERROR_UNABLE_APPLY_VE_GUARANTEE = 8
 VCMMD_ERROR_VE_NOT_ACTIVE = 9
 
 
@@ -19,7 +19,7 @@ _ERRSTR = {
     5: 'VE not registered',
     6: 'VE already active',
     7: 'VE operation failed',
-    8: 'No space for VE',
+    8: 'Unable to apply VE guarantee',
     9: 'VE not active',
 }
 

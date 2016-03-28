@@ -15,7 +15,7 @@ from vcmmd.error import (VCMMDError,
                          VCMMD_ERROR_VE_NOT_REGISTERED,
                          VCMMD_ERROR_VE_ALREADY_ACTIVE,
                          VCMMD_ERROR_VE_OPERATION_FAILED,
-                         VCMMD_ERROR_NO_SPACE,
+                         VCMMD_ERROR_UNABLE_APPLY_VE_GUARANTEE,
                          VCMMD_ERROR_VE_NOT_ACTIVE)
 from vcmmd.ve_config import VEConfig, DefaultVEConfig
 from vcmmd.config import VCMMDConfig
@@ -307,7 +307,7 @@ class LoadManager(object):
             raise VCMMDError(VCMMD_ERROR_VE_OPERATION_FAILED)
 
         if not self._may_register_ve(ve):
-            raise VCMMDError(VCMMD_ERROR_NO_SPACE)
+            raise VCMMDError(VCMMD_ERROR_UNABLE_APPLY_VE_GUARANTEE)
 
         ve.config.confine(self._mem_avail)
         assert ve.config.is_valid()
@@ -355,7 +355,7 @@ class LoadManager(object):
             raise VCMMDError(VCMMD_ERROR_INVALID_VE_CONFIG)
 
         if not self._may_update_ve_config(ve, ve_config):
-            raise VCMMDError(VCMMD_ERROR_NO_SPACE)
+            raise VCMMDError(VCMMD_ERROR_UNABLE_APPLY_VE_GUARANTEE)
 
         ve_config.confine(self._mem_avail)
         assert ve_config.is_valid()
