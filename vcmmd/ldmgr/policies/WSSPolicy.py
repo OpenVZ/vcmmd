@@ -162,14 +162,14 @@ class AbstractVE(object):
         self.stats_src = None
 
     def _update_stats(self):
-        self._io = self._ve.io_stats.rd_req + self._ve.io_stats.wr_req
-        self._pgflt = self._ve.mem_stats.majflt
-        self._swapin = self._ve.mem_stats.swapin
-        self._swapout = self._ve.mem_stats.swapout
+        self._io = self._ve.stats.rd_req + self._ve.stats.wr_req
+        self._pgflt = self._ve.stats.majflt
+        self._swapin = self._ve.stats.swapin
+        self._swapout = self._ve.stats.swapout
         _io_avg = ((self._io + self._AVG_WINDOW * self._io_avg) / (self._AVG_WINDOW + 1))
         self._io_avg_delta = _io_avg - self._io_avg
         self._io_avg = _io_avg
-        self._actual = self._ve.mem_stats.actual
+        self._actual = self._ve.stats.actual
 
     def _update_add_stat(self):
         pass
@@ -245,13 +245,13 @@ class LinuxGuest(AbstractVE):
 
     def _get_wss(self):
         # available  on  kernels  3.14
-        memavail = self._ve.mem_stats.memavail
+        memavail = self._ve.stats.memavail
         if memavail < 0 and MEM_AVAILABLE in self.linux_memstat:
             memavail = self.linux_memstat[MEM_AVAILABLE]
         if memavail < 0:
             self.logger.error('Failed to get %r from linux guest(%s), '
                               'using RSS' % (MEM_AVAILABLE, self._ve))
-            return self._ve.mem_stats.rss
+            return self._ve.stats.rss
 
         return self._actual - memavail
 
@@ -260,8 +260,8 @@ class LinuxGuest(AbstractVE):
 
     def _update_add_stat(self):
         self.linux_memstat = {}
-        if self._ve.mem_stats.memavail >= 0:
-            # Nothing to do. All we need is already in VE.mem_stats.
+        if self._ve.stats.memavail >= 0:
+            # Nothing to do. All we need is already in ve.stats.
             return
         out = self._read_meminfo()
         if out is None:
@@ -299,8 +299,8 @@ class WindowsVM(AbstractVE):
 
     def _get_wss(self):
         unused = 0
-        if self._ve.mem_stats.memfree > 0:
-            unused = self._ve.mem_stats.memfree
+        if self._ve.stats.memfree > 0:
+            unused = self._ve.stats.memfree
         else:
             self.logger.error('Failed to get "unused" '
                               'from windows guest(%s), using "actual"' % self._ve)

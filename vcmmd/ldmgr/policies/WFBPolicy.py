@@ -40,26 +40,26 @@ class _VEPrivate(object):
         self._pgflt_avg = 0
 
     def _update_unused(self):
-        unused = self._ve.mem_stats.memfree
+        unused = self._ve.stats.memfree
         # If no value is provided by guest OS, rely on rss.
         if unused < 0:
-            unused = self.quota - self._ve.mem_stats.rss
+            unused = self.quota - self._ve.stats.rss
         self._unused = clamp(unused, 0, self.quota)
 
     def _update_io(self):
-        self._io = self._ve.io_stats.rd_req + self._ve.io_stats.wr_req
+        self._io = self._ve.stats.rd_req + self._ve.stats.wr_req
         self._io_avg = ((self._io + self._AVG_WINDOW * self._io_avg) /
                         (self._AVG_WINDOW + 1))
 
     def _update_pgflt(self):
-        self._pgflt = self._ve.mem_stats.majflt
+        self._pgflt = self._ve.stats.majflt
         self._pgflt_avg = ((self._pgflt + self._AVG_WINDOW * self._pgflt_avg) /
                            (self._AVG_WINDOW + 1))
 
     def _update_quota(self):
         # If a VE is struggling to reclaim its memory so as to fit in its
         # quota, do not push it too hard.
-        self.quota = max(self.quota, self._ve.mem_stats.actual)
+        self.quota = max(self.quota, self._ve.stats.actual)
 
         # High io/pgflt rate and not much free memory? Looks like the VE is
         # thrashing, so consider increasing its quota.

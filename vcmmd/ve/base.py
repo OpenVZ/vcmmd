@@ -6,7 +6,7 @@ from vcmmd.error import (VCMMDError,
                          VCMMD_ERROR_INVALID_VE_NAME,
                          VCMMD_ERROR_INVALID_VE_TYPE)
 from vcmmd.ve_type import get_ve_type_name
-from vcmmd.ve.stats import MemStats, IOStats
+from vcmmd.ve.stats import Stats
 
 
 class Error(Exception):
@@ -40,13 +40,8 @@ class VEImpl(object):
         '''
         return 0
 
-    def get_mem_stats(self):
-        '''Return memory stats dict {name: value}.
-        '''
-        pass
-
-    def get_io_stats(self):
-        '''Return io stats dict {name: value}.
+    def get_stats(self):
+        '''Return stats dict {name: value}.
         '''
         pass
 
@@ -109,11 +104,9 @@ class VE(object):
 
         self.name = name
         self.config = config
+        self.stats = Stats()
 
         self.overhead = self._impl.estimate_overhead(name)
-
-        self.mem_stats = MemStats()
-        self.io_stats = IOStats()
 
         # Policy private data. Can be used by a load manager policy to store
         # extra information per each VE (e.g. stat averages).
@@ -171,14 +164,12 @@ class VE(object):
         assert self.active
 
         try:
-            self.mem_stats._update(**self._obj.get_mem_stats())
-            self.io_stats._update(**self._obj.get_io_stats())
+            self.stats._update(**self._obj.get_stats())
         except Error as err:
             self._log(logging.ERROR, 'Failed to update stats: %s', err)
         else:
             if self._logger.isEnabledFor(logging.DEBUG):
-                self._log(logging.DEBUG, 'Stats updated: %s %s',
-                          self.mem_stats, self.io_stats)
+                self._log(logging.DEBUG, 'Stats updated: %s', self.stats)
 
     @property
     def mem_min(self):
@@ -190,7 +181,7 @@ class VE(object):
         '''
         val = self.config.guarantee + self.overhead
         if not self.active:
-            val = max(val, self.mem_stats.rss)
+            val = max(val, self.stats.rss)
         return val
 
     def set_mem(self, target, protection):

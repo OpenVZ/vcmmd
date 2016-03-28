@@ -31,12 +31,14 @@ class CTImpl(VEImpl):
         if not self._bccg.exists():
             raise Error('CT beancounter cgroup does not exist')
 
-    def get_mem_stats(self):
+    def get_stats(self):
         try:
             current = self._memcg.read_mem_current()
             high = self._memcg.read_mem_high()
             committed = self._bccg.get_privvmpages() * _PAGE_SIZE
             stat = self._memcg.read_mem_stat()
+            io_serviced = self._blkcg.get_io_serviced()
+            io_service_bytes = self._blkcg.get_io_service_bytes()
         except IOError as err:
             raise Error(err)
 
@@ -51,19 +53,11 @@ class CTImpl(VEImpl):
                 'memavail': memavail,
                 'committed': committed,
                 'minflt': stat.get('pgfault', -1),
-                'majflt': stat.get('pgmajfault', -1)}
-
-    def get_io_stats(self):
-        try:
-            serviced = self._blkcg.get_io_serviced()
-            service_bytes = self._blkcg.get_io_service_bytes()
-        except IOError as err:
-            raise Error(err)
-
-        return {'rd_req': serviced[0],
-                'rd_bytes': service_bytes[0],
-                'wr_req': serviced[1],
-                'wr_bytes': service_bytes[1]}
+                'majflt': stat.get('pgmajfault', -1),
+                'rd_req': io_serviced[0],
+                'rd_bytes': io_service_bytes[0],
+                'wr_req': io_serviced[1],
+                'wr_bytes': io_service_bytes[1]}
 
     def set_mem_protection(self, value):
         # Use memcg/memory.low to protect the CT from host pressure.

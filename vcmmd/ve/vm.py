@@ -63,9 +63,10 @@ class VMImpl(VEImpl):
 
         return qemu_overhead + vram
 
-    def get_mem_stats(self):
+    def get_stats(self):
         try:
             stat = self._libvirt_domain.memoryStats()
+            blk_stat = self._libvirt_domain.blockStats('')
         except libvirtError as err:
             raise Error(err)
 
@@ -80,18 +81,11 @@ class VMImpl(VEImpl):
                 'swapin': stat.get('swap_in', -1) << 10,
                 'swapout': stat.get('swap_out', -1) << 10,
                 'minflt': stat.get('minor_fault', -1),
-                'majflt': stat.get('major_fault', -1)}
-
-    def get_io_stats(self):
-        try:
-            stat = self._libvirt_domain.blockStats('')
-        except libvirtError as err:
-            raise Error(err)
-
-        return {'rd_req': stat[0],
-                'rd_bytes': stat[1],
-                'wr_req': stat[2],
-                'wr_bytes': stat[3]}
+                'majflt': stat.get('major_fault', -1),
+                'rd_req': blk_stat[0],
+                'rd_bytes': blk_stat[1],
+                'wr_req': blk_stat[2],
+                'wr_bytes': blk_stat[3]}
 
     def set_mem_protection(self, value):
         # Use memcg/memory.low to protect the VM from host pressure.
