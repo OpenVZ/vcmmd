@@ -28,16 +28,21 @@ class Stats(object):
         'wr_bytes',     # number of written bytes
     ]
 
+    ALL_STATS = ABSOLUTE_STATS + CUMULATIVE_STATS
+
     def __init__(self):
+        self._stats = {k: -1 for k in self.ALL_STATS}
         self._raw_stats = {}
         self._last_update = 0
 
-        for k in self.ABSOLUTE_STATS + self.CUMULATIVE_STATS:
-            setattr(self, k, -1)
+    def __getattr__(self, name):
+        try:
+            return self._stats[name]
+        except KeyError:
+            raise AttributeError
 
     def __str__(self):
-        return ' '.join('%s:%d' % (k, getattr(self, k))
-                        for k in self.ABSOLUTE_STATS + self.CUMULATIVE_STATS)
+        return ' '.join('%s:%d' % (k, self._stats[k]) for k in self.ALL_STATS)
 
     def _update(self, **stats):
         prev_stats = self._raw_stats
@@ -47,7 +52,7 @@ class Stats(object):
             v = stats.get(k, -1)
             if v < 0:  # stat unavailable => return -1
                 v = -1
-            setattr(self, k, v)
+            self._stats[k] = v
 
         now = time.time()
         delta_t = now - self._last_update
@@ -59,4 +64,4 @@ class Stats(object):
                 delta = -1
             else:
                 delta = int((cur - prev) / delta_t)
-            setattr(self, k, delta)
+            self._stats[k] = delta
