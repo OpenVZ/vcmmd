@@ -39,7 +39,7 @@ class VMImpl(VEImpl):
 
     @staticmethod
     def mem_overhead():
-        return VCMMDConfig().get_num('VE.VM.MemOverhead', default=209715200,
+        return VCMMDConfig().get_num('VE.VM.MemOverhead', default=33554432,
                                      integer=True, minimum=0)
 
     def get_stats(self):
