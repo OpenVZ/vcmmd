@@ -22,8 +22,8 @@ class _LoadManagerObject(dbus.service.Object):
         bus_name = dbus.service.BusName(BUS_NAME, bus)
         super(_LoadManagerObject, self).__init__(bus_name, PATH)
 
-    @dbus.service.method(IFACE, in_signature='sia(qt)', out_signature='i')
-    def RegisterVE(self, ve_name, ve_type, ve_config):
+    @dbus.service.method(IFACE, in_signature='sia(qt)u', out_signature='i')
+    def RegisterVE(self, ve_name, ve_type, ve_config, flags):
         ve_name = str(ve_name)
         ve_type = int(ve_type)
         ve_config = VEConfig.from_array(ve_config)
@@ -34,8 +34,8 @@ class _LoadManagerObject(dbus.service.Object):
         else:
             return 0
 
-    @dbus.service.method(IFACE, in_signature='s', out_signature='i')
-    def ActivateVE(self, ve_name):
+    @dbus.service.method(IFACE, in_signature='su', out_signature='i')
+    def ActivateVE(self, ve_name, flags):
         ve_name = str(ve_name)
         try:
             self.ldmgr.activate_ve(ve_name)
@@ -44,8 +44,8 @@ class _LoadManagerObject(dbus.service.Object):
         else:
             return 0
 
-    @dbus.service.method(IFACE, in_signature='sa(qt)', out_signature='i')
-    def UpdateVE(self, ve_name, ve_config):
+    @dbus.service.method(IFACE, in_signature='sa(qt)u', out_signature='i')
+    def UpdateVE(self, ve_name, ve_config, flags):
         ve_name = str(ve_name)
         ve_config = VEConfig.from_array(ve_config)
         try:

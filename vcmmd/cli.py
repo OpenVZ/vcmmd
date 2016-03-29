@@ -59,7 +59,8 @@ def _handle_register(args):
         parser.error('VE name not specified')
     ve_name = args[1]
 
-    RPCProxy().register_ve(ve_name, ve_type, _ve_config_from_options(options))
+    RPCProxy().register_ve(ve_name, ve_type,
+                           _ve_config_from_options(options), 0)
 
 
 def _handle_activate(args):
@@ -75,7 +76,7 @@ def _handle_activate(args):
         parser.error('VE name not specified')
     ve_name = args[0]
 
-    RPCProxy().activate_ve(ve_name)
+    RPCProxy().activate_ve(ve_name, 0)
 
 
 def _handle_update(args):
@@ -94,7 +95,7 @@ def _handle_update(args):
         parser.error('VE name not specified')
     ve_name = args[0]
 
-    RPCProxy().update_ve_config(ve_name, _ve_config_from_options(options))
+    RPCProxy().update_ve_config(ve_name, _ve_config_from_options(options), 0)
 
 
 def _handle_deactivate(args):

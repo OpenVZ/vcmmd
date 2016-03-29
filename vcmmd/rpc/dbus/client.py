@@ -14,18 +14,19 @@ class RPCProxy(object):
         obj = bus.get_object(BUS_NAME, PATH)
         self._iface = dbus.Interface(obj, IFACE)
 
-    def register_ve(self, ve_name, ve_type, ve_config):
-        err = self._iface.RegisterVE(ve_name, ve_type, ve_config.as_array())
+    def register_ve(self, ve_name, ve_type, ve_config, flags):
+        err = self._iface.RegisterVE(ve_name, ve_type,
+                                     ve_config.as_array(), flags)
         if err:
             raise VCMMDError(err)
 
-    def activate_ve(self, ve_name):
-        err = self._iface.ActivateVE(ve_name)
+    def activate_ve(self, ve_name, flags):
+        err = self._iface.ActivateVE(ve_name, flags)
         if err:
             raise VCMMDError(err)
 
-    def update_ve_config(self, ve_name, ve_config):
-        err = self._iface.UpdateVE(ve_name, ve_config.as_array())
+    def update_ve_config(self, ve_name, ve_config, flags):
+        err = self._iface.UpdateVE(ve_name, ve_config.as_array(), flags)
         if err:
             raise VCMMDError(err)
 
