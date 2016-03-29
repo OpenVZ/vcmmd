@@ -1,8 +1,7 @@
 from __future__ import absolute_import
 
 import logging
-from libvirt import libvirtError, VIR_DOMAIN_XML_INACTIVE
-from xml.etree import ElementTree as XMLET
+from libvirt import libvirtError
 
 from vcmmd.cgroup import MemoryCgroup
 from vcmmd.ve.base import Error, VEImpl, register_ve_impl
@@ -38,30 +37,10 @@ class VMImpl(VEImpl):
         if not self._memcg.exists():
             raise Error('VM memory cgroup does not exist')
 
-    @classmethod
-    def estimate_overhead(cls, name):
-        # VM overhad = QEMU process overhead + VRAM
-        #
-        # We assume the former to be constant. We retrieve the latter from the
-        # persistent domain config.
-
-        vram = 0
-        try:
-            # Domain may be inactive when this function is called
-            xml_desc = virDomainProxy(name).XMLDesc(VIR_DOMAIN_XML_INACTIVE)
-            for video_device in XMLET.fromstring(xml_desc).iter('video'):
-                vram += int(video_device.find('model').get('vram'))
-            vram <<= 10  # libvirt reports in KB
-        except libvirtError as err:
-            raise Error(err)
-        except (XMLET.ParseError, ValueError) as err:
-            raise Error("Failed to parse VM's XML descriptor: %s" % err)
-
-        qemu_overhead = VCMMDConfig().get_num('VE.VM.QEMUOverhead',
-                                              default=209715200,
-                                              integer=True, minimum=0)
-
-        return qemu_overhead + vram
+    @staticmethod
+    def mem_overhead():
+        return VCMMDConfig().get_num('VE.VM.QEMUOverhead', default=209715200,
+                                     integer=True, minimum=0)
 
     def get_stats(self):
         try:

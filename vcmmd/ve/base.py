@@ -25,18 +25,13 @@ class VEImpl(object):
     def __init__(self, name):
         pass
 
-    @classmethod
-    def estimate_overhead(cls, name):
+    @staticmethod
+    def mem_overhead():
         '''Return an estimate of memory overhead.
 
         This function is supposed to return the amount of memory beyond the
-        configured limit which is required to run the VE smoothly. For VMs this
-        will be VRAM size plus emulator process RSS.
-
-        Note, this is a class method, because it is called before a VE gets
-        activated, i.e. when a VEImpl object hasn't been created yet. In
-        particular this means that its implementation can only check persistent
-        VE configuration.
+        configured limit which is required to run the VE smoothly. E.g. for
+        VMs this should equal expected RSS of the emulator process.
         '''
         return 0
 
@@ -105,8 +100,7 @@ class VE(object):
         self.name = name
         self.config = config
         self.stats = Stats()
-
-        self.overhead = self._impl.estimate_overhead(name)
+        self._overhead = self._impl.mem_overhead()
 
         # Policy private data. Can be used by a load manager policy to store
         # extra information per each VE (e.g. stat averages).
@@ -172,14 +166,18 @@ class VE(object):
                 self._log(logging.DEBUG, 'Stats updated: %s', self.stats)
 
     @property
+    def mem_overhead(self):
+        return self._overhead + self.config.vram
+
+    @property
     def mem_min(self):
         '''Return min memory size required by this VE.
 
-        For an active VE it simply returns configured guarantee plus overhead.
-        However, for an inactive VE the result is biased above the RSS, because
-        its allocation cannot be tuned any more.
+        Normally, it simply returns configured guarantee plus overhead.
+        However, for an inactive VE the result will never be less than RSS,
+        because its allocation cannot be tuned any more.
         '''
-        val = self.config.guarantee + self.overhead
+        val = self.config.mem_min + self._overhead
         if not self.active:
             val = max(val, self.stats.rss)
         return val

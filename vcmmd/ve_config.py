@@ -7,6 +7,7 @@ _VEConfigFields = [     # tag
     'guarantee',        # 0
     'limit',            # 1
     'swap',             # 2
+    'vram',             # 3
 ]
 
 
@@ -26,6 +27,11 @@ class VEConfig(object):
     swap:           VE swap limit
 
                     Maximal size of host swap that can be used by a VE.
+
+    vram:           Video RAM size
+
+                    Amount of memory that should be reserved for a VE's
+                    graphic card.
 
     All values are in bytes.
 
@@ -54,6 +60,12 @@ class VEConfig(object):
     def __str__(self):
         return ' '.join('%s:%d' % (k, self._kv[k])
                         for k in _VEConfigFields if k in self._kv)
+
+    @property
+    def mem_min(self):
+        '''The minimal amount of memory required by this configuration.
+        '''
+        return self.guarantee + self.vram
 
     def is_valid(self):
         '''Check that the config has all fields initialized and its values pass
@@ -124,4 +136,5 @@ class VEConfig(object):
 
 DefaultVEConfig = VEConfig(guarantee=0,
                            limit=UINT64_MAX,
-                           swap=UINT64_MAX)
+                           swap=UINT64_MAX,
+                           vram=0)

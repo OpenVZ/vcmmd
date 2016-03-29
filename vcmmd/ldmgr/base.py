@@ -237,7 +237,7 @@ class LoadManager(object):
     def _may_update_ve_config(self, ve_to_update, new_config):
         # Check that the sum of guarantees still fit in available memory.
         mem_min = sum(ve.mem_min for ve in self._registered_ves.itervalues())
-        mem_min += new_config.guarantee - ve_to_update.config.guarantee
+        mem_min += new_config.mem_min - ve_to_update.config.mem_min
         return mem_min <= self._mem_avail
 
     def _balance_ves(self):
@@ -258,7 +258,7 @@ class LoadManager(object):
                 if need_update:
                     ve.update()
                     self._policy.ve_updated(ve)
-                mem_avail -= ve.overhead
+                mem_avail -= ve.mem_overhead
             else:
                 mem_avail -= ve.mem_min
 
@@ -278,7 +278,7 @@ class LoadManager(object):
             # If sum quota is greater than the amount of available memory, we
             # can't do that obviously. In this case we protect as much as
             # configured guarantees.
-            ve.set_mem(target=quota, protection=(quota + ve.overhead
+            ve.set_mem(target=quota, protection=(quota + ve.mem_overhead
                                                  if sum_quota <= mem_avail
                                                  else ve.mem_min))
 
@@ -300,11 +300,7 @@ class LoadManager(object):
         if not ve_config.is_valid():
             raise VCMMDError(VCMMD_ERROR_INVALID_VE_CONFIG)
 
-        try:
-            ve = VE(ve_type, ve_name, ve_config)
-        except VEError as err:
-            self.logger.error("Failed to register '%s': %s", ve_name, err)
-            raise VCMMDError(VCMMD_ERROR_VE_OPERATION_FAILED)
+        ve = VE(ve_type, ve_name, ve_config)
 
         if not self._may_register_ve(ve):
             raise VCMMDError(VCMMD_ERROR_UNABLE_APPLY_VE_GUARANTEE)
