@@ -70,6 +70,9 @@ class _VEPrivate(object):
                  self._pgflt > self._PGFLT_THRESH)):
             self.quota += int(self._ve.config.limit * self._QUOTA_INC)
 
+        self.quota = clamp(self.quota, self._ve.config.guarantee,
+                           self._ve.config.limit)
+
     def _update_weight(self):
         ve = self._ve
 
