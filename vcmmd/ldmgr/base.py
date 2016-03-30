@@ -6,7 +6,6 @@ import logging
 import threading
 import time
 import importlib
-import shelve
 import psutil
 
 from vcmmd.error import (VCMMDError,
@@ -23,8 +22,6 @@ from vcmmd.util.misc import clamp
 class LoadManager(object):
 
     DEFAULT_POLICY = 'WFBPolicy'
-
-    _VE_STATE_FILE = '/var/run/vcmmd.state'
 
     def __init__(self):
         self.logger = logging.getLogger('vcmmd.ldmgr')
@@ -106,57 +103,6 @@ class LoadManager(object):
         if self._mem_avail < 0:
             self.logger.error('Not enough memory to run VEs!')
 
-    def _save_ve_state(self, ve):
-        self._ve_state[ve.name] = {
-            'type': ve.VE_TYPE,
-            'active': ve.active,
-            'config': ve.config.as_dict(),
-        }
-        self._ve_state.sync()
-
-    def _delete_ve_state(self, ve):
-        del self._ve_state[ve.name]
-        self._ve_state.sync()
-
-    def _do_restore_ves(self):
-        self.logger.info("Restoring VE state from file '%s'",
-                         self._VE_STATE_FILE)
-        self._ve_state = shelve.open(self._VE_STATE_FILE)
-        stale_ves = []
-        for ve_name, ve_params in self._ve_state.iteritems():
-            ve = None
-            try:
-                ve = self._do_register_ve(ve_name, ve_params['type'],
-                                          VEConfig(**ve_params['config']))
-                if ve_params['active']:
-                    self._do_activate_ve(ve)
-            except VCMMDError as err:
-                self.logger.error("Failed to restore VE '%s': %s",
-                                  ve_name, err)
-                if ve is not None:
-                    self._do_unregister_ve(ve)
-                    stale_ves.append(ve)
-            else:
-                self.logger.info('Restored %s %s (%s)',
-                                 'active' if ve.active else 'inactive',
-                                 ve, ve.config)
-        for ve in stale_ves:
-            self._delete_ve_state(ve)
-
-    def _restore_ves(self):
-        # State file might be corrupted, handle this gracefully.
-        try:
-            self._do_restore_ves()
-        except Exception as err:
-            self.logger.error('Unexpected error while reading VE state file: '
-                              '%s', err)
-        else:
-            return
-        # In case of error, try to recreate the state file.
-        os.remove(self._VE_STATE_FILE)
-        self._ve_state = shelve.open(self._VE_STATE_FILE)
-        assert not self._ve_state
-
     def _queue_request(self, req):
         self._req_queue.put(req)
 
@@ -173,7 +119,6 @@ class LoadManager(object):
 
     def _worker_thread_fn(self):
         self._do_init()
-        self._restore_ves()
         while not self._should_stop:
             self._process_request()
 
@@ -292,7 +237,8 @@ class LoadManager(object):
         if mem_min > self._mem_avail:
             raise VCMMDError(VCMMD_ERROR_UNABLE_APPLY_VE_GUARANTEE)
 
-    def _do_register_ve(self, ve_name, ve_type, ve_config):
+    @_request()
+    def register_ve(self, ve_name, ve_type, ve_config):
         if ve_name in self._registered_ves:
             raise VCMMDError(VCMMD_ERROR_VE_NAME_ALREADY_IN_USE)
 
@@ -303,26 +249,17 @@ class LoadManager(object):
         with self._registered_ves_lock:
             self._registered_ves[ve_name] = ve
 
-        return ve
-
-    @_request()
-    def register_ve(self, ve_name, ve_type, ve_config):
-        ve = self._do_register_ve(ve_name, ve_type, ve_config)
-        self._save_ve_state(ve)
         self.logger.info('Registered %s (%s)', ve, ve.config)
         self._balance_ves()
-
-    def _do_activate_ve(self, ve):
-        ve.activate()
-        self._policy.ve_activated(ve)
 
     @_request()
     def activate_ve(self, ve_name):
         ve = self._registered_ves.get(ve_name)
         if ve is None:
             raise VCMMDError(VCMMD_ERROR_VE_NOT_REGISTERED)
-        self._do_activate_ve(ve)
-        self._save_ve_state(ve)
+
+        ve.activate()
+        self._policy.ve_activated(ve)
         self._balance_ves()
 
     @_request()
@@ -336,8 +273,6 @@ class LoadManager(object):
 
         ve.set_config(ve_config)
         self._policy.ve_config_updated(ve)
-
-        self._save_ve_state(ve)
         self._balance_ves()
 
     @_request()
@@ -348,23 +283,19 @@ class LoadManager(object):
 
         ve.deactivate()
         self._policy.ve_deactivated(ve)
-
-        self._save_ve_state(ve)
         self._balance_ves()
-
-    def _do_unregister_ve(self, ve):
-        with self._registered_ves_lock:
-            del self._registered_ves[ve.name]
-        if ve.active:
-            self._policy.ve_deactivated(ve)
 
     @_request()
     def unregister_ve(self, ve_name):
         ve = self._registered_ves.get(ve_name)
         if ve is None:
             raise VCMMDError(VCMMD_ERROR_VE_NOT_REGISTERED)
-        self._do_unregister_ve(ve)
-        self._delete_ve_state(ve)
+
+        with self._registered_ves_lock:
+            del self._registered_ves[ve.name]
+        if ve.active:
+            self._policy.ve_deactivated(ve)
+
         self.logger.info('Unregistered %s', ve)
         self._balance_ves()
 
