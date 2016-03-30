@@ -51,10 +51,25 @@ class VMImpl(VEImpl):
         except libvirtError as err:
             raise Error('Failed to retrieve libvirt domain stats: %s' % err)
 
+        try:
+            memcg_stat = self._memcg.read_mem_stat()
+        except IOError as err:
+            raise Error('Cgroup read failed: %s' % err)
+
+        try:
+            # Unmapped file pages are of no interest in case of VMs
+            host_mem = memcg_stat['rss'] + memcg_stat['mapped_file']
+        except KeyError:
+            host_mem = -1
+
+        host_swap = memcg_stat.get('swap', -1)
+
         # libvirt reports memory values in kB, so we need to convert them to
         # bytes
         return {'actual': stat.get('actual', -1) << 10,
                 'rss': stat.get('rss', -1) << 10,
+                'host_mem': host_mem,
+                'host_swap': host_swap,
                 'memtotal': stat.get('available', -1) << 10,
                 'memfree': stat.get('unused', -1) << 10,
                 'memavail': stat.get('memavailable', -1) << 10,

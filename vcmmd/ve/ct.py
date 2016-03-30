@@ -43,6 +43,8 @@ class CTImpl(VEImpl):
         memavail = memfree + stat['cache']
 
         return {'rss': current,
+                'host_mem': current,
+                'host_swap': stat.get('swap', -1),
                 'actual': memtotal,
                 'memtotal': memtotal,
                 'memfree': memfree,

@@ -9,6 +9,9 @@ class Stats(object):
         'rss',          # resident set size
         'actual',       # actual amount of memory committed to the guest
                         # (RAM size - balloon size for VM, memory limit for CT)
+        'host_mem',     # size of host memory used
+                        # (note it can be less than rss due to shared pages)
+        'host_swap',    # size of host swap used
         'memtotal',     # total amount of memory as seen by guest OS
         'memfree',      # amount of memory left completely unused by guest OS
         'memavail',     # an estimate of how much memory is available for
