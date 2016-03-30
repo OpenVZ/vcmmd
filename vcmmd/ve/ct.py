@@ -4,7 +4,7 @@ from vcmmd.cgroup import MemoryCgroup, BlkIOCgroup, BeancounterCgroup
 from vcmmd.ve.base import Error, VEImpl, register_ve_impl
 from vcmmd.ve_type import VE_TYPE_CT
 from vcmmd.config import VCMMDConfig
-from vcmmd.util.limits import PAGE_SIZE
+from vcmmd.util.limits import PAGE_SIZE, UINT64_MAX
 
 
 class CTImpl(VEImpl):
@@ -27,10 +27,11 @@ class CTImpl(VEImpl):
         if not self._bccg.exists():
             raise Error("Beancounter cgroup not found: '%s'" % self._bccg.abs_path)
 
+        self.mem_limit = UINT64_MAX
+
     def get_stats(self):
         try:
             current = self._memcg.read_mem_current()
-            high = self._memcg.read_mem_high()
             committed = self._bccg.get_privvmpages() * PAGE_SIZE
             stat = self._memcg.read_mem_stat()
             io_serviced = self._blkcg.get_io_serviced()
@@ -38,8 +39,8 @@ class CTImpl(VEImpl):
         except IOError as err:
             raise Error('Cgroup read failed: %s' % err)
 
-        memtotal = max(high, current)
-        memfree = max(high - current, 0)
+        memtotal = max(self.mem_limit, current)
+        memfree = memtotal - current
         memavail = memfree + stat['cache']
 
         return {'rss': current,
@@ -84,6 +85,8 @@ class CTImpl(VEImpl):
         except IOError as err:
             raise Error('Cgroup write failed: %s' % err)
 
+        self.mem_limit = value
+
     def set_config(self, config):
         try:
             self._memcg.write_oom_guarantee(config.guarantee)
@@ -93,5 +96,7 @@ class CTImpl(VEImpl):
             self._memcg.write_swap_max(config.swap)
         except IOError as err:
             raise Error('Cgroup write failed: %s' % err)
+
+        self.mem_limit = min(self.mem_limit, config.limit)
 
 register_ve_impl(CTImpl)
