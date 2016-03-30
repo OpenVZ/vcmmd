@@ -20,7 +20,7 @@ from vcmmd.error import (VCMMDError,
 from vcmmd.ve_config import VEConfig, DefaultVEConfig
 from vcmmd.config import VCMMDConfig
 from vcmmd.cgroup import MemoryCgroup
-from vcmmd.ve import VE, Error as VEError
+from vcmmd.ve import VE
 from vcmmd.util.misc import clamp
 
 
