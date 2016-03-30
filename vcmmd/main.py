@@ -49,6 +49,7 @@ class _App(object):
 
     def init_logging(self):
         logger = logging.getLogger('vcmmd')
+        logger.setLevel(logging.INFO)
 
         fmt = logging.Formatter(
             "%(asctime)s %(levelname)s %(name)s: %(message)s",
@@ -73,8 +74,8 @@ class _App(object):
         cfg = VCMMDConfig()
         cfg.load(self.opts.config)
         lvl = cfg.get_choice('Logging.Level', choices=LOG_LEVELS)
-        lvl = LOG_LEVELS[lvl] if lvl is not None else logging.INFO
-        self.logger.setLevel(lvl)
+        if lvl is not None:
+            self.logger.setLevel(LOG_LEVELS[lvl])
 
         ldmgr = LoadManager()
         rpcsrv = RPCServer(ldmgr)
