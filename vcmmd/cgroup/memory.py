@@ -184,7 +184,7 @@ class MemoryCgroup(Cgroup):
         _IdleMemScanner().set_sampling(sampling)
 
     def _get_idle_mem_stat_raw(self):
-        return _IdleMemScanner().result.get(self._path, None)
+        return _IdleMemScanner().result.get(self.path, None)
 
     def _get_idle_mem_portion(self, age, mem_types):
         if not isinstance(age, (int, long)):

@@ -11,15 +11,15 @@ class Cgroup(object):
 
     def __init__(self, path):
         path = path.strip('/')
-        self._path = '/' + path
-        self._abs_path = '/'.join([self._CGROUP_DIR, self.CONTROLLER, path])
-        self._file_fmt = '/'.join([self._abs_path, '%s.%%s' % self.CONTROLLER])
+        self.path = '/' + path
+        self.abs_path = '/'.join([self._CGROUP_DIR, self.CONTROLLER, path])
+        self._file_fmt = '/'.join([self.abs_path, '%s.%%s' % self.CONTROLLER])
 
     def _file_path(self, name):
         return self._file_fmt % name
 
     def exists(self):
-        return os.path.isdir(self._abs_path)
+        return os.path.isdir(self.abs_path)
 
     def _read_file_str(self, filename):
         with open(self._file_path(filename), 'r') as f:
