@@ -18,24 +18,26 @@ class VMImpl(VEImpl):
     def __init__(self, name):
         try:
             self._libvirt_domain = virDomainProxy(name)
+        except libvirtError as err:
+            raise Error('Failed to lookup libvirt domain: %s' % err)
 
-            # libvirt must be explicitly told to collect memory statistics
-            period = VCMMDConfig().get_num('VE.VM.MemStatsPeriod',
-                                           default=5, integer=True, minimum=1)
+        # libvirt must be explicitly told to collect memory statistics
+        period = VCMMDConfig().get_num('VE.VM.MemStatsPeriod',
+                                       default=5, integer=True, minimum=1)
+        try:
             self._libvirt_domain.setMemoryStatsPeriod(period)
         except libvirtError as err:
-            raise Error(err)
+            raise Error('Failed to enable libvirt domain memory stats: %s' % err)
 
-        # QEMU places every virtual machine in its own memory cgroup under
-        # machine.slice
+        # libvirt places every virtual machine in its own cgroup
         try:
             cgroup = lookup_qemu_machine_cgroup(self._libvirt_domain.name())
         except EnvironmentError as err:
-            raise Error("Failed to lookup VM's cgroup: %s" % err)
+            raise Error('Failed to lookup machine cgroup: %s' % err)
 
         self._memcg = MemoryCgroup(cgroup[MemoryCgroup.CONTROLLER])
         if not self._memcg.exists():
-            raise Error('VM memory cgroup does not exist')
+            raise Error("Memory cgroup not found: '%s'" % self._memcg.abs_path)
 
     @staticmethod
     def mem_overhead():
@@ -47,7 +49,7 @@ class VMImpl(VEImpl):
             stat = self._libvirt_domain.memoryStats()
             blk_stat = self._libvirt_domain.blockStats('')
         except libvirtError as err:
-            raise Error(err)
+            raise Error('Failed to retrieve libvirt domain stats: %s' % err)
 
         # libvirt reports memory values in kB, so we need to convert them to
         # bytes
@@ -71,7 +73,7 @@ class VMImpl(VEImpl):
         try:
             self._memcg.write_mem_low(value)
         except IOError as err:
-            raise Error(err)
+            raise Error('Cgroup write failed: %s' % err)
 
     def set_mem_target(self, value):
         # Update current allocation size by inflating/deflating balloon.
@@ -79,7 +81,7 @@ class VMImpl(VEImpl):
             # libvirt wants kB
             self._libvirt_domain.setMemory(value >> 10)
         except libvirtError as err:
-            raise Error(err)
+            raise Error('Failed to set libvirt domain memory size: %s' % err)
 
     def _hotplug_memory(self, value):
         grain = VCMMDConfig().get_num('VE.VM.MemHotplugGrain',
@@ -100,7 +102,7 @@ class VMImpl(VEImpl):
         try:
             self._memcg.write_oom_guarantee(config.guarantee)
         except IOError as err:
-            raise Error(err)
+            raise Error('Cgroup write failed: %s' % err)
 
         # Update memory limit
         value = config.limit
@@ -116,6 +118,6 @@ class VMImpl(VEImpl):
             if value > max_mem:
                 self._hotplug_memory(value - max_mem)
         except libvirtError as err:
-            raise Error(err)
+            raise Error('Failed to hotplug libvirt domain memory: %s' % err)
 
 register_ve_impl(VMImpl)

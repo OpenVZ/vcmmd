@@ -14,18 +14,18 @@ class CTImpl(VEImpl):
     def __init__(self, name):
         # Currently, containers' cgroups are located at the first level of the
         # cgroup hierarchy.
+
         self._memcg = MemoryCgroup(name)
-        self._blkcg = BlkIOCgroup(name)
-        self._bccg = BeancounterCgroup(name)
-
         if not self._memcg.exists():
-            raise Error('CT memory cgroup does not exist')
+            raise Error("Memory cgroup not found: '%s'" % self._memcg.abs_path)
 
+        self._blkcg = BlkIOCgroup(name)
         if not self._blkcg.exists():
-            raise Error('CT blkio cgroup does not exist')
+            raise Error("Blkio cgroup not found: '%s'" % self._blkcg.abs_path)
 
+        self._bccg = BeancounterCgroup(name)
         if not self._bccg.exists():
-            raise Error('CT beancounter cgroup does not exist')
+            raise Error("Beancounter cgroup not found: '%s'" % self._bccg.abs_path)
 
     def get_stats(self):
         try:
@@ -36,7 +36,7 @@ class CTImpl(VEImpl):
             io_serviced = self._blkcg.get_io_serviced()
             io_service_bytes = self._blkcg.get_io_service_bytes()
         except IOError as err:
-            raise Error(err)
+            raise Error('Cgroup read failed: %s' % err)
 
         memtotal = max(high, current)
         memfree = max(high - current, 0)
@@ -60,7 +60,7 @@ class CTImpl(VEImpl):
         try:
             self._memcg.write_mem_low(value)
         except IOError as err:
-            raise Error(err)
+            raise Error('Cgroup write failed: %s' % err)
 
     def set_mem_target(self, value):
         # XXX: Should we adjust memcg/memory.high here?
@@ -80,7 +80,7 @@ class CTImpl(VEImpl):
         try:
             self._memcg.write_mem_high(value)
         except IOError as err:
-            raise Error(err)
+            raise Error('Cgroup write failed: %s' % err)
 
     def set_config(self, config):
         try:
@@ -90,6 +90,6 @@ class CTImpl(VEImpl):
             self._memcg.write_udp_mem_limit(config.limit / 8)
             self._memcg.write_swap_max(config.swap)
         except IOError as err:
-            raise Error(err)
+            raise Error('Cgroup write failed: %s' % err)
 
 register_ve_impl(CTImpl)
