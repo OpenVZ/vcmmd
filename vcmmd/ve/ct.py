@@ -1,14 +1,10 @@
 from __future__ import absolute_import
 
-import os
-
 from vcmmd.cgroup import MemoryCgroup, BlkIOCgroup, BeancounterCgroup
 from vcmmd.ve.base import Error, VEImpl, register_ve_impl
 from vcmmd.ve_type import VE_TYPE_CT
 from vcmmd.config import VCMMDConfig
-
-
-_PAGE_SIZE = os.sysconf('SC_PAGE_SIZE')
+from vcmmd.util.limits import PAGE_SIZE
 
 
 class CTImpl(VEImpl):
@@ -35,7 +31,7 @@ class CTImpl(VEImpl):
         try:
             current = self._memcg.read_mem_current()
             high = self._memcg.read_mem_high()
-            committed = self._bccg.get_privvmpages() * _PAGE_SIZE
+            committed = self._bccg.get_privvmpages() * PAGE_SIZE
             stat = self._memcg.read_mem_stat()
             io_serviced = self._blkcg.get_io_serviced()
             io_service_bytes = self._blkcg.get_io_service_bytes()
