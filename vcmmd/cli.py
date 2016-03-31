@@ -1,7 +1,7 @@
 from __future__ import absolute_import
 
 import sys
-from optparse import OptionParser, OptionGroup
+from optparse import OptionParser
 
 from vcmmd.error import VCMMDError
 from vcmmd.ve_type import (get_ve_type_name,
@@ -15,14 +15,12 @@ from vcmmd.util.logging import LOG_LEVELS
 
 
 def _add_ve_config_options(parser):
-    group = OptionGroup(parser, 'VE config options')
-    group.add_option('--guarantee', type='memsize',
-                     help='VE memory guarantee')
-    group.add_option('--limit', type='memsize',
-                     help='Max memory allocation available to VE')
-    group.add_option('--swap', type='memsize',
-                     help='Size of host swap space that may be used by VE')
-    parser.add_option_group(group)
+    parser.add_option('--guarantee', type='memsize',
+                      help='VE memory guarantee')
+    parser.add_option('--limit', type='memsize',
+                      help='Max memory allocation available to VE')
+    parser.add_option('--swap', type='memsize',
+                      help='Size of host swap space that may be used by VE')
 
 
 def _ve_config_from_options(options):
@@ -37,8 +35,7 @@ def _ve_config_from_options(options):
 
 
 def _handle_register(args):
-    parser = OptionParser('Usage: %%prog register {%s} <VE name> '
-                          '[VE config options]' %
+    parser = OptionParser('Usage: %%prog register {%s} <VE name> [options]' %
                           '|'.join(get_all_ve_type_names()),
                           description='Register a VE with the VCMMD service.',
                           option_class=OptionWithMemsize)
@@ -80,8 +77,7 @@ def _handle_activate(args):
 
 
 def _handle_update(args):
-    parser = OptionParser('Usage: %prog update <VE name> '
-                          '[VE config options]',
+    parser = OptionParser('Usage: %prog update <VE name> [options]',
                           description='Request VCMMD to update a VE\'s '
                           'configuration.',
                           option_class=OptionWithMemsize)
