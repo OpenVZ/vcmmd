@@ -100,6 +100,7 @@ class VE(object):
         self.name = name
         self.config = config
         self.stats = Stats()
+        self.active = False
         self._overhead = self._impl.mem_overhead()
 
         # Policy private data. Can be used by a load manager policy to store
@@ -116,29 +117,23 @@ class VE(object):
     def VE_TYPE(self):
         return self._impl.VE_TYPE
 
-    @property
-    def active(self):
-        return self._obj is not None
+    def _get_obj(self):
+        if self._obj is None:
+            obj = self._impl(self.name)
+            obj.set_config(self.config)
+            self._obj = obj
+        return self._obj
 
     def activate(self):
-        '''Try to mark VE active. Return True on success, False on failure.
+        '''Mark VE active.
 
-        This function is supposed to be called after a VE switched to a running
-        state. If it succeeds, the VE's state may be updated and its runtime
-        memory parameters may be reconfigured.
+        This function is supposed to be called after a VE switched to a state,
+        in which its memory allocation can be tuned.
         '''
         assert not self.active
 
-        try:
-            obj = self._impl(self.name)
-            obj.set_config(self.config)
-        except Error as err:
-            self._log(logging.ERROR, 'Failed to activate: %s', err)
-            return False
-
-        self._obj = obj
+        self.active = True
         self._log(logging.INFO, 'Activated')
-        return True
 
     def deactivate(self):
         '''Mark VE inactive.
@@ -149,7 +144,7 @@ class VE(object):
         '''
         assert self.active
 
-        self._obj = None
+        self.active = False
         self._log(logging.INFO, 'Deactivated')
 
     def update(self):
@@ -158,7 +153,8 @@ class VE(object):
         assert self.active
 
         try:
-            self.stats._update(**self._obj.get_stats())
+            obj = self._get_obj()
+            self.stats._update(**obj.get_stats())
         except Error as err:
             self._log(logging.ERROR, 'Failed to update stats: %s', err)
         else:
@@ -188,8 +184,9 @@ class VE(object):
         assert self.active
 
         try:
-            self._obj.set_mem_target(target)
-            self._obj.set_mem_protection(protection)
+            obj = self._get_obj()
+            obj.set_mem_target(target)
+            obj.set_mem_protection(protection)
         except Error as err:
             self._log(logging.ERROR, 'Failed to tune allocation: %s', err)
         else:
@@ -202,7 +199,8 @@ class VE(object):
         assert self.active
 
         try:
-            self._obj.set_config(config)
+            obj = self._get_obj()
+            obj.set_config(config)
         except Error as err:
             self._log(logging.ERROR, 'Failed to set config: %s', err)
             return False

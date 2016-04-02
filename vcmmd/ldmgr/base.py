@@ -323,9 +323,8 @@ class LoadManager(object):
     def _do_activate_ve(self, ve):
         if ve.active:
             raise VCMMDError(VCMMD_ERROR_VE_ALREADY_ACTIVE)
-        if not ve.activate():
-            raise VCMMDError(VCMMD_ERROR_VE_OPERATION_FAILED)
 
+        ve.activate()
         ve.update()
         self._policy.ve_activated(ve)
 
