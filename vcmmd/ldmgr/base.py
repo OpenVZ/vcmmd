@@ -10,13 +10,9 @@ import shelve
 import psutil
 
 from vcmmd.error import (VCMMDError,
-                         VCMMD_ERROR_INVALID_VE_CONFIG,
                          VCMMD_ERROR_VE_NAME_ALREADY_IN_USE,
                          VCMMD_ERROR_VE_NOT_REGISTERED,
-                         VCMMD_ERROR_VE_ALREADY_ACTIVE,
-                         VCMMD_ERROR_VE_OPERATION_FAILED,
-                         VCMMD_ERROR_UNABLE_APPLY_VE_GUARANTEE,
-                         VCMMD_ERROR_VE_NOT_ACTIVE)
+                         VCMMD_ERROR_UNABLE_APPLY_VE_GUARANTEE)
 from vcmmd.ve_config import VEConfig, DefaultVEConfig
 from vcmmd.config import VCMMDConfig
 from vcmmd.cgroup import MemoryCgroup
@@ -227,19 +223,6 @@ class LoadManager(object):
         self._do_shutdown()
         self._worker.join()
 
-    def _may_register_ve(self, new_ve):
-        # Check that the sum of guarantees plus the new VE's guarantee fit in
-        # available memory.
-        mem_min = sum(ve.mem_min for ve in self._registered_ves.itervalues())
-        mem_min += new_ve.mem_min
-        return mem_min <= self._mem_avail
-
-    def _may_update_ve_config(self, ve_to_update, new_config):
-        # Check that the sum of guarantees still fit in available memory.
-        mem_min = sum(ve.mem_min for ve in self._registered_ves.itervalues())
-        mem_min += new_config.mem_min - ve_to_update.config.mem_min
-        return mem_min <= self._mem_avail
-
     def _balance_ves(self):
         # Update VE stats if enough time has passed
         now = time.time()
@@ -292,21 +275,30 @@ class LoadManager(object):
         # properly.
         self._set_slice_mem('machine', -1, verbose=False)
 
+    def _sanitize_ve_config(self, config, default):
+        d = config.as_dict()
+        if d.get('guarantee', 0) > self._mem_avail:
+            raise VCMMDError(VCMMD_ERROR_UNABLE_APPLY_VE_GUARANTEE)
+        # Take care of "unlimited" entities
+        if d.get('limit', 0) > self._mem_avail:
+            d['limit'] = self._mem_avail
+        config = VEConfig(**d)
+        config.complete(default)
+        return config
+
+    def _check_guarantees(self, delta):
+        mem_min = sum(ve.mem_min for ve in self._registered_ves.itervalues())
+        mem_min += delta
+        if mem_min > self._mem_avail:
+            raise VCMMDError(VCMMD_ERROR_UNABLE_APPLY_VE_GUARANTEE)
+
     def _do_register_ve(self, ve_name, ve_type, ve_config):
         if ve_name in self._registered_ves:
             raise VCMMDError(VCMMD_ERROR_VE_NAME_ALREADY_IN_USE)
 
-        ve_config.complete(DefaultVEConfig)
-        if not ve_config.is_valid():
-            raise VCMMDError(VCMMD_ERROR_INVALID_VE_CONFIG)
-
+        ve_config = self._sanitize_ve_config(ve_config, DefaultVEConfig)
         ve = VE(ve_type, ve_name, ve_config)
-
-        if not self._may_register_ve(ve):
-            raise VCMMDError(VCMMD_ERROR_UNABLE_APPLY_VE_GUARANTEE)
-
-        ve.config.confine(self._mem_avail)
-        assert ve.config.is_valid()
+        self._check_guarantees(ve.mem_min)
 
         with self._registered_ves_lock:
             self._registered_ves[ve_name] = ve
@@ -321,11 +313,7 @@ class LoadManager(object):
         self._balance_ves()
 
     def _do_activate_ve(self, ve):
-        if ve.active:
-            raise VCMMDError(VCMMD_ERROR_VE_ALREADY_ACTIVE)
-
         ve.activate()
-        ve.update()
         self._policy.ve_activated(ve)
 
     @_request()
@@ -342,24 +330,14 @@ class LoadManager(object):
         ve = self._registered_ves.get(ve_name)
         if ve is None:
             raise VCMMDError(VCMMD_ERROR_VE_NOT_REGISTERED)
-        if not ve.active:
-            raise VCMMDError(VCMMD_ERROR_VE_NOT_ACTIVE)
 
-        ve_config.complete(ve.config)
-        if not ve_config.is_valid():
-            raise VCMMDError(VCMMD_ERROR_INVALID_VE_CONFIG)
+        ve_config = self._sanitize_ve_config(ve_config, ve.config)
+        self._check_guarantees(ve_config.mem_min - ve.config.mem_min)
 
-        if not self._may_update_ve_config(ve, ve_config):
-            raise VCMMDError(VCMMD_ERROR_UNABLE_APPLY_VE_GUARANTEE)
-
-        ve_config.confine(self._mem_avail)
-        assert ve_config.is_valid()
-
-        if not ve.set_config(ve_config):
-            raise VCMMDError(VCMMD_ERROR_VE_OPERATION_FAILED)
+        ve.set_config(ve_config)
+        self._policy.ve_config_updated(ve)
 
         self._save_ve_state(ve)
-        self._policy.ve_config_updated(ve)
         self._balance_ves()
 
     @_request()
@@ -367,11 +345,6 @@ class LoadManager(object):
         ve = self._registered_ves.get(ve_name)
         if ve is None:
             raise VCMMDError(VCMMD_ERROR_VE_NOT_REGISTERED)
-        if not ve.active:
-            raise VCMMDError(VCMMD_ERROR_VE_NOT_ACTIVE)
-
-        # We need uptodate rss for inactive VEs - see VE.mem_min
-        ve.update()
 
         ve.deactivate()
         self._policy.ve_deactivated(ve)

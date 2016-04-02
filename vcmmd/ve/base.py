@@ -4,7 +4,11 @@ import logging
 
 from vcmmd.error import (VCMMDError,
                          VCMMD_ERROR_INVALID_VE_NAME,
-                         VCMMD_ERROR_INVALID_VE_TYPE)
+                         VCMMD_ERROR_INVALID_VE_TYPE,
+                         VCMMD_ERROR_INVALID_VE_CONFIG,
+                         VCMMD_ERROR_VE_ALREADY_ACTIVE,
+                         VCMMD_ERROR_VE_NOT_ACTIVE,
+                         VCMMD_ERROR_VE_OPERATION_FAILED)
 from vcmmd.ve_type import get_ve_type_name
 from vcmmd.ve.stats import Stats
 
@@ -87,10 +91,16 @@ def _check_ve_name(name):
         raise VCMMDError(VCMMD_ERROR_INVALID_VE_NAME)
 
 
+def _check_ve_config(config):
+    if not config.is_valid():
+        raise VCMMDError(VCMMD_ERROR_INVALID_VE_CONFIG)
+
+
 class VE(object):
 
     def __init__(self, ve_type, name, config):
         _check_ve_name(name)
+        _check_ve_config(config)
 
         self._impl = _lookup_ve_impl(ve_type)
         self._obj = None
@@ -130,10 +140,12 @@ class VE(object):
         This function is supposed to be called after a VE switched to a state,
         in which its memory allocation can be tuned.
         '''
-        assert not self.active
+        if self.active:
+            raise VCMMDError(VCMMD_ERROR_VE_ALREADY_ACTIVE)
 
         self.active = True
         self._log(logging.INFO, 'Activated')
+        self.update()
 
     def deactivate(self):
         '''Mark VE inactive.
@@ -142,7 +154,11 @@ class VE(object):
         in which its runtime memory parameters cannot be changed any more (e.g.
         suspended or paused).
         '''
-        assert self.active
+        if not self.active:
+            raise VCMMDError(VCMMD_ERROR_VE_NOT_ACTIVE)
+
+        # We need uptodate rss for inactive VEs - see VE.mem_min
+        self.update()
 
         self.active = False
         self._log(logging.INFO, 'Deactivated')
@@ -194,17 +210,19 @@ class VE(object):
                       target, protection)
 
     def set_config(self, config):
-        '''Set VE config. Return True on success, False on failure.
+        '''Update VE config.
         '''
-        assert self.active
+        _check_ve_config(config)
+
+        if not self.active:
+            raise VCMMDError(VCMMD_ERROR_VE_NOT_ACTIVE)
 
         try:
             obj = self._get_obj()
             obj.set_config(config)
         except Error as err:
             self._log(logging.ERROR, 'Failed to set config: %s', err)
-            return False
+            raise VCMMDError(VCMMD_ERROR_VE_OPERATION_FAILED)
 
         self.config = config
         self._log(logging.INFO, 'Config updated: %s', config)
-        return True

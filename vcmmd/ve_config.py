@@ -81,11 +81,6 @@ class VEConfig(object):
             if k not in self._kv:
                 self._kv[k] = v
 
-    def confine(self, mem_max):
-        '''Confine memory limit to 'mem_max'.
-        '''
-        self._kv['limit'] = min(self._kv['limit'], mem_max)
-
     def as_dict(self):
         '''Convert to a dictionary.
         '''
