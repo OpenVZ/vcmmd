@@ -220,17 +220,6 @@ class LoadManager(object):
         # properly.
         self._set_slice_mem('machine', -1, verbose=False)
 
-    def _sanitize_ve_config(self, config, default):
-        d = config.as_dict()
-        if d.get('guarantee', 0) > self._mem_avail:
-            raise VCMMDError(VCMMD_ERROR_UNABLE_APPLY_VE_GUARANTEE)
-        # Take care of "unlimited" entities
-        if d.get('limit', 0) > self._mem_avail:
-            d['limit'] = self._mem_avail
-        config = VEConfig(**d)
-        config.complete(default)
-        return config
-
     def _check_guarantees(self, delta):
         mem_min = sum(ve.mem_min for ve in self._registered_ves.itervalues())
         mem_min += delta
@@ -242,9 +231,10 @@ class LoadManager(object):
         if ve_name in self._registered_ves:
             raise VCMMDError(VCMMD_ERROR_VE_NAME_ALREADY_IN_USE)
 
-        ve_config = self._sanitize_ve_config(ve_config, DefaultVEConfig)
+        ve_config.complete(DefaultVEConfig)
         ve = VE(ve_type, ve_name, ve_config)
         self._check_guarantees(ve.mem_min)
+        ve.effective_limit = min(ve.config.limit, self._mem_avail)
 
         with self._registered_ves_lock:
             self._registered_ves[ve_name] = ve
@@ -268,10 +258,12 @@ class LoadManager(object):
         if ve is None:
             raise VCMMDError(VCMMD_ERROR_VE_NOT_REGISTERED)
 
-        ve_config = self._sanitize_ve_config(ve_config, ve.config)
+        ve_config.complete(ve.config)
         self._check_guarantees(ve_config.mem_min - ve.config.mem_min)
 
         ve.set_config(ve_config)
+        ve.effective_limit = min(ve.config.limit, self._mem_avail)
+
         self._policy.ve_config_updated(ve)
         self._balance_ves()
 
