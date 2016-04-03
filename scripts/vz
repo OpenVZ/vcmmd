@@ -1,0 +1,65 @@
+#!/usr/bin/python2
+#
+
+import os
+
+import prlsdkapi
+from prlsdkapi import consts
+
+from vcmmd.ve_type import VE_TYPE_CT, VE_TYPE_VM
+from vcmmd.ve_config import VEConfig
+from vcmmd.rpc.dbus.client import RPCProxy
+
+PAGE_SIZE = os.sysconf('SC_PAGESIZE')
+
+VE_TYPE_MAP = {
+    consts.PVT_CT: VE_TYPE_CT,
+    consts.PVT_VM: VE_TYPE_VM,
+}
+
+DEFAULT_GUARANTEE = {
+    VE_TYPE_CT: 0,
+    VE_TYPE_VM: 40,
+}
+
+helper = prlsdkapi.ApiHelper()
+helper.init(consts.PRL_VERSION_7X)
+
+srv = prlsdkapi.Server()
+srv.login_local().wait()
+
+proxy = RPCProxy()
+
+for vm in srv.get_vm_list_ex(consts.PVTF_CT | consts.PVTF_VM).wait():
+    try:
+        ve_type = VE_TYPE_MAP[vm.get_vm_type()]
+    except KeyError:
+        continue
+
+    state = vm.get_state().wait().get_param().get_state()
+    if state not in (consts.VMS_RUNNING, consts.VMS_PAUSED):
+        continue
+
+    uuid = vm.get_uuid()[1:-1]
+
+    kv = {}
+
+    ram_size = vm.get_ram_size()
+    kv['limit'] = ram_size << 20
+
+    mem_guarantee = vm.get_mem_guarantee_size()
+    guar_pct = (mem_guarantee[1] if mem_guarantee[0] else
+                DEFAULT_GUARANTEE[ve_type])
+    kv['guarantee'] = (ram_size * guar_pct / 100) << 20
+
+    try:
+        kv['swap'] = vm.get_resource(consts.PCR_SWAPPAGES)[1] * PAGE_SIZE
+    except prlsdkapi.PrlSDKError:
+        pass
+
+    kv['vram'] = vm.get_video_ram_size() << 20
+
+    proxy.register_ve(uuid, ve_type, VEConfig(**kv), 0)
+
+    if state == consts.VMS_RUNNING:
+        proxy.activate_ve(uuid, 0)
