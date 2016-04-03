@@ -2,6 +2,7 @@ from __future__ import absolute_import
 
 import sys
 from optparse import OptionParser
+from dbus import DBusException
 
 from vcmmd.error import VCMMDError
 from vcmmd.ve_type import (get_ve_type_name,
@@ -12,6 +13,12 @@ from vcmmd.rpc.dbus.client import RPCProxy
 from vcmmd.util.limits import INT64_MAX
 from vcmmd.util.optparse import OptionWithMemsize
 from vcmmd.util.logging import LOG_LEVELS
+
+
+def _fail(msg):
+    sys.stderr.write(msg)
+    sys.stderr.write('\n')
+    sys.exit(1)
 
 
 def _add_ve_config_options(parser):
@@ -255,8 +262,9 @@ def main():
     try:
         handler(args[1:])
     except VCMMDError as err:
-        sys.stderr.write('VCMMD returned error: %s\n' % err)
-        sys.exit(1)
+        _fail('VCMMD returned error: %s' % err)
+    except DBusException as err:
+        _fail('Failed to connect to VCMMD: %s' % err)
 
 if __name__ == "__main__":
     main()
