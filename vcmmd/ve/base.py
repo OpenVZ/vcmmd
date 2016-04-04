@@ -123,6 +123,18 @@ class VE(object):
     def _log(self, lvl, msg, *args, **kwargs):
         self._logger.log(lvl, str(self) + ': ' + msg, *args, **kwargs)
 
+    def _log_err(self, *args, **kwargs):
+        self._log(logging.ERROR, *args, **kwargs)
+
+    def _log_info(self, *args, **kwargs):
+        self._log(logging.INFO, *args, **kwargs)
+
+    def _log_debug(self, *args, **kwargs):
+        # Debugging is unlikely to be enabled.
+        # Avoid evaluating args if it is not.
+        if self._logger.isEnabledFor(logging.DEBUG):
+            self._log(logging.DEBUG, *args, **kwargs)
+
     @property
     def VE_TYPE(self):
         return self._impl.VE_TYPE
@@ -144,7 +156,7 @@ class VE(object):
             raise VCMMDError(VCMMD_ERROR_VE_ALREADY_ACTIVE)
 
         self.active = True
-        self._log(logging.INFO, 'Activated')
+        self._log_info('Activated')
         self.update_stats()
 
     def deactivate(self):
@@ -161,7 +173,7 @@ class VE(object):
         self.update_stats()
 
         self.active = False
-        self._log(logging.INFO, 'Deactivated')
+        self._log_info('Deactivated')
 
     def update_stats(self):
         '''Update VE stats.
@@ -172,10 +184,9 @@ class VE(object):
             obj = self._get_obj()
             self.stats._update(**obj.get_stats())
         except Error as err:
-            self._log(logging.ERROR, 'Failed to update stats: %s', err)
+            self._log_err('Failed to update stats: %s', err)
         else:
-            if self._logger.isEnabledFor(logging.DEBUG):
-                self._log(logging.DEBUG, 'update_stats: %s', self.stats)
+            self._log_debug('update_stats: %s', self.stats)
 
     @property
     def mem_overhead(self):
@@ -204,10 +215,10 @@ class VE(object):
             obj.set_mem_target(target)
             obj.set_mem_protection(protection)
         except Error as err:
-            self._log(logging.ERROR, 'Failed to tune allocation: %s', err)
+            self._log_err('Failed to tune allocation: %s', err)
         else:
-            self._log(logging.DEBUG, 'set_mem: target:%d protection:%d',
-                      target, protection)
+            self._log_debug('set_mem: target:%d protection:%d',
+                            target, protection)
 
     def set_config(self, config):
         '''Update VE config.
@@ -221,8 +232,8 @@ class VE(object):
             obj = self._get_obj()
             obj.set_config(config)
         except Error as err:
-            self._log(logging.ERROR, 'Failed to set config: %s', err)
+            self._log_err('Failed to set config: %s', err)
             raise VCMMDError(VCMMD_ERROR_VE_OPERATION_FAILED)
 
         self.config = config
-        self._log(logging.INFO, 'Config updated: %s', config)
+        self._log_info('Config updated: %s', config)
