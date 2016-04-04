@@ -145,7 +145,7 @@ class VE(object):
 
         self.active = True
         self._log(logging.INFO, 'Activated')
-        self.update()
+        self.update_stats()
 
     def deactivate(self):
         '''Mark VE inactive.
@@ -158,12 +158,12 @@ class VE(object):
             raise VCMMDError(VCMMD_ERROR_VE_NOT_ACTIVE)
 
         # We need uptodate rss for inactive VEs - see VE.mem_min
-        self.update()
+        self.update_stats()
 
         self.active = False
         self._log(logging.INFO, 'Deactivated')
 
-    def update(self):
+    def update_stats(self):
         '''Update VE stats.
         '''
         assert self.active

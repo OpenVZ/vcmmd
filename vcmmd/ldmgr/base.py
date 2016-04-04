@@ -184,7 +184,7 @@ class LoadManager(object):
         for ve in self._registered_ves.itervalues():
             if ve.active:
                 if need_update:
-                    ve.update()
+                    ve.update_stats()
                     self._policy.ve_updated(ve)
                 mem_avail -= ve.mem_overhead
             else:
