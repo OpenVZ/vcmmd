@@ -96,7 +96,6 @@ class MemoryCgroup(Cgroup):
     CONTROLLER = 'memory'
 
     MAX_MEM_VAL = INT64_MAX
-    MAX_IDLE_AGE = idlememscan.MAX_AGE
 
     def _write_file_mem_val(self, filename, value):
         value = min(value, self.MAX_MEM_VAL)
@@ -163,7 +162,7 @@ class MemoryCgroup(Cgroup):
 
         If enabled, idle memory scanner will periodically scan physical memory
         range and count pages that have not been touched since the previous
-        scan. The result can be obtained with 'get_idle_mem_portion'.
+        scan. The result can be obtained with 'get_idle_factor'.
 
         If 'period' is 0, the scanner will be stopped.
 
@@ -183,39 +182,33 @@ class MemoryCgroup(Cgroup):
         '''
         _IdleMemScanner().set_sampling(sampling)
 
-    def _get_idle_mem_stat_raw(self):
-        return _IdleMemScanner().result.get(self.path, None)
+    def _get_idle_factor(self, mem_types):
+        try:
+            stat = _IdleMemScanner().result[self.path]
+        except KeyError:
+            # No stats yet? Assume all memory is active.
+            return 0.
 
-    def _get_idle_mem_portion(self, age, mem_types):
-        if not isinstance(age, (int, long)):
-            raise TypeError("'age' must be an integer")
-        if age < 0:
-            raise ValueError("'age' must be >= 0")
-
-        # No stats yet? Assume all memory is active.
-        raw = self._get_idle_mem_stat_raw()
-        if raw is None:
-            return 0.0
-
-        # idle memory history is limited by MAX_IDLE_AGE
-        age = min(age, self.MAX_IDLE_AGE - 1)
-
-        idle = sum(raw[i][age + 1] for i in mem_types)
-        total = sum(raw[i][0] for i in mem_types)
+        total = sum(stat[i * 2] for i in mem_types)
+        idle = sum(stat[i * 2 + 1] for i in mem_types)
 
         # avoid div/0
         return float(idle) / (total + 1)
 
-    def get_idle_mem_portion(self, age=0):
-        '''Return the portion of memory that was found to be idle for more than
-        'age' scan periods.
-
-        Note, this functions returns the value obtained during the last scan.
+    def get_idle_factor(self):
+        '''Return the percentage of ageable memory that was not touched during
+        the last scan.
         '''
-        return self._get_idle_mem_portion(age, [0, 1])
+        return self._get_idle_factor([0, 1])
 
-    def get_idle_mem_portion_anon(self, age=0):
-        return self._get_idle_mem_portion(age, [0])
+    def get_idle_factor_anon(self):
+        '''Return the percentage of anonymous memory that was not touched
+        during the last scan.
+        '''
+        return self._get_idle_factor([0])
 
-    def get_idle_mem_portion_file(self, age=0):
-        return self._get_idle_mem_portion(age, [1])
+    def get_idle_factor_file(self):
+        '''Return the percentage of memory used for storing file caches that
+        was not touched during the last scan.
+        '''
+        return self._get_idle_factor([1])

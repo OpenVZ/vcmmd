@@ -1,8 +1,5 @@
 #include <Python.h>
 
-#define NPY_NO_DEPRECATED_API NPY_1_7_API_VERSION
-#include <numpy/arrayobject.h>
-
 #include <fstream>
 #include <sstream>
 #include <string>
@@ -25,9 +22,6 @@
 #define MEM_CGROUP_ROOT_PATH	"/sys/fs/cgroup/memory"
 
 // must be multiple of 64 for the sake of idle page bitmap
-//
-// in order to avoid memory wastage on unused entries of idle_page_age array if
-// sampling is used, must be a multiple of page size
 #define BATCH_SIZE		4096
 
 // how many pages py_iter scans in one go
@@ -56,27 +50,13 @@ public:
 	operator bool() const { return !!obj_; }
 };
 
-// The following constant must fit in char, because we want to have only one
-// extra byte per tracked page for storing age. We could use 4 bits or even 2
-// bits, so that 2 or 4 pages would share the same byte, but it would
-// complicate the code and shorten the history significantly.
-#define MAX_AGE			256
-
-static int PAGE_SIZE;
 static long END_PFN;
-static unsigned char *idle_page_age;
 
 // scan 1/sampling pages
 static int sampling = 1;
 
-// how many pages one iterages spans
+// how many pages one iteration spans
 static int iter_span = SCAN_CHUNK;
-
-// bucket i (0 <= i < 255) -> nr idle for exactly (i + 1) intervals
-// bucket 255 -> nr idle for >= last 256 intervals
-struct idle_stat_buckets_array {
-	long count[MAX_AGE];
-};
 
 enum mem_type {
 	MEM_ANON,
@@ -87,14 +67,13 @@ enum mem_type {
 class idle_mem_stat {
 private:
 	long total_[NR_MEM_TYPES];
-	idle_stat_buckets_array idle_[NR_MEM_TYPES];
+	long idle_[NR_MEM_TYPES];
 public:
 	idle_mem_stat()
 	{
 		for (int i = 0; i < NR_MEM_TYPES; ++i) {
 			total_[i] = 0;
-			for (int j = 0; j < MAX_AGE; j++)
-				idle_[i].count[j] = 0;
+			idle_[i] = 0;
 		}
 	}
 
@@ -103,16 +82,9 @@ public:
 		return total_[type];
 	}
 
-	// idle_by_age[i] equals nr pages that have been idle for > i intervals
-	// (cf. idle_stat_buckets_array)
-	void get_nr_idle(mem_type type, long idle_by_age[MAX_AGE])
+	long get_nr_idle(mem_type type)
 	{
-		long sum = 0;
-
-		for (int i = MAX_AGE - 1; i >= 0; i--) {
-			sum += idle_[type].count[i];
-			idle_by_age[i] = sum;
-		}
+		return idle_[type];
 	}
 
 	void inc_nr_total(mem_type type)
@@ -120,24 +92,23 @@ public:
 		++total_[type];
 	}
 
-	void inc_nr_idle(mem_type type, int age)
+	void inc_nr_idle(mem_type type)
 	{
-		++idle_[type].count[age];
+		++idle_[type];
 	}
 
 	idle_mem_stat &operator +=(const idle_mem_stat &other)
 	{
 		for (int i = 0; i < NR_MEM_TYPES; ++i) {
 			total_[i] += other.total_[i];
-			for (int j = 0; j < MAX_AGE; ++j)
-				idle_[i].count[j] += other.idle_[i].count[j];
+			idle_[i] += other.idle_[i];
 		}
 		return *this;
 	}
 };
 
 // ino -> idle_mem_stat
-static unordered_map<long, class idle_mem_stat> cg_idle_mem_stat;
+static unordered_map<long, idle_mem_stat> cg_idle_mem_stat;
 
 // /proc/kpageflags, /proc/kpagecgroup, /sys/kernel/mm/page_idle/bitmap
 static fstream f_flags, f_cg, f_idle;
@@ -273,14 +244,8 @@ static void count_idle_pages(long start_pfn, long end_pfn) throw(error)
 		mem_type type = head_anon ? MEM_ANON : MEM_FILE;
 
 		stat.inc_nr_total(type);
-
-		if (head_idle) {
-			int age = idle_page_age[pfn];
-			if (age + 1 < MAX_AGE)
-				idle_page_age[pfn] = age + 1;
-			stat.inc_nr_idle(type, age);
-		} else
-			idle_page_age[pfn] = 0;
+		if (head_idle)
+			stat.inc_nr_idle(type);
 	}
 }
 
@@ -389,18 +354,17 @@ static unordered_map<string, idle_mem_stat> get_result()
 	return result;
 }
 
-// Returns dict: cg path -> (anon stats, file stats).
+// Returns dict: cg path -> idle stats.
 //
-// Anon/file stats are represented by numpy.array:
+// Idle stats are represented by a tuple:
 //
-// numpy.array((total, idle[1], idle[2], ..., idle[MAX_AGE]))
+//   (total_anon, idle_anon, total_file, idle_file)
 //
-// where @total is the total number of ageable pages scanned, @idle[i] is the
-// number of pages that have been idle for at least @i last intervals.
+// where @total_{anon,file} is the total number of anon/file pages scanned,
+// @idle_{anon,file} is the number of anon/file pages that have not been
+// touched since the last scan.
 static PyObject *py_result(PyObject *self, PyObject *args)
 {
-	static npy_intp arr_dims[] = {MAX_AGE + 1};
-
 	// map the result to a PyDict
 	py_ref dict = PyDict_New();
 	if (!dict)
@@ -409,34 +373,16 @@ static PyObject *py_result(PyObject *self, PyObject *args)
 	auto result = get_result();
 	for (auto &kv : result) {
 		py_ref key = PyString_FromString(kv.first.c_str());
-		py_ref val = PyTuple_New(NR_MEM_TYPES);
-		if (!key || !val)
+		if (!key)
 			return PyErr_NoMemory();
 
-		for (int i = 0; i < NR_MEM_TYPES; i++) {
-			mem_type t = static_cast<mem_type>(i);
-
-			long *arr_raw = static_cast<long *>(
-				PyArray_malloc((MAX_AGE + 1) * sizeof(long)));
-			if (!arr_raw)
-				return PyErr_NoMemory();
-
-			arr_raw[0] = kv.second.get_nr_total(t);
-			kv.second.get_nr_idle(t, arr_raw + 1);
-
-			PyObject *arr = PyArray_SimpleNewFromData(
-					1, arr_dims, NPY_LONG, arr_raw);
-			if (!arr) {
-				PyArray_free(arr_raw);
-				return PyErr_NoMemory();
-			}
-
-			PyArray_ENABLEFLAGS(
-				reinterpret_cast<PyArrayObject *>(arr),
-				NPY_ARRAY_OWNDATA);
-
-			PyTuple_SET_ITEM(static_cast<PyObject *>(val), i, arr);
-		}
+		py_ref val = Py_BuildValue("(llll)",
+					   kv.second.get_nr_total(MEM_ANON),
+					   kv.second.get_nr_idle(MEM_ANON),
+					   kv.second.get_nr_total(MEM_FILE),
+					   kv.second.get_nr_idle(MEM_FILE));
+		if (!val)
+			return PyErr_NoMemory();
 
 		if (PyDict_SetItem(dict, key, val) < 0)
 			return PyErr_NoMemory();
@@ -467,11 +413,6 @@ static PyMethodDef idlememscan_funcs[] = {
 	{ },
 };
 
-static void init_PAGE_SIZE()
-{
-	PAGE_SIZE = sysconf(_SC_PAGESIZE);
-}
-
 static void init_END_PFN()
 {
 	fstream f(ZONEINFO_PATH, ios::in);
@@ -496,32 +437,15 @@ static void init_END_PFN()
 		throw error("Failed to parse zoneinfo");
 }
 
-static void init_idle_page_age_array()
-{
-	idle_page_age = (unsigned char *)mmap(NULL, END_PFN,
-			PROT_READ|PROT_WRITE, MAP_PRIVATE|MAP_ANONYMOUS, -1, 0);
-	if (!idle_page_age)
-		throw error("Failed to allocate idle_page_age array");
-}
-
 PyMODINIT_FUNC
 initidlememscan(void)
 {
 	try {
-		init_PAGE_SIZE();
 		init_END_PFN();
-		init_idle_page_age_array();
 	} catch (error &e) {
 		e.set_py_err();
 		return;
 	}
 
-	PyObject *m = Py_InitModule("idlememscan", idlememscan_funcs);
-	if (!m)
-		return;
-
-	PyModule_AddIntConstant(m, "MAX_AGE", MAX_AGE);
-
-	// Load numpy functionality
-	import_array();
+	Py_InitModule("idlememscan", idlememscan_funcs);
 }
