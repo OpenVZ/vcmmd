@@ -175,7 +175,7 @@ class VE(object):
             self._log(logging.ERROR, 'Failed to update stats: %s', err)
         else:
             if self._logger.isEnabledFor(logging.DEBUG):
-                self._log(logging.DEBUG, 'Stats updated: %s', self.stats)
+                self._log(logging.DEBUG, 'update_stats: %s', self.stats)
 
     @property
     def mem_overhead(self):
@@ -206,7 +206,7 @@ class VE(object):
         except Error as err:
             self._log(logging.ERROR, 'Failed to tune allocation: %s', err)
         else:
-            self._log(logging.DEBUG, 'Allocation tuned: target:%d protection:%d',
+            self._log(logging.DEBUG, 'set_mem: target:%d protection:%d',
                       target, protection)
 
     def set_config(self, config):
