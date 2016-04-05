@@ -83,14 +83,14 @@ class virDomainProxy(object):
         self.__dom = self.__conn.lookupByUUIDString(self.__uuid)
 
     def __connect(self):
-        self.__logger.info('Connecting to libvirt')
+        self.__logger.debug('Connecting to libvirt')
         self.__open_connection()
         self.__lookup_domain()
 
     def __reconnect(self):
         conn = self.__conn
 
-        self.__logger.info('Connection to libvirt broken, reconnecting')
+        self.__logger.debug('Connection to libvirt broken, reconnecting')
         self.__open_connection()
 
         # Close the stale connection once we've established a new one.
