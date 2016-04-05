@@ -70,7 +70,6 @@ class VMImpl(VEImpl):
                 'rss': stat.get('rss', -1) << 10,
                 'host_mem': host_mem,
                 'host_swap': host_swap,
-                'memtotal': stat.get('available', -1) << 10,
                 'memfree': stat.get('unused', -1) << 10,
                 'memavail': stat.get('memavailable', -1) << 10,
                 'committed': stat.get('committed', -1) << 10,

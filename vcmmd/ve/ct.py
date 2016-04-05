@@ -47,7 +47,6 @@ class CTImpl(VEImpl):
                 'host_mem': current,
                 'host_swap': stat.get('swap', -1),
                 'actual': memtotal,
-                'memtotal': memtotal,
                 'memfree': memfree,
                 'memavail': memavail,
                 'committed': committed,
