@@ -52,7 +52,10 @@ for vm in srv.get_vm_list_ex(consts.PVTF_CT | consts.PVTF_VM).wait():
     if state not in (consts.VMS_RUNNING, consts.VMS_PAUSED):
         continue
 
-    uuid = vm.get_uuid()[1:-1]
+    if ve_type == VE_TYPE_CT:
+        uuid = vm.get_ct_id()
+    else:
+        uuid = vm.get_uuid()[1:-1]
 
     kv = {}
 
