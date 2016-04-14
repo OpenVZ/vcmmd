@@ -21,7 +21,7 @@ from vcmmd.util.misc import clamp
 
 class LoadManager(object):
 
-    DEFAULT_POLICY = 'WFBPolicy'
+    DEFAULT_POLICY = 'NoOpPolicy'
 
     def __init__(self):
         self.logger = logging.getLogger('vcmmd.ldmgr')
