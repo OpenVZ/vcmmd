@@ -173,7 +173,8 @@ def lookup_qemu_machine_pid(name):
         if not cmd or not cmd[0].endswith('qemu-kvm'):
             continue
         name_idx = cmd.index('-name') + 1
-        if name_idx < len(cmd) and cmd[name_idx] == name:
+        if (name_idx < len(cmd) and
+                cmd[name_idx].split(',')[0] == name):
             return proc.pid
     raise OSError("No such process: '%s'" % name)
 
