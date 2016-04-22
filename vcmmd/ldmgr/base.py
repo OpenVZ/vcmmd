@@ -189,6 +189,7 @@ class LoadManager(object):
                 mem_avail -= ve.mem_overhead
             else:
                 mem_avail -= ve.mem_min
+            mem_avail += ve.mem_shared
 
         mem_avail = max(mem_avail, 0)
         self.logger.debug('mem_avail:%s', mem_avail)

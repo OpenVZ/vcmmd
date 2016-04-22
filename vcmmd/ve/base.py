@@ -205,6 +205,10 @@ class VE(object):
             val = max(val, self.stats.rss)
         return val
 
+    @property
+    def mem_shared(self):
+        return max(0, self.stats.rss - self.stats.host_mem)
+
     def set_mem(self, target, protection):
         '''Set VE memory consumption target.
         '''
