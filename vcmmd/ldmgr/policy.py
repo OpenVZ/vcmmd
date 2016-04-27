@@ -8,6 +8,13 @@ class Policy(object):
     def __init__(self):
         self.logger = logging.getLogger('vcmmd.ldmgr.policy')
         self.ve_list = []  # List of all managed VEs
+        self.ve_data = {}  # Dictionary of all managed VEs to their policy data
+
+    def get_policy_data(self, ve):
+        return self.ve_data[ve]
+
+    def set_policy_data(self, ve, data):
+        self.ve_data[ve] = data
 
     def ve_activated(self, ve):
         '''Called right after a VE gets activated.
@@ -18,6 +25,7 @@ class Policy(object):
         '''Called right after a VE gets deactivated.
         '''
         self.ve_list.remove(ve)
+        self.ve_data.pop(ve, None)
 
     def ve_updated(self, ve):
         '''Called right after a VE's stats get updated.

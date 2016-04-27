@@ -113,10 +113,6 @@ class VE(object):
         self.active = False
         self._overhead = self._impl.mem_overhead()
 
-        # Policy private data. Can be used by a load manager policy to store
-        # extra information per each VE (e.g. stat averages).
-        self.policy_data = None
-
     def __str__(self):
         return "%s '%s'" % (get_ve_type_name(self.VE_TYPE), self.name)
 
