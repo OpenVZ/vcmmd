@@ -21,7 +21,7 @@ from vcmmd.util.misc import clamp
 
 class LoadManager(object):
 
-    DEFAULT_POLICY = 'NoOpPolicy'
+    FALLBACK_POLICY = 'NoOpPolicy'
 
     def __init__(self):
         self.logger = logging.getLogger('vcmmd.ldmgr')
@@ -44,7 +44,7 @@ class LoadManager(object):
             self.logger.error("Failed to load policy '%s': %s",
                               policy_name, err)
             # fallback on default policy
-            policy_name = self.DEFAULT_POLICY
+            policy_name = self.FALLBACK_POLICY
             policy_module = importlib.import_module(
                 'vcmmd.ldmgr.policies.' + policy_name)
         self._policy = self._policy = getattr(policy_module, policy_name)()
@@ -79,7 +79,7 @@ class LoadManager(object):
 
         # Load a policy
         self._load_policy(cfg.get_str('LoadManager.Policy',
-                                      self.DEFAULT_POLICY))
+                                      self.FALLBACK_POLICY))
 
         # Configure update interval
         self._update_interval = cfg.get_num('LoadManager.UpdateInterval',
