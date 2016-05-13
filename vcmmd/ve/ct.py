@@ -41,7 +41,10 @@ class CTImpl(VEImpl):
 
         memtotal = max(self.mem_limit, current)
         memfree = memtotal - current
-        memavail = memfree + stat['cache']
+        memavail = (memfree +
+                    stat.get('active_file', 0) +
+                    stat.get('inactive_file', 0) +
+                    stat.get('slab_reclaimable', 0))
 
         return {'rss': current,
                 'host_mem': current,
