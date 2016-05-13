@@ -53,6 +53,8 @@ class CTImpl(VEImpl):
                 'memfree': memfree,
                 'memavail': memavail,
                 'committed': committed,
+                'swapin': stat.get('pswpin', -1),
+                'swapout': stat.get('pswpout', -1),
                 'minflt': stat.get('pgfault', -1),
                 'majflt': stat.get('pgmajfault', -1),
                 'rd_req': io_serviced[0],
