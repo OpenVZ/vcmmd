@@ -3,6 +3,7 @@ from __future__ import absolute_import
 import logging
 import psutil
 import libvirt
+import time
 from libvirt_qemu import (qemuMonitorCommand,
                           VIR_DOMAIN_QEMU_MONITOR_COMMAND_DEFAULT)
 
@@ -33,6 +34,8 @@ class virDomainProxy(object):
         self.__logger = logging.getLogger('vcmmd.libvirt')
         self.__uuid = uuid
         self.__balloon_path = None
+
+        self.__memstats_update_period = 0
 
         if self.__conn is None:
             self.__connect()
@@ -134,6 +137,11 @@ class virDomainProxy(object):
         return _virDomainProxyMethod(self, name)
 
     @__check_conn
+    def setMemoryStatsPeriod(self, period):
+        self.__dom.setMemoryStatsPeriod(period)
+        self.__memstats_update_period = period
+
+    @__check_conn
     def memoryStats(self):
         memstats = self.__dom.memoryStats()
 
@@ -150,7 +158,10 @@ class virDomainProxy(object):
                '}' % balloon_path)
         out = qemuMonitorCommand(self.__dom, cmd,
                                  VIR_DOMAIN_QEMU_MONITOR_COMMAND_DEFAULT)
-        xstats = eval(out)['return']['stats']
+
+        out = eval(out)
+        xstats = out['return']['stats']
+        last_update = out['return']['last-update']
 
         def export_xstat(tag, name):
             try:
@@ -161,6 +172,9 @@ class virDomainProxy(object):
 
         export_xstat(0xfff0, 'memavailable')
         export_xstat(0xfff1, 'committed')
+
+        if time.time() - last_update > self.__memstats_update_period * 2:
+            memstats = {k: memstats[k] for k in ('rss', 'actual')}
 
         return memstats
 
