@@ -173,7 +173,7 @@ class virDomainProxy(object):
         export_xstat(0xfff0, 'memavailable')
         export_xstat(0xfff1, 'committed')
 
-        if time.time() - last_update > self.__memstats_update_period * 2:
+        if time.time() - last_update > min(60, self.__memstats_update_period * 10):
             memstats = {k: memstats[k] for k in ('rss', 'actual')}
 
         return memstats
