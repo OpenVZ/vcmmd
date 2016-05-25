@@ -18,7 +18,10 @@ sys.excepthook = _excepthook
 import prlsdkapi
 from prlsdkapi import consts
 
-from vcmmd.ve_type import VE_TYPE_CT, VE_TYPE_VM
+from vcmmd.ve_type import (VE_TYPE_CT,
+                           VE_TYPE_VM,
+                           VE_TYPE_VM_LINUX,
+                           VE_TYPE_VM_WINDOWS)
 from vcmmd.ve_config import VEConfig
 from vcmmd.rpc.dbus.client import RPCProxy
 
@@ -27,6 +30,11 @@ PAGE_SIZE = os.sysconf('SC_PAGESIZE')
 VE_TYPE_MAP = {
     consts.PVT_CT: VE_TYPE_CT,
     consts.PVT_VM: VE_TYPE_VM,
+}
+
+VE_OSTYPE_MAP = {
+    consts.PVS_GUEST_TYPE_WINDOWS: VE_TYPE_VM_WINDOWS,
+    consts.PVS_GUEST_TYPE_LINUX: VE_TYPE_VM_LINUX,
 }
 
 DEFAULT_GUARANTEE = {
@@ -47,6 +55,10 @@ for vm in srv.get_vm_list_ex(consts.PVTF_CT | consts.PVTF_VM).wait():
         ve_type = VE_TYPE_MAP[vm.get_vm_type()]
     except KeyError:
         continue
+
+    ostype = vm.get_os_type()
+    if ve_type == VE_TYPE_VM:
+        ve_type = VE_OSTYPE_MAP.get(ostype, VE_TYPE_VM)
 
     state = vm.get_state().wait().get_param().get_state()
     if state not in (consts.VMS_RUNNING, consts.VMS_PAUSED):
