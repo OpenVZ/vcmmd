@@ -5,7 +5,7 @@ from libvirt import libvirtError
 
 from vcmmd.cgroup import MemoryCgroup
 from vcmmd.ve.base import Error, VEImpl, register_ve_impl
-from vcmmd.ve_type import VE_TYPE_VM
+from vcmmd.ve_type import VE_TYPE_VM, VE_TYPE_VM_LINUX, VE_TYPE_VM_WINDOWS
 from vcmmd.config import VCMMDConfig
 from vcmmd.util.libvirt import virDomainProxy, lookup_qemu_machine_cgroup
 from vcmmd.util.misc import roundup
@@ -134,4 +134,21 @@ class VMImpl(VEImpl):
         except libvirtError as err:
             raise Error('Failed to hotplug libvirt domain memory: %s' % err)
 
+class VMLinImpl(VMImpl):
+
+    VE_TYPE = VE_TYPE_VM_LINUX
+
+
+class VMWinImpl(VMImpl):
+
+    VE_TYPE = VE_TYPE_VM_WINDOWS
+
+    def get_stats(self):
+        stats = super(VMWinImpl, self).get_stats()
+        if stats['memavail'] < 0:
+            stats['memavail'] = stats['memfree']
+        return stats
+
 register_ve_impl(VMImpl)
+register_ve_impl(VMLinImpl)
+register_ve_impl(VMWinImpl)
