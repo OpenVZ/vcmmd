@@ -13,6 +13,7 @@ from vcmmd.rpc.dbus.client import RPCProxy
 from vcmmd.util.limits import INT64_MAX
 from vcmmd.util.optparse import OptionWithMemsize
 from vcmmd.util.logging import LOG_LEVELS
+from vcmmd.util.misc import sorted_by_val
 
 
 def _fail(msg):
@@ -197,9 +198,9 @@ def _handle_list(args):
     proxy = RPCProxy()
     ve_list = proxy.get_all_registered_ves()
 
-    fmt = '%-36s %4s %6s %{0}s %{0}s %{0}s'.format(11 if options.bytes else 9)
+    fmt = '%-36s %6s %6s %{0}s %{0}s %{0}s'.format(11 if options.bytes else 9)
     print fmt % ('name', 'type', 'active', 'guarantee', 'limit', 'swap')
-    for ve_name, ve_type, ve_active, ve_config in ve_list:
+    for ve_name, ve_type, ve_active, ve_config in sorted(ve_list):
         try:
             ve_type_name = get_ve_type_name(ve_type)
         except KeyError:
@@ -213,7 +214,7 @@ def _handle_list(args):
 
 def _handle_log_level(args):
     parser = OptionParser('Usage: %%prog set-log-level {%s}' %
-                          '|'.join(LOG_LEVELS),
+                          '|'.join(sorted_by_val(LOG_LEVELS)),
                           description='Set VCMMD logging level.')
 
     (options, args) = parser.parse_args(args)

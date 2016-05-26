@@ -22,4 +22,4 @@ def lookup_ve_type_by_name(s):
 
 
 def get_all_ve_type_names():
-    return _NAME_TYPE.keys()
+    return sorted(_NAME_TYPE.keys())
