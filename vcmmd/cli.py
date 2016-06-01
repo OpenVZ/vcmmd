@@ -231,11 +231,22 @@ def _handle_log_level(args):
 
     RPCProxy().set_log_level(lvl)
 
+def _handle_current_policy(args):
+    parser = OptionParser('Usage: %%prog get-current-policy',
+                          description='Print current VCMMD policy.')
+
+    (options, args) = parser.parse_args(args)
+    if len(args) > 0:
+        parser.error('superfluous arguments')
+
+    print RPCProxy().get_current_policy()
+
 
 def main():
     parser = OptionParser('Usage: %prog <command> <args>...\n'
                           'command := register | activate | update | '
-                          'deactivate | unregister | list | set-log-level',
+                          'deactivate | unregister | list | set-log-level | '
+                          'get-current-policy',
                           description='Call a command on the VCMMD service. '
                           'See \'%prog <command> --help\' to read about a '
                           'specific subcommand.',
@@ -256,6 +267,7 @@ def main():
             'unregister': _handle_unregister,
             'list': _handle_list,
             'set-log-level': _handle_log_level,
+            'get-current-policy': _handle_current_policy,
         }[args[0]]
     except KeyError:
         parser.error('invalid command')

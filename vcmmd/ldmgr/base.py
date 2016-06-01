@@ -313,3 +313,6 @@ class LoadManager(object):
                 result.append((ve.name, ve.VE_TYPE, ve.active,
                                ve.config.as_tuple()))
         return result
+
+    def get_current_policy(self):
+        return self._policy.get_name()

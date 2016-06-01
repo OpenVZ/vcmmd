@@ -47,3 +47,6 @@ class RPCProxy(object):
 
     def set_log_level(self, lvl):
         self._iface.SetLogLevel(lvl)
+
+    def get_current_policy(self):
+        return self._iface.GetCurrentPolicy()

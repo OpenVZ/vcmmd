@@ -10,6 +10,9 @@ class Policy(object):
         self.ve_list = []  # List of all managed VEs
         self.ve_data = {}  # Dictionary of all managed VEs to their policy data
 
+    def get_name(self):
+        return self.__class__.__name__
+
     def get_policy_data(self, ve):
         return self.ve_data[ve]
 

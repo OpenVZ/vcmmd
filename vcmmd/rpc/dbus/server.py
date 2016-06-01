@@ -99,6 +99,10 @@ class _LoadManagerObject(dbus.service.Object):
     def SetLogLevel(self, lvl):
         logging.getLogger('vcmmd').setLevel(lvl)
 
+    @dbus.service.method(IFACE, in_signature='', out_signature='s')
+    def GetCurrentPolicy(self):
+        return self.ldmgr.get_current_policy()
+
 
 class RPCServer(object):
 
