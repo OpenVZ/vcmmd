@@ -107,6 +107,9 @@ class VE(object):
 
         self._logger = logging.getLogger('vcmmd.ve')
 
+        self._last_target = None
+        self._last_protection = None
+
         self.name = name
         self.config = config
         self.stats = Stats()
@@ -154,6 +157,9 @@ class VE(object):
         self.active = True
         self._log_info('Activated')
         self.update_stats()
+
+        self._last_target = None
+        self._last_protection = None
 
     def deactivate(self):
         '''Mark VE inactive.
@@ -210,6 +216,10 @@ class VE(object):
         '''
         assert self.active
 
+        if (self._last_target == target and
+                self._last_protection == protection):
+            return
+
         try:
             obj = self._get_obj()
             obj.set_mem_target(target)
@@ -219,6 +229,8 @@ class VE(object):
         else:
             self._log_debug('set_mem: target:%d protection:%d',
                             target, protection)
+            self._last_target = target
+            self._last_protection = protection
 
     def set_config(self, config):
         '''Update VE config.
