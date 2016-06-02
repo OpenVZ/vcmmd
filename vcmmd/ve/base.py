@@ -10,7 +10,7 @@ from vcmmd.error import (VCMMDError,
                          VCMMD_ERROR_VE_NOT_ACTIVE,
                          VCMMD_ERROR_VE_OPERATION_FAILED)
 from vcmmd.ve_type import get_ve_type_name
-from vcmmd.ve.stats import Stats
+from vcmmd.ve.stats import VEStats
 
 
 class Error(Exception):
@@ -112,7 +112,7 @@ class VE(object):
 
         self.name = name
         self.config = config
-        self.stats = Stats()
+        self.stats = VEStats()
         self.active = False
         self._overhead = self._impl.mem_overhead()
 
