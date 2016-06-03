@@ -196,20 +196,21 @@ class LoadManager(object):
 
         # Call the policy to calculate VEs' quotas.
         ve_quotas = self._policy.balance(mem_avail)
-        sum_quota = sum(ve_quotas.itervalues())
+        # The protection value is not directly connected to quota size
+        # the large part of VE could be shared or not even consumed,
+        # so let's protect current rss + delta quota change
+        ve_protections = {}
+        for ve, quota in ve_quotas.iteritems():
+            ve_protections[ve] = max(ve.stats.host_mem + (quota - ve.stats.actual), 0)
+        sum_protection = sum(ve_protections.values())
 
         # Apply the quotas.
         for ve, quota in ve_quotas.iteritems():
-            # If sum quota calculated by the policy is less than the amount of
-            # available memory, we strive to protect the whole VE allocation
-            # from host pressure so as to avoid costly swapping.
-            #
             # If sum quota is greater than the amount of available memory, we
             # can't do that obviously. In this case we protect as much as
             # configured guarantees.
-            ve.set_mem(target=quota, protection=(quota + ve.mem_overhead
-                                                 if sum_quota <= mem_avail
-                                                 else ve.mem_min))
+            protection = ve_protections[ve] if sum_protection <= self._mem_avail else ve.mem_min
+            ve.set_mem(target=quota, protection=protection)
 
         # We need to set memory.low for machine.slice to infinity, otherwise
         # memory.low in sub-cgroups won't have any effect. We can't do it on
