@@ -40,6 +40,8 @@ VE_OSTYPE_MAP = {
 DEFAULT_GUARANTEE = {
     VE_TYPE_CT: 0,
     VE_TYPE_VM: 40,
+    VE_TYPE_VM_LINUX: 40,
+    VE_TYPE_VM_WINDOWS: 40,
 }
 
 helper = prlsdkapi.ApiHelper()
