@@ -1,3 +1,4 @@
+from vcmmd.host import Host
 import logging
 
 
@@ -9,6 +10,7 @@ class Policy(object):
         self.logger = logging.getLogger('vcmmd.ldmgr.policy')
         self.ve_list = []  # List of all managed VEs
         self.ve_data = {}  # Dictionary of all managed VEs to their policy data
+        self.host = Host() # Singleton object with host related data
 
     def get_name(self):
         return self.__class__.__name__

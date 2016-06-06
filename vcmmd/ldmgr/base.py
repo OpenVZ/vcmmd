@@ -14,9 +14,8 @@ from vcmmd.error import (VCMMDError,
                          VCMMD_ERROR_UNABLE_APPLY_VE_GUARANTEE)
 from vcmmd.ve_config import VEConfig, DefaultVEConfig
 from vcmmd.config import VCMMDConfig
-from vcmmd.cgroup import MemoryCgroup
 from vcmmd.ve import VE
-from vcmmd.util.misc import clamp
+from vcmmd.host import Host
 
 
 class LoadManager(object):
@@ -29,10 +28,23 @@ class LoadManager(object):
         self._registered_ves = {}  # str -> VE
         self._registered_ves_lock = threading.Lock()
 
+        self._host = Host()
+
         self._req_queue = Queue.Queue()
         self._last_update = 0
         self._worker = threading.Thread(target=self._worker_thread_fn)
         self._should_stop = False
+
+        cfg = VCMMDConfig()
+
+        # Load a policy
+        self._load_policy(cfg.get_str('LoadManager.Policy',
+                                      self.FALLBACK_POLICY))
+
+        # Configure update interval
+        self._update_interval = cfg.get_num('LoadManager.UpdateInterval',
+                                            default=5, integer=True, minimum=1)
+        self.logger.info('Update interval set to %ds', self._update_interval)
 
         self._worker.start()
 
@@ -50,59 +62,6 @@ class LoadManager(object):
         self._policy = self._policy = getattr(policy_module, policy_name)()
         self.logger.info("Loaded policy '%s'", policy_name)
 
-    def _mem_size_from_config(self, name, mem_total, default):
-        cfg = VCMMDConfig()
-        share = cfg.get_num('LoadManager.%s.Share' % name,
-                            default=default[0], minimum=0.0, maximum=1.0)
-        min_ = cfg.get_num('LoadManager.%s.Min' % name,
-                           default=default[1], integer=True, minimum=0)
-        max_ = cfg.get_num('LoadManager.%s.Max' % name,
-                           default=default[2], integer=True, minimum=0)
-        return clamp(int(mem_total * share), min_, max_)
-
-    def _set_slice_mem(self, name, value, verbose=True):
-        memcg = MemoryCgroup(name + '.slice')
-        if not memcg.exists():
-            return
-        try:
-            memcg.write_mem_low(value)
-            memcg.write_oom_guarantee(value)
-        except IOError as err:
-            self.logger.error('Failed to set reservation for %s slice: %s',
-                              name, err)
-        else:
-            if verbose:
-                self.logger.info('Reserved %s bytes for %s slice', value, name)
-
-    def _do_init(self):
-        cfg = VCMMDConfig()
-
-        # Load a policy
-        self._load_policy(cfg.get_str('LoadManager.Policy',
-                                      self.FALLBACK_POLICY))
-
-        # Configure update interval
-        self._update_interval = cfg.get_num('LoadManager.UpdateInterval',
-                                            default=5, integer=True, minimum=1)
-        self.logger.info('Update interval set to %ds', self._update_interval)
-
-        # Reserve memory for the system
-        total_mem = psutil.virtual_memory().total
-        host_mem = self._mem_size_from_config('HostMem', total_mem,
-                                              (0.04, 128 << 20, 320 << 20))
-        sys_mem = self._mem_size_from_config('SysMem', total_mem,
-                                             (0.04, 128 << 20, 320 << 20))
-        user_mem = self._mem_size_from_config('UserMem', total_mem,
-                                              (0.02, 32 << 20, 128 << 20))
-        self._set_slice_mem('user', user_mem)
-        self._set_slice_mem('system', sys_mem)
-
-        # Calculate size of memory available for VEs
-        self._mem_avail = (total_mem - host_mem - sys_mem - user_mem)
-        self.logger.info('%d bytes available for VEs', self._mem_avail)
-        if self._mem_avail < 0:
-            self.logger.error('Not enough memory to run VEs!')
-
     def _queue_request(self, req):
         self._req_queue.put(req)
 
@@ -118,7 +77,6 @@ class LoadManager(object):
             self._req_queue.task_done()
 
     def _worker_thread_fn(self):
-        self._do_init()
         while not self._should_stop:
             self._process_request()
 
@@ -173,6 +131,7 @@ class LoadManager(object):
         now = time.time()
         if now > self._last_update + self._update_interval:
             self._last_update = now
+            self._host.update_stats()
             need_update = True
         else:
             need_update = False
@@ -180,7 +139,7 @@ class LoadManager(object):
         # Calculate size of memory available for applications running inside
         # active VEs, i.e. total memory available for all VEs minus memory
         # reserved for inactive VEs minus memory overhead of active VEs.
-        mem_avail = self._mem_avail
+        mem_avail = self._host.ve_mem
         for ve in self._registered_ves.itervalues():
             if ve.active:
                 if need_update:
@@ -209,7 +168,7 @@ class LoadManager(object):
             # If sum quota is greater than the amount of available memory, we
             # can't do that obviously. In this case we protect as much as
             # configured guarantees.
-            protection = ve_protections[ve] if sum_protection <= self._mem_avail else ve.mem_min
+            protection = ve_protections[ve] if sum_protection <= self._host.ve_mem else ve.mem_min
             ve.set_mem(target=quota, protection=protection)
 
         # We need to set memory.low for machine.slice to infinity, otherwise
@@ -220,12 +179,12 @@ class LoadManager(object):
         # This is safe, because there is nothing running inside machine.slice
         # but VMs, each of which should have its memory.low configured
         # properly.
-        self._set_slice_mem('machine', -1, verbose=False)
+        self._host._set_slice_mem('machine', -1, verbose=False)
 
     def _check_guarantees(self, delta):
         mem_min = sum(ve.mem_min for ve in self._registered_ves.itervalues())
         mem_min += delta
-        if mem_min > self._mem_avail:
+        if mem_min > self._host.ve_mem:
             raise VCMMDError(VCMMD_ERROR_UNABLE_APPLY_VE_GUARANTEE)
 
     @_request()
@@ -236,7 +195,7 @@ class LoadManager(object):
         ve_config.complete(DefaultVEConfig)
         ve = VE(ve_type, ve_name, ve_config)
         self._check_guarantees(ve.mem_min)
-        ve.effective_limit = min(ve.config.limit, self._mem_avail)
+        ve.effective_limit = min(ve.config.limit, self._host.ve_mem)
 
         with self._registered_ves_lock:
             self._registered_ves[ve_name] = ve
@@ -264,7 +223,7 @@ class LoadManager(object):
         self._check_guarantees(ve_config.mem_min - ve.config.mem_min)
 
         ve.set_config(ve_config)
-        ve.effective_limit = min(ve.config.limit, self._mem_avail)
+        ve.effective_limit = min(ve.config.limit, self._host.ve_mem)
 
         self._policy.ve_config_updated(ve)
         self._balance_ves()
