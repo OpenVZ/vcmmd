@@ -246,19 +246,20 @@ class VE(object):
         '''
         assert self.active
 
-        if (self._last_target == target and
-                self._last_protection == protection):
-            return
-
+        msg = ''
         try:
             obj = self._get_obj()
-            obj.set_mem_target(target)
-            obj.set_mem_protection(protection)
+            if self._last_target != target:
+                obj.set_mem_target(target)
+                msg = 'target:%d ' % target
+            if self._last_protection != protection:
+                obj.set_mem_protection(protection)
+                msg += 'protection:%d' % protection
         except Error as err:
             self._log_err('Failed to tune allocation: %s', err)
         else:
-            self._log_debug('set_mem: target:%d protection:%d',
-                            target, protection)
+            if msg:
+                self._log_debug('set_mem: %s' % msg)
             self._last_target = target
             self._last_protection = protection
 
