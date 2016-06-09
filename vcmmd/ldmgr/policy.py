@@ -42,14 +42,14 @@ class Policy(object):
         '''
         pass
 
-    def balance(self, mem_avail):
+    def balance(self):
         '''Calculate VE memory quotas.
 
         This function is called by the load manager on VE configuration changes
-        and periodically when VE statistics get updated. It is passed the
-        amount of memory available for all managed VEs. It should return a
-        mapping VE -> quota, where quota is the memory consumption target that
-        should be set for a VE.
+        and periodically when VE statistics get updated.
+        It should return a mapping VE -> (target, protection), where 'target'
+        is the memory consumption that should be set for a VE and 'protection'
+        is the amount memory that should be protected from host pressure.
 
         This function must be overridden in sub-class.
         '''

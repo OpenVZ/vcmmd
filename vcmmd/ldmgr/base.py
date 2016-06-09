@@ -132,44 +132,24 @@ class LoadManager(object):
         if now > self._last_update + self._update_interval:
             self._last_update = now
             self._host.update_stats()
-            need_update = True
-        else:
-            need_update = False
-
-        # Calculate size of memory available for applications running inside
-        # active VEs, i.e. total memory available for all VEs minus memory
-        # reserved for inactive VEs minus memory overhead of active VEs.
-        mem_avail = self._host.ve_mem
-        for ve in self._registered_ves.itervalues():
-            if ve.active:
-                if need_update:
+            for ve in self._registered_ves.itervalues():
+                if ve.active:
                     ve.update_stats()
                     self._policy.ve_updated(ve)
-                mem_avail -= ve.mem_overhead
-            else:
-                mem_avail -= ve.mem_min
-            mem_avail += ve.mem_shared
-
-        mem_avail = max(mem_avail, 0)
-        self.logger.debug('mem_avail:%s', mem_avail)
 
         # Call the policy to calculate VEs' quotas.
-        ve_quotas = self._policy.balance(mem_avail)
-        # The protection value is not directly connected to quota size
-        # the large part of VE could be shared or not even consumed,
-        # so let's protect current rss + delta quota change
-        ve_protections = {}
-        for ve, quota in ve_quotas.iteritems():
-            ve_protections[ve] = max(ve.stats.host_mem + (quota - ve.stats.actual), 0)
-        sum_protection = sum(ve_protections.values())
+        ve_quotas = self._policy.balance()
+
+        sum_protection = sum(ve_quotas[ve][1] for ve in ve_quotas)
+        if sum_protection > self._host.ve_mem:
+            self.logger.error('Sum protection greater than mem available (%d > %d)',
+                              sum_protection, self._host.ve_mem)
 
         # Apply the quotas.
-        for ve, quota in ve_quotas.iteritems():
-            # If sum quota is greater than the amount of available memory, we
-            # can't do that obviously. In this case we protect as much as
-            # configured guarantees.
-            protection = ve_protections[ve] if sum_protection <= self._host.ve_mem else ve.mem_min
-            ve.set_mem(target=quota, protection=protection)
+        for ve, (target, protection) in ve_quotas.iteritems():
+            if sum_protection > self._host.ve_mem:
+                protection = ve.mem_min
+            ve.set_mem(target=target, protection=protection)
 
         # We need to set memory.low for machine.slice to infinity, otherwise
         # memory.low in sub-cgroups won't have any effect. We can't do it on
