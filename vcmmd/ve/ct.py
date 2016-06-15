@@ -1,6 +1,6 @@
 from __future__ import absolute_import
 
-from vcmmd.cgroup import MemoryCgroup, BlkIOCgroup, BeancounterCgroup
+from vcmmd.cgroup import MemoryCgroup, BlkIOCgroup
 from vcmmd.ve.base import Error, VEImpl, register_ve_impl
 from vcmmd.ve_type import VE_TYPE_CT
 from vcmmd.config import VCMMDConfig
@@ -23,16 +23,11 @@ class CTImpl(VEImpl):
         if not self._blkcg.exists():
             raise Error("Blkio cgroup not found: '%s'" % self._blkcg.abs_path)
 
-        self._bccg = BeancounterCgroup(name)
-        if not self._bccg.exists():
-            raise Error("Beancounter cgroup not found: '%s'" % self._bccg.abs_path)
-
         self.mem_limit = UINT64_MAX
 
     def get_stats(self):
         try:
             current = self._memcg.read_mem_current()
-            committed = self._bccg.get_privvmpages() * PAGE_SIZE
             stat = self._memcg.read_mem_stat()
             io_serviced = self._blkcg.get_io_serviced()
             io_service_bytes = self._blkcg.get_io_service_bytes()
@@ -52,7 +47,6 @@ class CTImpl(VEImpl):
                 'actual': memtotal,
                 'memfree': memfree,
                 'memavail': memavail,
-                'committed': committed,
                 'swapin': stat.get('pswpin', -1),
                 'swapout': stat.get('pswpout', -1),
                 'minflt': stat.get('pgfault', -1),
