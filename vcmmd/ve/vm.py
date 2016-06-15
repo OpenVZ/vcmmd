@@ -1,19 +1,26 @@
 from __future__ import absolute_import
+import time
 
 import logging
 from libvirt import libvirtError
+from libvirt import (VIR_DOMAIN_STATS_BLOCK as STATS_BLOCK,
+                     VIR_DOMAIN_STATS_BALLOON as STATS_BALLOON,
+                     VIR_CONNECT_GET_ALL_DOMAINS_STATS_RUNNING as GET_ALL_RUNNING)
 
 from vcmmd.cgroup import MemoryCgroup
 from vcmmd.ve.base import Error, VEImpl, register_ve_impl
 from vcmmd.ve_type import VE_TYPE_VM, VE_TYPE_VM_LINUX, VE_TYPE_VM_WINDOWS
 from vcmmd.config import VCMMDConfig
-from vcmmd.util.libvirt import virDomainProxy, lookup_qemu_machine_cgroup
+from vcmmd.util.libvirt import (virDomainProxy,
+                                lookup_qemu_machine_cgroup,
+                                virConnectionProxy)
 from vcmmd.util.misc import roundup
 
 
 class VMImpl(VEImpl):
 
     VE_TYPE = VE_TYPE_VM
+    __cached_stats = {}
 
     def __init__(self, name):
         try:
@@ -26,6 +33,7 @@ class VMImpl(VEImpl):
                                        default=5, integer=True, minimum=1)
         try:
             self._libvirt_domain.setMemoryStatsPeriod(period)
+            self.__memstats_update_period = period
         except libvirtError as err:
             raise Error('Failed to enable libvirt domain memory stats: %s' % err)
 
@@ -46,10 +54,23 @@ class VMImpl(VEImpl):
 
     def get_stats(self):
         try:
-            stat = self._libvirt_domain.memoryStats()
-            blk_stat = self._libvirt_domain.blockStats('')
+            name = self._libvirt_domain.name()
+            if name not in VMImpl.__cached_stats:
+                conn = virConnectionProxy()
+                VMImpl.__cached_stats = {dom.name(): stats for dom, stats in \
+                                         conn.getAllDomainStats(STATS_BLOCK | STATS_BALLOON,
+                                         GET_ALL_RUNNING)}
+            stats = VMImpl.__cached_stats.pop(name, {})
         except libvirtError as err:
             raise Error('Failed to retrieve libvirt domain stats: %s' % err)
+
+        memstats = {k.split('.')[1]: v for k,v in stats.iteritems() if k.startswith('balloon')}
+        t = time.time()
+        if t - memstats.get('last-update', t) > min(60, self.__memstats_update_period * 10):
+            # remove stale counters
+            # 'rss' and 'actual' should always be up-to-date
+            for k in set(memstats.keys()) - set(['rss', 'actual']):
+                del memstats[k]
 
         try:
             memcg_stat = self._memcg.read_mem_stat()
@@ -64,23 +85,27 @@ class VMImpl(VEImpl):
 
         host_swap = memcg_stat.get('swap', -1)
 
+        blk_stat = {'rd.reqs': 0, 'rd.bytes': 0, 'wr.reqs': 0, 'wr.bytes': 0}
+        for s in blk_stat:
+            for c in range(0, stats.get('block.count', 0)):
+                blk_stat[s] += stats['block.%d.%s' % (c, s)]
+
         # libvirt reports memory values in kB, so we need to convert them to
         # bytes
-        return {'actual': stat.get('actual', -1) << 10,
-                'rss': stat.get('rss', -1) << 10,
+        return {'actual': memstats.get('actual', -1) << 10,
+                'rss': memstats.get('rss', -1) << 10,
                 'host_mem': host_mem,
                 'host_swap': host_swap,
-                'memfree': stat.get('unused', -1) << 10,
-                'memavail': stat.get('memavailable', -1) << 10,
-                'committed': stat.get('committed', -1) << 10,
-                'swapin': stat.get('swap_in', -1) << 10,
-                'swapout': stat.get('swap_out', -1) << 10,
-                'minflt': stat.get('minor_fault', -1),
-                'majflt': stat.get('major_fault', -1),
-                'rd_req': blk_stat[0],
-                'rd_bytes': blk_stat[1],
-                'wr_req': blk_stat[2],
-                'wr_bytes': blk_stat[3]}
+                'memfree': memstats.get('unused', -1) << 10,
+                'memavail': memstats.get('usable', -1) << 10,
+                'swapin': memstats.get('swap_in', -1) << 10,
+                'swapout': memstats.get('swap_out', -1) << 10,
+                'minflt': memstats.get('minor_fault', -1),
+                'majflt': memstats.get('major_fault', -1),
+                'rd_req': blk_stat['rd.reqs'],
+                'rd_bytes': blk_stat['rd.bytes'],
+                'wr_req': blk_stat['wr.reqs'],
+                'wr_bytes': blk_stat['wr.bytes']}
 
     def set_mem_protection(self, value):
         # Use memcg/memory.low to protect the VM from host pressure.
