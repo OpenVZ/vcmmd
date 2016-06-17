@@ -15,6 +15,7 @@ from vcmmd.util.libvirt import (virDomainProxy,
                                 lookup_qemu_machine_cgroup,
                                 virConnectionProxy)
 from vcmmd.util.misc import roundup
+from vcmmd.util.limits import PAGE_SIZE
 
 
 class VMImpl(VEImpl):
@@ -48,9 +49,13 @@ class VMImpl(VEImpl):
             raise Error("Memory cgroup not found: '%s'" % self._memcg.abs_path)
 
     @staticmethod
-    def mem_overhead():
-        return VCMMDConfig().get_num('VE.VM.MemOverhead', default=33554432,
-                                     integer=True, minimum=0)
+    def mem_overhead(config_limit):
+        # we assume, that for one guest page need at least 8b overhead
+        # in qemu process
+        guest_mem_overhead = 8 * config_limit / PAGE_SIZE
+        config_overhead =  VCMMDConfig().get_num('VE.VM.MemOverhead', default=(64 << 20),
+                                                 integer=True, minimum=0)
+        return config_overhead + guest_mem_overhead
 
     def get_stats(self):
         try:

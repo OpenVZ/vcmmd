@@ -58,7 +58,7 @@ class VEImpl(object):
         pass
 
     @staticmethod
-    def mem_overhead():
+    def mem_overhead(config_limit):
         '''Return an estimate of memory overhead.
 
         This function is supposed to return the amount of memory beyond the
@@ -141,7 +141,7 @@ class VE(object):
         self.config = config
         self.stats = VEStats()
         self.active = False
-        self._overhead = self._impl.mem_overhead()
+        self._overhead = self._impl.mem_overhead(config.limit)
 
     def __str__(self):
         return "%s '%s'" % (get_ve_type_name(self.VE_TYPE), self.name)
