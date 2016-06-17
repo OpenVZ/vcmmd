@@ -135,7 +135,6 @@ class VE(object):
 
         self._logger = logging.getLogger('vcmmd.ve')
 
-        self._last_target = None
         self._last_protection = None
 
         self.name = name
@@ -186,7 +185,6 @@ class VE(object):
         self._log_info('Activated')
         self.update_stats()
 
-        self._last_target = None
         self._last_protection = None
 
     def deactivate(self):
@@ -247,7 +245,7 @@ class VE(object):
         msg = ''
         try:
             obj = self._get_obj()
-            if self._last_target != target:
+            if self.stats.actual != target:
                 obj.set_mem_target(target)
                 msg = 'target:%d ' % target
             if self._last_protection != protection:
@@ -258,7 +256,6 @@ class VE(object):
         else:
             if msg:
                 self._log_debug('set_mem: %s' % msg)
-            self._last_target = target
             self._last_protection = protection
 
     def set_config(self, config):
