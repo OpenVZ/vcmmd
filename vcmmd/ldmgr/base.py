@@ -137,17 +137,20 @@ class LoadManager(object):
                     ve.update_stats()
                     self._policy.ve_updated(ve)
 
+        self._host.ve_mem_reserved = sum(ve.mem_min for ve in self._registered_ves.itervalues() if not ve.active)
+        self._host.active_ve_mem = self._host.ve_mem - self._host.ve_mem_reserved
+
         # Call the policy to calculate VEs' quotas.
         ve_quotas = self._policy.balance()
 
         sum_protection = sum(ve_quotas[ve][1] for ve in ve_quotas)
-        if sum_protection > self._host.ve_mem:
+        if sum_protection > self._host.active_ve_mem:
             self.logger.error('Sum protection greater than mem available (%d > %d)',
-                              sum_protection, self._host.ve_mem)
+                              sum_protection, self._host.active_ve_mem)
 
         # Apply the quotas.
         for ve, (target, protection) in ve_quotas.iteritems():
-            if sum_protection > self._host.ve_mem:
+            if sum_protection > self._host.active_ve_mem:
                 protection = ve.mem_min
             ve.set_mem(target=target, protection=protection)
 
