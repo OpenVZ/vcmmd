@@ -7,21 +7,28 @@ from vcmmd.config import VCMMDConfig
 from vcmmd.util.limits import PAGE_SIZE, UINT64_MAX
 
 
+def _lookup_cgroup(klass, name):
+    # A container's cgroup is located either at the top level of the cgroup
+    # hierarchy or under machine.slice
+
+    cg = klass(name)
+    if cg.exists():
+        return cg
+
+    cg = klass('/machine.slice/' + name)
+    if cg.exists():
+        return cg
+
+    raise Error("cgroup not found: '%s'" % cg.abs_path)
+
+
 class CTImpl(VEImpl):
 
     VE_TYPE = VE_TYPE_CT
 
     def __init__(self, name):
-        # Currently, containers' cgroups are located at the first level of the
-        # cgroup hierarchy.
-
-        self._memcg = MemoryCgroup(name)
-        if not self._memcg.exists():
-            raise Error("Memory cgroup not found: '%s'" % self._memcg.abs_path)
-
-        self._blkcg = BlkIOCgroup(name)
-        if not self._blkcg.exists():
-            raise Error("Blkio cgroup not found: '%s'" % self._blkcg.abs_path)
+        self._memcg = _lookup_cgroup(MemoryCgroup, name)
+        self._blkcg = _lookup_cgroup(BlkIOCgroup, name)
 
         self.mem_limit = UINT64_MAX
 
