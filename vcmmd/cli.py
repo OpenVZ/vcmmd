@@ -16,10 +16,11 @@ from vcmmd.util.logging import LOG_LEVELS
 from vcmmd.util.misc import sorted_by_val
 
 
-def _fail(msg):
+def _fail(msg, fail=True):
     sys.stderr.write(msg)
     sys.stderr.write('\n')
-    sys.exit(1)
+    if(fail):
+        sys.exit(1)
 
 
 def _add_ve_config_options(parser):
@@ -231,6 +232,7 @@ def _handle_log_level(args):
 
     RPCProxy().set_log_level(lvl)
 
+
 def _handle_current_policy(args):
     parser = OptionParser('Usage: %%prog get-current-policy',
                           description='Print current VCMMD policy.')
@@ -242,11 +244,43 @@ def _handle_current_policy(args):
     print RPCProxy().get_current_policy()
 
 
+def _handle_get_format_stats(parser, args, prettify):
+    (options, args) = parser.parse_args(args)
+    proxy = RPCProxy()
+    if len(args) == 0:
+        ve_names = [vm[0] for vm in proxy.get_all_registered_ves()]
+    else:
+        ve_names = args
+    for ve in ve_names:
+        try:
+            print ve + ": " + prettify(proxy.get_stats(ve))
+        except VCMMDError as err:
+            _fail(ve + ': VCMMD returned error: %s' % err, fail=False)
+
+
+def _handle_get_stats(args):
+    parser = OptionParser('Usage: %%prog get-stats [VE] ...',
+                          description='Print statistics for the specified VEs '
+                          'or for all registered VEs if arguments are omitted.')
+    _handle_get_format_stats(parser, args,
+                             lambda stats: " ".join('='.join(map(str, s)) for s in stats))
+
+
+def _handle_get_missing_stats(args):
+    parser = OptionParser('Usage: %%prog get-stats [VE] ...',
+                          description='Print missing statistics for the '
+                          'specified VEs or for all registered VEs if '
+                          'arguments are omitted.')
+    _handle_get_format_stats(parser, args,
+                             lambda stats: " ".join(str(s[0]) for s in stats if s[1] == -1))
+
+
 def main():
     parser = OptionParser('Usage: %prog <command> <args>...\n'
                           'command := register | activate | update | '
                           'deactivate | unregister | list | set-log-level | '
-                          'get-current-policy',
+                          'get-current-policy | get-stats | '
+                          'get-missing-stats',
                           description='Call a command on the VCMMD service. '
                           'See \'%prog <command> --help\' to read about a '
                           'specific subcommand.',
@@ -268,6 +302,8 @@ def main():
             'list': _handle_list,
             'set-log-level': _handle_log_level,
             'get-current-policy': _handle_current_policy,
+            'get-stats': _handle_get_stats,
+            'get-missing-stats': _handle_get_missing_stats,
         }[args[0]]
     except KeyError:
         parser.error('invalid command')

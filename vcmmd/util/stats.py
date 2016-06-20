@@ -46,3 +46,6 @@ class Stats(object):
             else:
                 delta = int((cur - prev) / delta_t)
             self._stats[k] = delta
+
+    def report(self):
+        return [(s, self._stats[s]) for s in self.ALL_STATS]

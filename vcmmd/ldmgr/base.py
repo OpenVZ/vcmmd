@@ -260,3 +260,10 @@ class LoadManager(object):
 
     def get_current_policy(self):
         return self._policy.get_name()
+
+    def get_stats(self, ve_name):
+        with self._registered_ves_lock:
+            ve = self._registered_ves.get(ve_name)
+            if ve is None:
+                raise VCMMDError(VCMMD_ERROR_VE_NOT_REGISTERED)
+            return ve.stats.report()

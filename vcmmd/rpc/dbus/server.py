@@ -103,6 +103,14 @@ class _LoadManagerObject(dbus.service.Object):
     def GetCurrentPolicy(self):
         return self.ldmgr.get_current_policy()
 
+    @dbus.service.method(IFACE, in_signature='', out_signature='ia(sx)')
+    def GetStats(self, ve_name):
+        ve_name = str(ve_name)
+        try:
+            return (0, self.ldmgr.get_stats(ve_name))
+        except VCMMDError as err:
+            return (err.errno, [])
+
 
 class RPCServer(object):
 

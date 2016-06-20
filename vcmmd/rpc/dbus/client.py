@@ -50,3 +50,9 @@ class RPCProxy(object):
 
     def get_current_policy(self):
         return self._iface.GetCurrentPolicy()
+
+    def get_stats(self, ve):
+        err, stats = self._iface.GetStats(ve)
+        if err:
+            raise VCMMDError(err)
+        return stats
