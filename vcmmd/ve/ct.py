@@ -1,9 +1,19 @@
 from __future__ import absolute_import
 
+from multiprocessing.pool import ThreadPool
+
 from vcmmd.cgroup import MemoryCgroup, BlkIOCgroup
 from vcmmd.ve.base import Error, VEImpl, register_ve_impl
 from vcmmd.ve_type import VE_TYPE_CT
 from vcmmd.util.limits import PAGE_SIZE, UINT64_MAX
+
+
+# The thread pool is used in order not to block the main thread while
+# performing costly operations, like memory.high adjustment.
+#
+# XXX: Note, using threads should not really hurt parallelism, because real
+# work is done from system calls, with GIL released.
+_thread_pool = ThreadPool(3)
 
 
 def _lookup_cgroup(klass, name):
@@ -70,10 +80,14 @@ class CTImpl(VEImpl):
             raise Error('Cgroup write failed: %s' % err)
 
     def set_mem_target(self, value):
-        try:
-            self._memcg.write_mem_high(value)
-        except IOError as err:
-            raise Error('Cgroup write failed: %s' % err)
+        # Decreasing memory.high might take long as it implies memory reclaim,
+        # so do it asynchronously.
+        #
+        # XXX: For the sake of simplicity, we don't care about failures here.
+        # It is acceptable, because adjusting memory.high may fail only if
+        # the cgroup gets destroyed, which we will see and report anyway from
+        # get_stats().
+        _thread_pool.apply_async(self._memcg.write_mem_high, (value,))
 
         self.mem_limit = value
 
