@@ -29,3 +29,6 @@ class LoggerWriter:
         for s in l[:-1]:
             self.logger.log(self.level, s)
         self._buf = l[-1]
+
+    def flush(self):
+        pass
