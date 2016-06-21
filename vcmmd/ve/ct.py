@@ -3,7 +3,6 @@ from __future__ import absolute_import
 from vcmmd.cgroup import MemoryCgroup, BlkIOCgroup
 from vcmmd.ve.base import Error, VEImpl, register_ve_impl
 from vcmmd.ve_type import VE_TYPE_CT
-from vcmmd.config import VCMMDConfig
 from vcmmd.util.limits import PAGE_SIZE, UINT64_MAX
 
 
@@ -71,20 +70,6 @@ class CTImpl(VEImpl):
             raise Error('Cgroup write failed: %s' % err)
 
     def set_mem_target(self, value):
-        # XXX: Should we adjust memcg/memory.high here?
-        #
-        # On one hand, not adjusting it might break policy assumptions. On the
-        # other hand, for containers global and local reclaim paths are
-        # equivalent, so it is tempting to avoid local reclaim here, which may
-        # noticeably degrade performance in case policy underestimates
-        # container's demand, and rely solely on memcg/memory.low set by
-        # set_mem_protection, which is kinda soft limit and only matters when
-        # there is real memory shortage on the host.
-        #
-        # For now, let's set memory.high unless we are explicitly asked not to
-        # do so via config.
-        if VCMMDConfig().get_bool('VE.CT.SoftMemTarget', False):
-            value = MemoryCgroup.MAX_MEM_VAL
         try:
             self._memcg.write_mem_high(value)
         except IOError as err:
