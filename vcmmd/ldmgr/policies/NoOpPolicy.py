@@ -10,6 +10,7 @@ class NoOpPolicy(Policy):
     This will only work satisfactory if the host kernel can reclaim memory from
     VEs effectively and is smart enough to detect a VE's working set by itself.
     '''
+    DEFAULT_BALANCE_INTERVAL = 60
 
     def balance(self):
         return {ve: (ve.config.limit, ve.mem_min) for ve in self.ve_list}

@@ -43,7 +43,8 @@ class LoadManager(object):
 
         # Configure update interval
         self._update_interval = cfg.get_num('LoadManager.UpdateInterval',
-                                            default=5, integer=True, minimum=1)
+                                            default=self._policy.DEFAULT_BALANCE_INTERVAL,
+                                            integer=True, minimum=1)
         self.logger.info('Update interval set to %ds', self._update_interval)
 
         self._worker.start()
