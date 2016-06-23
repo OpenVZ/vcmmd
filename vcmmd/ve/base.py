@@ -67,6 +67,11 @@ class VEImpl(object):
         '''
         return 0
 
+    def set_memstats_period(self, period):
+        '''Set the period with which memory statistics are retrieved.
+        '''
+        pass
+
     def get_stats(self):
         '''Return stats dict {name: value}.
         '''
@@ -202,6 +207,13 @@ class VE(object):
 
         self.active = False
         self._log_info('Deactivated')
+
+    def set_memstats_period(self, period):
+        try:
+            obj = self._get_obj()
+            obj.set_memstats_period(period)
+        except Error as err:
+            self._log_err('Failed to set memstats update period: %s', err)
 
     def update_stats(self):
         '''Update VE stats.

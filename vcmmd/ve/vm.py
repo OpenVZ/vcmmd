@@ -29,15 +29,7 @@ class VMImpl(VEImpl):
         except libvirtError as err:
             raise Error('Failed to lookup libvirt domain: %s' % err)
 
-        # libvirt must be explicitly told to collect memory statistics
-        period = VCMMDConfig().get_num('VE.VM.MemStatsPeriod',
-                                       default=5, integer=True, minimum=1)
-        try:
-            self._libvirt_domain.setMemoryStatsPeriod(period)
-            self.__memstats_update_period = period
-        except libvirtError as err:
-            raise Error('Failed to enable libvirt domain memory stats: %s' % err)
-
+        self.set_memstats_period(0)
         # libvirt places every virtual machine in its own cgroup
         try:
             cgroup = lookup_qemu_machine_cgroup(self._libvirt_domain.name())
@@ -47,6 +39,13 @@ class VMImpl(VEImpl):
         self._memcg = MemoryCgroup(cgroup[MemoryCgroup.CONTROLLER])
         if not self._memcg.exists():
             raise Error("Memory cgroup not found: '%s'" % self._memcg.abs_path)
+
+    def set_memstats_period(self, period):
+        try:
+            self._libvirt_domain.setMemoryStatsPeriod(period)
+            self.__memstats_update_period = period
+        except libvirtError as err:
+            raise Error('Failed to enable libvirt domain memory stats: %s' % err)
 
     @staticmethod
     def mem_overhead(config_limit):
