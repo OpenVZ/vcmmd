@@ -49,6 +49,7 @@ class VEStats(Stats):
         'memfree',      # amount of memory left completely unused by guest OS
         'memavail',     # an estimate of how much memory is available for
                         # starting new applications, without swapping
+        'last_update',  # timestemp when was memory stats updated
     ]
 
     CUMULATIVE_STATS = [

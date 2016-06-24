@@ -129,7 +129,8 @@ class VMImpl(VEImpl):
                 'rd_req': blk_stat['rd.reqs'],
                 'rd_bytes': blk_stat['rd.bytes'],
                 'wr_req': blk_stat['wr.reqs'],
-                'wr_bytes': blk_stat['wr.bytes']}
+                'wr_bytes': blk_stat['wr.bytes'],
+                'last_update': memstats.get('last-update', -1)}
 
     def set_mem_protection(self, value):
         # Use memcg/memory.low to protect the VM from host pressure.

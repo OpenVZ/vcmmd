@@ -20,6 +20,7 @@
 
 from __future__ import absolute_import
 
+import time
 from multiprocessing.pool import ThreadPool
 
 from vcmmd.cgroup import MemoryCgroup, BlkIOCgroup
@@ -90,7 +91,8 @@ class CTImpl(VEImpl):
                 'rd_req': io_serviced[0],
                 'rd_bytes': io_service_bytes[0],
                 'wr_req': io_serviced[1],
-                'wr_bytes': io_service_bytes[1]}
+                'wr_bytes': io_service_bytes[1],
+                'last_update': int(time.time())}
 
     def set_mem_protection(self, value):
         # Use memcg/memory.low to protect the CT from host pressure.
