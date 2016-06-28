@@ -111,6 +111,10 @@ class _LoadManagerObject(dbus.service.Object):
         except VCMMDError as err:
             return (err.errno, [])
 
+    @dbus.service.method(IFACE, in_signature='', out_signature='a(stt)')
+    def GetQuotas(self):
+        return self.ldmgr.get_quotas()
+
 
 class RPCServer(object):
 

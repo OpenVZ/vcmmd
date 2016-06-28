@@ -32,6 +32,21 @@ def _add_ve_config_options(parser):
                       help='Size of host swap space that may be used by VE')
 
 
+def _add_memval_config_options(parser):
+    parser.add_option('-b', '--bytes', action='store_true',
+                      help='show output in bytes')
+    parser.add_option('-k', '--kilo', action='store_true',
+                      help='show output in kilobytes')
+    parser.add_option('-m', '--mega', action='store_true',
+                      help='show output in megabytes')
+    parser.add_option('-g', '--giga', action='store_true',
+                      help='show output in gigabytes')
+    parser.add_option('-h', '--human', action='store_true',
+                      help='show human-readable output')
+    parser.add_option('--si', action='store_true',
+                      help='use powers of 1000 not 1024')
+
+
 def _ve_config_from_options(options):
     kv = {}
     if options.guarantee is not None:
@@ -179,18 +194,7 @@ def _handle_list(args):
                           'their state and configuration. By default, '
                           'all memory values are reported in kB.',
                           conflict_handler='resolve')
-    parser.add_option('-b', '--bytes', action='store_true',
-                      help='show output in bytes')
-    parser.add_option('-k', '--kilo', action='store_true',
-                      help='show output in kilobytes')
-    parser.add_option('-m', '--mega', action='store_true',
-                      help='show output in megabytes')
-    parser.add_option('-g', '--giga', action='store_true',
-                      help='show output in gigabytes')
-    parser.add_option('-h', '--human', action='store_true',
-                      help='show human-readable output')
-    parser.add_option('--si', action='store_true',
-                      help='use powers of 1000 not 1024')
+    _add_memval_config_options(parser)
 
     (options, args) = parser.parse_args(args)
     if len(args) > 0:
@@ -275,12 +279,32 @@ def _handle_get_missing_stats(args):
                              lambda stats: " ".join(str(s[0]) for s in stats if s[1] == -1))
 
 
+def _handle_get_quotas(args):
+    parser = OptionParser('Usage: %%prog get-quotas',
+                          description='Print current quotas for all VEs.',
+                          conflict_handler='resolve')
+    _add_memval_config_options(parser)
+
+    (options, args) = parser.parse_args(args)
+    if len(args) > 0:
+        parser.error('superfluous arguments')
+
+    quotas = RPCProxy().get_quotas()
+
+    fmt = '%-36s %13s %13s'
+    print fmt % ('name', 'target', 'protection')
+    for ve_name, target, protection in sorted(quotas):
+        print fmt % (ve_name,
+                     _str_memval(target, options),
+                     _str_memval(protection, options))
+
+
 def main():
     parser = OptionParser('Usage: %prog <command> <args>...\n'
                           'command := register | activate | update | '
                           'deactivate | unregister | list | set-log-level | '
                           'get-current-policy | get-stats | '
-                          'get-missing-stats',
+                          'get-missing-stats | get-quotas',
                           description='Call a command on the VCMMD service. '
                           'See \'%prog <command> --help\' to read about a '
                           'specific subcommand.',
@@ -304,6 +328,7 @@ def main():
             'get-current-policy': _handle_current_policy,
             'get-stats': _handle_get_stats,
             'get-missing-stats': _handle_get_missing_stats,
+            'get-quotas': _handle_get_quotas,
         }[args[0]]
     except KeyError:
         parser.error('invalid command')
