@@ -20,10 +20,10 @@
 
 from __future__ import absolute_import
 
-from vcmmd.ldmgr import Policy
+from vcmmd.ldmgr.policy import BalloonPolicy
 
 
-class NoOpPolicy(Policy):
+class NoOpPolicy(BalloonPolicy):
     '''No Operation load manager policy.
 
     Set memory quotas to configured limits and let the host kernel do the rest.
@@ -32,5 +32,5 @@ class NoOpPolicy(Policy):
     '''
     DEFAULT_BALANCE_INTERVAL = 60
 
-    def balance(self):
+    def calculate_balloon_size(self):
         return {ve: (ve.config.limit, ve.mem_min) for ve in self.ve_list}

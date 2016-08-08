@@ -36,6 +36,7 @@ from vcmmd.ve_config import VEConfig, DefaultVEConfig
 from vcmmd.config import VCMMDConfig
 from vcmmd.ve import VE
 from vcmmd.host import Host
+from vcmmd.ldmgr.policy import PolicySet, BalloonPolicy
 
 
 class LoadManager(object):
@@ -58,8 +59,7 @@ class LoadManager(object):
         cfg = VCMMDConfig()
 
         # Load a policy
-        self._load_policy(cfg.get_str('LoadManager.Policy',
-                                      self.FALLBACK_POLICY))
+        self._load_policy_set()
 
         # Configure update interval
         self._update_interval = cfg.get_num('LoadManager.UpdateInterval',
@@ -69,10 +69,13 @@ class LoadManager(object):
 
         self._worker.start()
 
-    def _load_policy(self, policy_name):
+    def _get_policy(self, policy_name, policy_class):
         try:
             policy_module = importlib.import_module(
                 'vcmmd.ldmgr.policies.' + policy_name)
+            policy = getattr(policy_module, policy_name)
+            if policy_class not in policy.__bases__:
+                raise ImportError
         except ImportError as err:
             self.logger.error("Failed to load policy '%s': %s",
                               policy_name, err)
@@ -80,8 +83,18 @@ class LoadManager(object):
             policy_name = self.FALLBACK_POLICY
             policy_module = importlib.import_module(
                 'vcmmd.ldmgr.policies.' + policy_name)
-        self._policy = self._policy = getattr(policy_module, policy_name)()
-        self.logger.info("Loaded policy '%s'", policy_name)
+            policy = getattr(policy_module, policy_name)
+        return policy
+
+    def _load_policy_set(self):
+        cfg = VCMMDConfig()
+        self._policy = PolicySet(
+            self._get_policy(
+                cfg.get_str('LoadManager.BalloonPolicy', self.FALLBACK_POLICY),
+                BalloonPolicy
+            )()
+        )
+        self.logger.info("Loaded policy '%s'", self._policy.get_name())
 
     def _queue_request(self, req):
         self._req_queue.put(req)
@@ -158,32 +171,8 @@ class LoadManager(object):
                     ve.update_stats()
                     self._policy.ve_updated(ve)
 
-        self._host.ve_mem_reserved = sum(ve.mem_min for ve in self._registered_ves.itervalues() if not ve.active)
-        self._host.active_ve_mem = self._host.ve_mem - self._host.ve_mem_reserved
-
         # Call the policy to calculate VEs' quotas.
-        ve_quotas = self._policy.balance()
-
-        sum_protection = sum(ve_quotas[ve][1] for ve in ve_quotas)
-        if sum_protection > self._host.active_ve_mem:
-            self.logger.error('Sum protection greater than mem available (%d > %d)',
-                              sum_protection, self._host.active_ve_mem)
-
-        # Apply the quotas.
-        for ve, (target, protection) in ve_quotas.iteritems():
-            if sum_protection > self._host.active_ve_mem:
-                protection = ve.mem_min
-            ve.set_mem(target=target, protection=protection)
-
-        # We need to set memory.low for machine.slice to infinity, otherwise
-        # memory.low in sub-cgroups won't have any effect. We can't do it on
-        # start, because machine.slice might not exist at that time (it is
-        # created on demand, when the first VM starts).
-        #
-        # This is safe, because there is nothing running inside machine.slice
-        # but VMs, each of which should have its memory.low configured
-        # properly.
-        self._host._set_slice_mem('machine', -1, verbose=False)
+        self._policy.balance()
 
     def _check_guarantees(self, delta):
         mem_min = sum(ve.mem_min for ve in self._registered_ves.itervalues())
