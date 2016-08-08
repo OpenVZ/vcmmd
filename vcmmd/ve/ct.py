@@ -25,7 +25,7 @@ from multiprocessing.pool import ThreadPool
 
 from vcmmd.cgroup import MemoryCgroup, BlkIOCgroup
 from vcmmd.ve.base import Error, VEImpl, register_ve_impl
-from vcmmd.ve_type import VE_TYPE_CT
+from vcmmd.ve_type import VE_TYPE_CT, VE_TYPE_SERVICE
 from vcmmd.util.limits import PAGE_SIZE, UINT64_MAX
 
 
@@ -125,4 +125,11 @@ class CTImpl(VEImpl):
 
         self.mem_limit = min(self.mem_limit, config.limit)
 
+
+class ServiceCTImpl(CTImpl):
+
+    VE_TYPE = VE_TYPE_SERVICE
+
+
 register_ve_impl(CTImpl)
+register_ve_impl(ServiceCTImpl)
