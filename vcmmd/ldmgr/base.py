@@ -203,6 +203,7 @@ class LoadManager(object):
 
         with self._registered_ves_lock:
             self._registered_ves[ve_name] = ve
+        self._policy.ve_registered(ve)
 
         self.logger.info('Registered %s (%s)', ve, ve.config)
         self._balance_ves()
@@ -250,6 +251,7 @@ class LoadManager(object):
 
         with self._registered_ves_lock:
             del self._registered_ves[ve.name]
+        self._policy.ve_unregistered(ve)
         if ve.active:
             self._policy.ve_deactivated(ve)
 
