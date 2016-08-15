@@ -20,7 +20,21 @@
 
 from __future__ import absolute_import
 
-from vcmmd.cgroup.base import Cgroup, pid_cgroup
-from vcmmd.cgroup.memory import MemoryCgroup
-from vcmmd.cgroup.blkio import BlkIOCgroup
-from vcmmd.cgroup.cpuset import CpuSetCgroup
+from vcmmd.cgroup.base import Cgroup
+from vcmmd.util.misc import parse_range_list
+
+class CpuSetCgroup(Cgroup):
+
+    CONTROLLER = 'cpuset'
+
+    def get_cpu_list(self):
+        return parse_range_list(self._read_file_str("cpus"))
+
+    def get_node_list(self):
+        return parse_range_list(self._read_file_str("mems"))
+
+    def set_cpu_list(self, cpus):
+        self._write_file_str("cpus",",".join(map(str,cpus)))
+
+    def set_node_list(self, nodes):
+        self._write_file_str("mems",",".join(map(lambda x: str(x.id),nodes)))
