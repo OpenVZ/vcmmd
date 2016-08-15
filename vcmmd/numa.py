@@ -21,12 +21,14 @@ import re, os, psutil
 
 from vcmmd.util.singleton import Singleton
 from vcmmd.util.stats import Stats
+from vcmmd.util.misc import parse_range_list
 
 class Numa(object):
     __metaclass__ = Singleton
 
     def __init__(self):
         self.cpus = {i: CPU(i) for i in self.get_logical_cpus_ids()}
+        self.nodes = {i: Node(i) for i in self.get_nodes_ids()}
 
     def get_num_logical_cpus(self):
         return psutil.cpu_count(logical = True)
@@ -35,6 +37,11 @@ class Numa(object):
         #FIXME: may be non-sequential, but numad had not cared about this.
         return range(self.get_num_logical_cpus())
 
+    def get_nodes_ids(self):
+        # FIXME: in numad ids were saved
+        with open("/sys/devices/system/node/online") as node_list:
+            return parse_range_list(node_list.read())
+
     def read_cpu_stats(self):
         stats = open("/proc/stat", "r").readlines()
         for cpu in self.cpus.values():
@@ -42,12 +49,67 @@ class Numa(object):
 
     def update_stats(self):
         self.read_cpu_stats()
+        for node in self.nodes.values():
+            node.update_stats()
 
     def __str__(self):
         res = "CPUs:\n"
         for cpu in self.cpus.values():
             res += "\t%s\n" % cpu
+        res += "Nodes:\n"
+        for node in self.nodes.values():
+            res += "\t%s\n" % node
         return res
+
+class NodeStats(Stats):
+
+    ABSOLUTE_STATS = [
+        'memtotal',         # total amount of physical memory on host
+        'memfree',          # amount of memory left completely unused by host
+        'inactivefile',     # pagecache memory that can be reclaimed without
+                            #  huge performance impact
+        'filepages',        # memory used for file cache
+        'sreclaimable',     # amount of SLAB reclaimable memory
+        'cpuidle',          # percentage of time spent in the idle task
+    ]
+
+    CUMULATIVE_STATS = []
+
+    ALL_STATS = ABSOLUTE_STATS + CUMULATIVE_STATS
+
+class Node(object):
+    def __init__(self, node_id):
+        self.id = node_id
+        self.node_dir = "/sys/devices/system/node/node%d/" % self.id
+        self.update_topology()
+        self.stats = NodeStats()
+
+    def update_topology(self):
+        self.cpu_list = parse_range_list(open(self.node_dir + "cpulist").read())
+
+    def update_stats(self):
+        meminfo = open(self.node_dir + "meminfo").readlines()
+
+        stats = {}
+        for line in meminfo:
+            line = line.split()
+            # Node NUM VARIABLE: VALUE [kB]
+            stats[line[2][:-1]] = int(line[3])
+
+        self.stats._update(**{
+            "memtotal" : stats["MemTotal"],
+            "memfree" : stats["MemFree"],
+            "inactivefile" : stats["Inactive(file)"],
+            "filepages" : stats["FilePages"],
+            "sreclaimable" : stats["SReclaimable"],
+        # TODO: cpuidle sometimes more than 100
+            "cpuidle" : sum(Numa().cpus[x].stats.idle for x in self.cpu_list)
+        })
+
+    def __str__(self):
+        l = ["cpu_list", "stats"]
+        return ("Node %s: %s" %
+            (self.id, {x : str(self.__dict__[x]) for x in l}))
 
 class CPUStats(Stats):
 
