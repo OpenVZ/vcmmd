@@ -27,7 +27,7 @@ from libvirt import (VIR_DOMAIN_STATS_BLOCK as STATS_BLOCK,
                      VIR_DOMAIN_STATS_BALLOON as STATS_BALLOON,
                      VIR_CONNECT_GET_ALL_DOMAINS_STATS_RUNNING as GET_ALL_RUNNING)
 
-from vcmmd.cgroup import MemoryCgroup, CpuSetCgroup
+from vcmmd.cgroup import MemoryCgroup, CpuSetCgroup, CpuCgroup
 from vcmmd.ve.base import Error, VEImpl, register_ve_impl
 from vcmmd.ve_type import VE_TYPE_VM, VE_TYPE_VM_LINUX, VE_TYPE_VM_WINDOWS
 from vcmmd.config import VCMMDConfig
@@ -59,6 +59,9 @@ class VMImpl(VEImpl):
         self._memcg = MemoryCgroup(cgroup[MemoryCgroup.CONTROLLER])
         if not self._memcg.exists():
             raise Error("Memory cgroup not found: '%s'" % self._memcg.abs_path)
+        self._cpucg = CpuCgroup(cgroup[CpuCgroup.CONTROLLER])
+        if not self._cpucg.exists():
+            raise Error("Cpu cgroup not found: '%s'" % self._cpucg.abs_path)
         self._cpusetcg = CpuSetCgroup(cgroup[CpuSetCgroup.CONTROLLER])
         if not self._cpusetcg.exists():
             raise Error("CpuSet cgroup not found: '%s'" % self._cpusetcg.abs_path)

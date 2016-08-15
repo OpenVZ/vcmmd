@@ -19,9 +19,26 @@
 # Schaffhausen, Switzerland.
 
 from __future__ import absolute_import
+import re
 
-from vcmmd.cgroup.base import Cgroup, pid_cgroup
-from vcmmd.cgroup.memory import MemoryCgroup
-from vcmmd.cgroup.blkio import BlkIOCgroup
-from vcmmd.cgroup.cpuset import CpuSetCgroup
-from vcmmd.cgroup.cpu import CpuCgroup
+from vcmmd.cgroup.base import Cgroup
+
+class CpuCgroup(Cgroup):
+
+    CONTROLLER = 'cpu'
+
+    def get_cpu_stats(self):
+        names = ["user", "nice", "system", "idle"]
+        stats = self._read_file_str("proc.stat")
+        res = {}
+        for line in stats.splitlines():
+            if not re.search("cpu\d+", line):
+                continue
+            cpu, data = re.split(" ", line, maxsplit = 1)
+            cpu = int(cpu[3:])
+            for name, value in zip(names, re.findall("(\d+)", data)):
+                name, value = "cpu" + name, int(value)
+                if cpu not in res:
+                    res[cpu] = {}
+                res[cpu][name] = value
+        return res

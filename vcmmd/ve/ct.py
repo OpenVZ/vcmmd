@@ -23,7 +23,7 @@ from __future__ import absolute_import
 import time
 from multiprocessing.pool import ThreadPool
 
-from vcmmd.cgroup import MemoryCgroup, BlkIOCgroup, CpuSetCgroup
+from vcmmd.cgroup import MemoryCgroup, BlkIOCgroup, CpuSetCgroup, CpuCgroup
 from vcmmd.ve.base import Error, VEImpl, register_ve_impl
 from vcmmd.ve_type import VE_TYPE_CT, VE_TYPE_SERVICE
 from vcmmd.util.limits import PAGE_SIZE, UINT64_MAX
@@ -59,6 +59,7 @@ class CTImpl(VEImpl):
     def __init__(self, name):
         self._memcg = _lookup_cgroup(MemoryCgroup, name)
         self._blkcg = _lookup_cgroup(BlkIOCgroup, name)
+        self._cpucg = _lookup_cgroup(CpuCgroup, name)
         self._cpusetcg = _lookup_cgroup(CpuSetCgroup, name)
 
         self.mem_limit = UINT64_MAX
