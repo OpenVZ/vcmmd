@@ -28,6 +28,7 @@ from vcmmd.util.stats import Stats
 from vcmmd.util.misc import clamp
 from vcmmd.config import VCMMDConfig
 from vcmmd.cgroup import MemoryCgroup
+from vcmmd.numa import Numa
 
 
 class HostStats(Stats):
@@ -76,6 +77,7 @@ class Host(object):
         if self.ve_mem < 0:
             self.logger.error('Not enough memory to run VEs!')
 
+        self.numa = Numa()
     def _mem_size_from_config(self, name, mem_total, default):
         cfg = VCMMDConfig()
         share = cfg.get_num('Host.%s.Share' % name,
@@ -128,3 +130,6 @@ class Host(object):
                  }
         self.stats._update(**stats)
         self.logger.debug('update_stats: %s', self.stats)
+
+        self.numa.update_stats()
+        self.logger.debug('update_numa_stats: %s', self.numa)
