@@ -20,6 +20,7 @@
 
 from __future__ import absolute_import
 
+import re
 import time
 import threading
 
@@ -232,3 +233,18 @@ class MemoryCgroup(Cgroup):
         was not touched during the last scan.
         '''
         return self._get_idle_factor([1])
+
+    def get_numa_stats(self):
+        stats = self._read_file_str("numa_stat")
+        res = {}
+        for line in stats.split("\n"):
+            if not line:
+                continue
+            name, data = re.split(" ", line, maxsplit = 1)
+            name = "mem" + name.split("=")[0]
+            for node, value in re.findall("N(\d+)=(\d+)", data):
+                node, value = int(node), int(value)
+                if node not in res:
+                    res[node] = {}
+                res[node][name] = value
+        return res
