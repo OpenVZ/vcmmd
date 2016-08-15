@@ -17,6 +17,7 @@
 #
 # Our contact details: Parallels IP Holdings GmbH, Vordergasse 59, 8200
 # Schaffhausen, Switzerland.
+from itertools import chain
 
 def roundup(v, t):
     return v if (v % t) == 0 else v + t - (v % t)
@@ -28,3 +29,23 @@ def clamp(v, l, h):
 
 def sorted_by_val(d):
     return sorted(d, key=lambda k: d[k])
+
+def parse_range(rng):
+    '''Function produces list of integers which fall in range described in input string
+    i.e. "1-9" -> [1,2,3,4,5,6,7,8,9] or "1" -> [1]
+    '''
+    parts = rng.split('-')
+    if 1 > len(parts) > 2:
+        raise ValueError("Bad range: '%s'" % (rng,))
+    parts = [int(i) for i in parts]
+    start = parts[0]
+    end = start if len(parts) == 1 else parts[1]
+    if start > end:
+        end, start = start, end
+    return range(start, end + 1)
+
+def parse_range_list(rngs):
+    '''Function produces list of integers which fall in commaseparated range description
+    i.e. "1-3,5,4-8,9" -> [1,2,3,4,5,6,7,8,9]
+    '''
+    return sorted(set(chain(*[parse_range(rng) for rng in rngs.split(',')])))
