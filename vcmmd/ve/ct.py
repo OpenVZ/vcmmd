@@ -27,6 +27,7 @@ from vcmmd.cgroup import MemoryCgroup, BlkIOCgroup, CpuSetCgroup, CpuCgroup
 from vcmmd.ve.base import Error, VEImpl, register_ve_impl
 from vcmmd.ve_type import VE_TYPE_CT, VE_TYPE_SERVICE
 from vcmmd.util.limits import PAGE_SIZE, UINT64_MAX
+from vcmmd.numa import Numa
 
 
 # The thread pool is used in order not to block the main thread while
@@ -126,6 +127,30 @@ class CTImpl(VEImpl):
             raise Error('Cgroup write failed: %s' % err)
 
         self.mem_limit = min(self.mem_limit, config.limit)
+
+    def get_node_list(self):
+        '''Get list of nodes where CT is running
+        '''
+        try:
+            node_list = self._cpusetcg.get_node_list()
+        except IOError as err:
+            raise Error('Cgroup read failed: %s' % err)
+        return node_list
+
+    def set_node_list(self,nodes):
+        '''Change list of nodes for CT
+
+        This function change CT affinity and migrate CT's memory accordingly to
+        list of NUMA nodes
+        '''
+        cpus = []
+        for node in nodes:
+            cpus.extend(Numa().nodes[node].cpu_list)
+        try:
+            self._cpusetcg.set_node_list(nodes)
+            self._cpusetcg.set_cpu_list(cpus)
+        except IOError as err:
+            raise Error('Cgroup write failed: %s' % err)
 
 
 class ServiceCTImpl(CTImpl):

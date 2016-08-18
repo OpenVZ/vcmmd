@@ -36,6 +36,10 @@ from vcmmd.util.libvirt import (virDomainProxy,
                                 virConnectionProxy)
 from vcmmd.util.misc import roundup
 from vcmmd.util.limits import PAGE_SIZE
+from vcmmd.util.misc import parse_range_list
+from vcmmd.numa import Numa
+from libvirt import VIR_DOMAIN_NUMATUNE_MEM_STRICT as NUMATUNE_MEM_STRICT
+from libvirt import VIR_DOMAIN_AFFECT_CURRENT as AFFECT_CURRENT
 
 
 class VMImpl(VEImpl):
@@ -62,9 +66,6 @@ class VMImpl(VEImpl):
         self._cpucg = CpuCgroup(cgroup[CpuCgroup.CONTROLLER])
         if not self._cpucg.exists():
             raise Error("Cpu cgroup not found: '%s'" % self._cpucg.abs_path)
-        self._cpusetcg = CpuSetCgroup(cgroup[CpuSetCgroup.CONTROLLER])
-        if not self._cpusetcg.exists():
-            raise Error("CpuSet cgroup not found: '%s'" % self._cpusetcg.abs_path)
 
     def set_memstats_period(self, period):
         try:
@@ -189,6 +190,45 @@ class VMImpl(VEImpl):
                 self._hotplug_memory(value - max_mem)
         except libvirtError as err:
             raise Error('Failed to hotplug libvirt domain memory: %s' % err)
+
+    def get_node_list(self):
+        '''Get list of nodes where VM is running
+        NOTE: only for memory
+        '''
+        try:
+            ret = self._libvirt_domain.numaParameters()
+        except libvirtError as err:
+            raise Error(str(err))
+
+        return parse_range_list(ret['numa_nodeset'])
+
+    def set_node_list(self, nodes):
+        '''Change list of nodes for VM
+
+        This function change VM affinity and migrate VM's memory accordingly to
+        list of NUMA nodes
+        '''
+        cpus = []
+        for node in nodes:
+            cpus.extend(Numa().nodes[node].cpu_list)
+        cpu_map = [0] * (max(cpus) + 1)
+        for i in cpus:
+            cpu_map[i] = 1
+        cpu_map = tuple(cpu_map)
+
+        params = {'numa_nodeset': ','.join(map(str, nodes)),
+                  'numa_mode': NUMATUNE_MEM_STRICT}
+
+        try:
+            max_vcpus = self._libvirt_domain.maxVcpus()
+            for vcpu in range(max_vcpus):
+                self._libvirt_domain.pinVcpu(vcpu, cpu_map)
+
+            self._libvirt_domain.setNumaParameters(params, AFFECT_CURRENT)
+            self._libvirt_domain.pinEmulator(cpu_map, AFFECT_CURRENT)
+        except libvirtError as err:
+            raise Error(str(err))
+
 
 class VMLinImpl(VMImpl):
 
