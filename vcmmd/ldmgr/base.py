@@ -36,7 +36,7 @@ from vcmmd.ve_config import VEConfig, DefaultVEConfig
 from vcmmd.config import VCMMDConfig
 from vcmmd.ve import VE
 from vcmmd.host import Host
-from vcmmd.ldmgr.policy import PolicySet, BalloonPolicy
+from vcmmd.ldmgr.policy import PolicySet, BalloonPolicy, NumaPolicy
 
 
 class LoadManager(object):
@@ -92,6 +92,10 @@ class LoadManager(object):
             self._get_policy(
                 cfg.get_str('LoadManager.BalloonPolicy', self.FALLBACK_POLICY),
                 BalloonPolicy
+            )(),
+            self._get_policy(
+                cfg.get_str('LoadManager.NumaPolicy', self.FALLBACK_POLICY),
+                NumaPolicy
             )()
         )
         self.logger.info("Loaded policy '%s'", self._policy.get_name())

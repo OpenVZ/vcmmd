@@ -362,6 +362,6 @@ class VE(object):
             obj = self._get_obj()
             obj.set_node_list(nodes)
         except Error as err:
-            self._log_err('Failed to bind NUMA nodes: %s' err)
+            self._log_err('Failed to bind NUMA nodes: %s' % err)
         else:
             self._log_debug('set_node_list: %s' % str([n.id for n in nodes]))

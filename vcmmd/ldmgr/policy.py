@@ -129,10 +129,34 @@ class BalloonPolicy(Policy):
         '''
         pass
 
+class NumaPolicy(Policy):
+    '''Manages NUMA nodes' load by VEs.
+    '''
+    def balance(self):
+        '''Rebalance VEs between NUMA nodes.
+
+        Expects that self is an appropriate NumaPolicy with overwritten
+        get_numa_migrations.
+        '''
+        changes = self.get_numa_migrations()
+        for vm, nodes in changes.iteritems():
+            if nodes:
+                vm.set_node_list(nodes)
+
+    def get_numa_migrations(self):
+        '''Suggest VE numa node migrations.
+
+        Returns a mapping VE -> new node list, or None to preserve old list.
+
+        This function must be overridden in sub-class.
+        '''
+        pass
+
 class PolicySet(object):
-    def __init__(self, balloon):
+    def __init__(self, balloon, numa):
         self.policies = {
-            BalloonPolicy : balloon
+            BalloonPolicy : balloon,
+            NumaPolicy : numa
         }
         self.unique_policies = set(self.policies.values())
         self.DEFAULT_BALANCE_INTERVAL = min(
