@@ -67,6 +67,25 @@ class VEStats(Stats):
     ALL_STATS = ABSOLUTE_STATS + CUMULATIVE_STATS
 
 
+class VENumaNodeStats(Stats):
+
+    ABSOLUTE_STATS = [
+        'memtotal',        # sum of the following 3 stats:
+        'memfile',         # number of file pages
+        'memanon',         # number of anonymous pages
+        'memunevictable',  # number of unevictable pages
+    ]
+
+    CUMULATIVE_STATS = [
+        'cpuuser',         # Percentage of CPU utilization at the user level
+        'cpunice',         # Percentage of CPU utilization with nice priority
+        'cpusystem',       # Percentage of CPU utilization at the system level
+        'cpuidle',         # Percentage of time that the CPU or CPUs were idle
+    ]
+
+    ALL_STATS = ABSOLUTE_STATS + CUMULATIVE_STATS
+
+
 class VEImpl(object):
     '''VE implementation.
 
@@ -172,6 +191,7 @@ class VE(object):
         self.name = name
         self.config = config
         self.stats = VEStats()
+        self.numa_stats = {i: VENumaNodeStats() for i in Numa().get_nodes_ids()}
         self.active = False
         self._overhead = self._impl.mem_overhead(config.limit)
 
@@ -248,9 +268,27 @@ class VE(object):
         '''
         assert self.active
 
+        def sum_values_in_dicts(dicts):
+            ret = dicts[0]
+            for k in ret:
+                ret[k] += sum([d[k] for d in dicts[1:]])
+            return ret
+
         try:
             obj = self._get_obj()
             self.stats._update(**obj.get_stats())
+            cpucg_stats = obj._cpucg.get_cpu_stats()
+            numa_stats = [
+                {n: sum_values_in_dicts([cpucg_stats[cpu] for cpu in Numa().nodes[n].cpu_list])
+                    for n in Numa().nodes},
+                obj._memcg.get_numa_stats(),
+            ]
+            all = numa_stats[0]
+            for stats in numa_stats[1:]:
+                for node in stats:
+                    all[node].update(stats[node])
+            for node, data in all.iteritems():
+                self.numa_stats[node]._update(**data)
         except Error as err:
             self._log_err('Failed to update stats: %s', err)
         else:
@@ -316,3 +354,14 @@ class VE(object):
 
         self.config = config
         self._log_info('Config updated: %s', config)
+
+    def set_node_list(self, nodes):
+        '''Set VE NUMA binding
+        '''
+        try:
+            obj = self._get_obj()
+            obj.set_node_list(nodes)
+        except Error as err:
+            self._log_err('Failed to bind NUMA nodes: %s' err)
+        else:
+            self._log_debug('set_node_list: %s' % str([n.id for n in nodes]))

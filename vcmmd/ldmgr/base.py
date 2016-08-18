@@ -277,7 +277,10 @@ class LoadManager(object):
             ve = self._registered_ves.get(ve_name)
             if ve is None:
                 raise VCMMDError(VCMMD_ERROR_VE_NOT_REGISTERED)
-            return ve.stats.report()
+            res = ve.stats.report()
+            for id, stat in ve.numa_stats.iteritems():
+                res.extend([("N%s_" % id + stat, value) for stat, value in stat.report()])
+            return res
 
     @_request()
     def get_quotas(self):
