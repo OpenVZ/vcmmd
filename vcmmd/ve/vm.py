@@ -210,13 +210,13 @@ class VMImpl(VEImpl):
         '''
         cpus = []
         for node in nodes:
-            cpus.extend(Numa().nodes[node].cpu_list)
+            cpus.extend(node.cpu_list)
         cpu_map = [0] * (max(cpus) + 1)
         for i in cpus:
             cpu_map[i] = 1
         cpu_map = tuple(cpu_map)
 
-        params = {'numa_nodeset': ','.join(map(str, nodes)),
+        params = {'numa_nodeset': ','.join([str(n.id) for n in nodes]),
                   'numa_mode': NUMATUNE_MEM_STRICT}
 
         try:
