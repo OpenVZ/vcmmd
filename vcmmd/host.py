@@ -43,6 +43,10 @@ class HostStats(Stats):
         'ksm_pg_sharing',   # how many more sites are sharing them
         'ksm_pg_unshared',  # how many pages unique but repeatedly checked for merging
         'ksm_pg_volatile',  # how many pages changing too fast to be placed in a tree
+        'ksm_pages_to_scan',# how many present pages to scan before ksmd goes to sleep
+        'ksm_run',          # set 0 to stop ksmd from running but keep merged pages,
+                            # set 1 to run ksmd,
+                            # set 2 to stop ksmd and unmerge all pages currently merged.
 
     ]
 
@@ -56,6 +60,8 @@ class HostStats(Stats):
 class Host(object):
 
     __metaclass__ = Singleton
+
+    KSM_CONTROL_PATH = '/sys/kernel/mm/ksm/%s'
 
     def __init__(self):
         self.logger = logging.getLogger('vcmmd.host')
@@ -79,6 +85,7 @@ class Host(object):
             self.logger.error('Not enough memory to run VEs!')
 
         self.numa = Numa()
+
     def _mem_size_from_config(self, name, mem_total, default):
         cfg = VCMMDConfig()
         share = cfg.get_num('Host.%s.Share' % name,
@@ -108,11 +115,11 @@ class Host(object):
         '''Update host stats.
         '''
         sysfs_keys = ['full_scans', 'pages_sharing', 'pages_unshared',
-                      'pages_shared', 'pages_volatile']
+                      'pages_shared', 'pages_volatile', 'pages_to_scan', 'run']
 
         ksm_stats = {}
         for datum in sysfs_keys:
-            name = '/sys/kernel/mm/ksm/%s' % datum
+            name = self.KSM_CONTROL_PATH % datum
             try:
                 with open(name, 'r') as ksm_stats_file:
                     ksm_stats[datum] = int(ksm_stats_file.read())
@@ -129,6 +136,8 @@ class Host(object):
                  'ksm_pg_unshared': ksm_stats.get('pages_unshared', -1),
                  'ksm_pg_volatile': ksm_stats.get('pages_volatile', -1),
                  'ksm_full_scans': ksm_stats.get('full_scans', -1),
+                 'ksm_pages_to_scan': ksm_stats.get('pages_to_scan', -1),
+                 'ksm_run': ksm_stats.get('run', -1),
                  }
         self.stats._update(**stats)
         self.logger.debug('update_stats: %s', self.stats)
@@ -137,3 +146,11 @@ class Host(object):
     def update_numa_stats(self):
         self.numa.update_stats()
         self.logger.debug('update_numa_stats: %s', self.numa)
+
+    def ksmtune(self, params):
+        for key, val in params.iteritems():
+            with open(self.KSM_CONTROL_PATH % key, 'w') as f:
+                try:
+                    f.write(str(val))
+                except IOError, err:
+                    self.logger.error("Failed to set %r = %r", self.KSM_CONTROL_PATH % key, val)
