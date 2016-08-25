@@ -32,6 +32,7 @@ from vcmmd.error import (VCMMDError,
 from vcmmd.ve_type import get_ve_type_name
 from vcmmd.util.stats import Stats
 from vcmmd.numa import Numa
+from vcmmd.util.threading import update_stats_single
 
 
 class Error(Exception):
@@ -263,9 +264,8 @@ class VE(object):
         except Error as err:
             self._log_err('Failed to set memstats update period: %s', err)
 
-    def update_stats(self):
-        '''Update VE stats.
-        '''
+    @update_stats_single
+    def update_numa_stats(self):
         assert self.active
 
         def sum_values_in_dicts(dicts):
@@ -276,7 +276,6 @@ class VE(object):
 
         try:
             obj = self._get_obj()
-            self.stats._update(**obj.get_stats())
             cpucg_stats = obj._cpucg.get_cpu_stats()
             numa_stats = [
                 {n: sum_values_in_dicts([cpucg_stats[cpu] for cpu in Numa().nodes[n].cpu_list])
@@ -289,6 +288,20 @@ class VE(object):
                     all[node].update(stats[node])
             for node, data in all.iteritems():
                 self.numa_stats[node]._update(**data)
+        except Error as err:
+            self._log_err('Failed to update numa stats: %s', err)
+        else:
+            self._log_debug('update_numa_stats: %s', self.stats)
+
+    @update_stats_single
+    def update_stats(self):
+        '''Update VE stats.
+        '''
+        assert self.active
+
+        try:
+            obj = self._get_obj()
+            self.stats._update(**obj.get_stats())
         except Error as err:
             self._log_err('Failed to update stats: %s', err)
         else:

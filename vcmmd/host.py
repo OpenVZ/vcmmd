@@ -26,6 +26,7 @@ import psutil
 from vcmmd.util.singleton import Singleton
 from vcmmd.util.stats import Stats
 from vcmmd.util.misc import clamp
+from vcmmd.util.threading import update_stats_single
 from vcmmd.config import VCMMDConfig
 from vcmmd.cgroup import MemoryCgroup
 from vcmmd.numa import Numa
@@ -102,6 +103,7 @@ class Host(object):
             if verbose:
                 self.logger.info('Reserved %s bytes for %s slice', value, name)
 
+    @update_stats_single
     def update_stats(self):
         '''Update host stats.
         '''
@@ -131,5 +133,7 @@ class Host(object):
         self.stats._update(**stats)
         self.logger.debug('update_stats: %s', self.stats)
 
+    @update_stats_single
+    def update_numa_stats(self):
         self.numa.update_stats()
         self.logger.debug('update_numa_stats: %s', self.numa)

@@ -48,3 +48,22 @@ def setup_thread_excepthook():
         self.run = run_with_except_hook
 
     threading.Thread.__init__ = init
+
+def update_stats_single(fn):
+    '''
+    Special decorator for update stats methos
+    Such methods should not be running in parallel for single object
+    '''
+    lock = threading.Lock()
+    def wrapped(*args, **kwargs):
+        if lock.locked():
+            # looks like some one update this stats right now,
+            # so let's just wait until it finished.
+            with lock:
+                return
+
+        with lock:
+            # update stats methods should not return anything
+            assert not fn(*args, **kwargs)
+    wrapped.__lock = lock
+    return wrapped
