@@ -233,9 +233,6 @@ class VE(object):
         self._log_info('Activated')
         self.update_stats()
 
-        self.target = None
-        self.protection = None
-
     def deactivate(self):
         '''Mark VE inactive.
 
@@ -316,7 +313,7 @@ class VE(object):
     def mem_shared(self):
         return max(0, self.stats.rss - self.stats.host_mem)
 
-    def set_mem(self, target, protection):
+    def set_mem(self, target = None, protection = None):
         '''Set VE memory consumption target.
         '''
         assert self.active
@@ -324,10 +321,10 @@ class VE(object):
         msg = ''
         try:
             obj = self._get_obj()
-            if self.stats.actual != target:
+            if target is not None:
                 obj.set_mem_target(target)
                 msg = 'target:%d ' % target
-            if self.protection != protection:
+            if protection is not None:
                 obj.set_mem_protection(protection)
                 msg += 'protection:%d' % protection
         except Error as err:
