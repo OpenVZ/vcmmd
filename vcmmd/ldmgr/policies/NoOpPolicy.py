@@ -20,10 +20,10 @@
 
 from __future__ import absolute_import
 
-from vcmmd.ldmgr.policy import BalloonPolicy, NumaPolicy
+from vcmmd.ldmgr.policy import BalloonPolicy, NumaPolicy, KSMPolicy
 
 
-class NoOpPolicy(BalloonPolicy, NumaPolicy):
+class NoOpPolicy(BalloonPolicy, NumaPolicy, KSMPolicy):
     '''No Operation load manager policy.
 
     Set memory quotas to configured limits and let the host kernel do the rest.
@@ -36,3 +36,43 @@ class NoOpPolicy(BalloonPolicy, NumaPolicy):
 
     def get_numa_migrations(self):
         return {ve: None for ve in self.ve_list}
+
+    def update_ksm_stats(self):
+        self.host.update_stats()
+
+    def get_ksm_params(self):
+        ''' Base KSM policy, mostly cp/ps from ksmtuned
+        '''
+        ksm_pages_boost = 300
+        ksm_pages_decay = -50
+        ksm_npages_min = 64
+        ksm_npages_max = 1250
+        ksm_threshold = 0.20
+        ksm_sleep_ms_baseline = 10
+        ksm_hostmem_baseline = 16 << 30
+
+        params = {}
+
+        need_stats = (self.host.stats.memtotal, self.host.stats.memfree,
+                      self.host.stats.memavail, self.host.stats.ksm_pages_to_scan)
+
+        if filter(lambda x: x < 0, need_stats):
+            return {}
+
+        ksm_shareable = sum(ve.effective_limit + ve.mem_overhead for ve in self.ve_list)
+        if ksm_shareable < (1 - ksm_threshold) * self.host.stats.memtotal and \
+           self.host.stats.memfree > ksm_threshold * self.host.stats.memtotal:
+            params['run'] = 0
+        else:
+            params['run'] = 1
+
+            params['sleep_millisecs'] = int(ksm_sleep_ms_baseline * \
+                                            (float(ksm_hostmem_baseline) / self.host.stats.memtotal))
+            if self.host.stats.memavail < self.host.stats.memtotal * ksm_threshold:
+                delta = ksm_pages_boost
+            else:
+                delta = ksm_pages_decay
+
+            new = self.host.stats.ksm_pages_to_scan + delta
+            params['pages_to_scan'] = min(max(ksm_npages_min, new), ksm_npages_max)
+        return params

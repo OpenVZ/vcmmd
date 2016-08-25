@@ -171,3 +171,25 @@ class NumaPolicy(Policy):
         This function must be overridden in sub-class.
         '''
         pass
+
+
+class KSMPolicy(Policy):
+    '''Manages ksm parametrs on host
+    '''
+    def __init__(self):
+        super(KSMPolicy, self).__init__()
+        self.controllers.add(self.ksm_controller)
+        self.ksm_timeout = 60
+
+    def update_ksm_stats(self):
+        pass
+
+    def ksm_controller(self):
+        self.update_ksm_stats()
+        params = self.get_ksm_params()
+        self.host.ksmtune(params)
+
+        return Request(self.ksm_controller, timeout = self.ksm_timeout)
+
+    def get_ksm_params(self):
+        return {}
