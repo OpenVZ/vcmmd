@@ -273,7 +273,6 @@ class LoadManager(object):
                 res.extend([("N%s_" % id + stat, value) for stat, value in stat.report()])
             return res
 
-    @_request()
     def get_quotas(self):
         return [(ve.name, ve.target, ve.protection)
                 for ve in self._registered_ves.itervalues()
