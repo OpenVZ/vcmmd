@@ -31,12 +31,63 @@ import psutil
 from vcmmd.error import (VCMMDError,
                          VCMMD_ERROR_VE_NAME_ALREADY_IN_USE,
                          VCMMD_ERROR_VE_NOT_REGISTERED,
-                         VCMMD_ERROR_UNABLE_APPLY_VE_GUARANTEE)
+                         VCMMD_ERROR_UNABLE_APPLY_VE_GUARANTEE,
+                         VCMMD_ERROR_TOO_MANY_REQUESTS)
 from vcmmd.ve_config import VEConfig, DefaultVEConfig
 from vcmmd.config import VCMMDConfig
 from vcmmd.ve import VE
 from vcmmd.host import Host
 from vcmmd.ldmgr.policy import PolicySet, BalloonPolicy, NumaPolicy
+
+
+class RQueue:
+    def __init__(self, maxsize):
+        self._maxsize = maxsize
+        self._reqs = []
+        self._lock = threading.Lock()
+        self._sort = lambda: self._reqs.sort(lambda x,y: int(x.timestemp - y.timestemp))
+
+    def put(self, element):
+        with self._lock:
+            if self._maxsize > 0 and len(self._reqs) >= self._maxsize:
+                raise Queue.Full
+            self._reqs.append(element)
+            self._sort()
+
+    def get(self):
+        with self._lock:
+            if not self._reqs:
+                return
+            req = self._reqs[0]
+            if req.timestemp <= time.time():
+                return self._reqs.pop(0)
+
+
+class Request(object):
+
+    def __init__(self, fn, args = None, kwargs = None, timeout = 0):
+        self.fn = fn
+        self.args = args or ()
+        self.kwargs = kwargs or {}
+        self._ret = None
+        self._err = None
+        self._done = threading.Event()
+        self.timestemp = timeout + time.time()
+
+    def wait(self):
+        self._done.wait()
+        if self._err:
+            raise self._err
+        return self._ret
+
+    def __call__(self):
+        try:
+            ret = self.fn(*self.args, **self.kwargs)
+        except VCMMDError as err:
+            self._err = err
+        else:
+            self._ret = ret
+        self._done.set()
 
 
 class LoadManager(object):
@@ -119,41 +170,17 @@ class LoadManager(object):
             self._process_request()
 
     def _request(sync=True):
-
-        class Request(object):
-
-            def __init__(self, fn, args, kwargs):
-                self.fn = fn
-                self.args = args
-                self.kwargs = kwargs
-                self._ret = None
-                self._err = None
-                self._done = threading.Event()
-
-            def wait(self):
-                self._done.wait()
-                if self._err:
-                    raise self._err
-                return self._ret
-
-            def __call__(self):
-                try:
-                    ret = self.fn(*self.args, **self.kwargs)
-                except VCMMDError as err:
-                    self._err = err
-                else:
-                    self._ret = ret
-                self._done.set()
-
         def wrap(fn):
             def wrapped(*args, **kwargs):
                 self = args[0]
                 req = Request(fn, args, kwargs)
-                self._queue_request(req)
+                try:
+                    self._req_queue.put(req)
+                except Queue.Full:
+                    raise VCMMDError(VCMMD_ERROR_TOO_MANY_REQUESTS)
                 if sync:
                     return req.wait()
             return wrapped
-
         return wrap
 
     @_request()
