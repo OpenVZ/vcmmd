@@ -123,7 +123,7 @@ class BalloonPolicy(Policy):
         # TODO need only once
         self.host._set_slice_mem('machine', -1, verbose=False)
 
-        return Request(self.balloon_controller, timeout = self.balloon_timeout)
+        return Request(self.balloon_controller, timeout=self.balloon_timeout, blocker=True)
 
     def calculate_balloon_size(self):
         '''Calculate VE memory quotas
@@ -161,7 +161,7 @@ class NumaPolicy(Policy):
             if nodes:
                 ve.set_node_list(nodes)
 
-        return Request(self.numa_controller, timeout = self.numa_timeout)
+        return Request(self.numa_controller, timeout=self.numa_timeout, blocker=True)
 
     def get_numa_migrations(self):
         '''Suggest VE numa node migrations.
@@ -189,7 +189,7 @@ class KSMPolicy(Policy):
         params = self.get_ksm_params()
         self.host.ksmtune(params)
 
-        return Request(self.ksm_controller, timeout = self.ksm_timeout)
+        return Request(self.ksm_controller, timeout=self.ksm_timeout, blocker=True)
 
     def get_ksm_params(self):
         return {}

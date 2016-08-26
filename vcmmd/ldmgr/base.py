@@ -20,13 +20,13 @@
 
 from __future__ import absolute_import
 
-import Queue
 import os
 import logging
 import threading
 import time
 import importlib
 import psutil
+from Queue import Full as QueueFull, Empty as QueueEmpty
 
 from vcmmd.error import (VCMMDError,
                          VCMMD_ERROR_VE_NAME_ALREADY_IN_USE,
@@ -39,39 +39,95 @@ from vcmmd.ve import VE
 from vcmmd.host import Host
 
 
-class RQueue:
-    def __init__(self, maxsize):
+class RQueue(object):
+    """Create a queue object with a given maximum size.
+    If maxsize is <= 0, the queue size is infinite.
+
+    Every queue item MUST have timestamp atribute.
+    """
+    def __init__(self, maxsize=0):
         self._maxsize = maxsize
         self._reqs = []
         self._lock = threading.Lock()
-        self._sort = lambda: self._reqs.sort(lambda x,y: int(x.timestemp - y.timestemp))
+        self._sort = lambda: self._reqs.sort(lambda x,y: int(x.timestamp - y.timestamp))
+        self._not_empty = threading.Condition(self._lock)
+        self._not_full = threading.Condition(self._lock)
 
-    def put(self, element):
-        with self._lock:
+    def put(self, item, block=True):
+        """Put an item into the queue.
+        If 'block' is True and 'maxsize' is reached for queue it blocks
+        until the vacant position will be in a queue.
+        If 'block' is false raises the Full exception.
+        """
+        with self._not_full:
             if self._maxsize > 0 and len(self._reqs) >= self._maxsize:
-                raise Queue.Full
-            self._reqs.append(element)
+                if not block:
+                    raise QueueFull
+                self._not_full.wait()
+            self._reqs.append(item)
+            # Sort items by timestams
             self._sort()
+            self._not_empty.notify()
 
-    def get(self):
-        with self._lock:
-            if not self._reqs:
-                return
-            req = self._reqs[0]
-            if req.timestemp <= time.time():
-                return self._reqs.pop(0)
+    def put_nowait(self, item):
+        """Put an item into the queue without blocking.
+        Only enqueue the item if a free slot is immediately available.
+        Otherwise raise the Full exception.
+        """
+        return self.put(item, False)
+
+    def get(self, block=True):
+        """Remove and return an item from the queue.
+        If 'block' is True and 'timestamp' is not reached for first item
+        in queue it blocks until timestamp or wait a new item added.
+        If 'block' is false raises the Empty exception if no item was available
+        right now.
+        """
+        with self._not_empty:
+            while True:
+                if not len(self._reqs):
+                    if not block:
+                        raise QueueEmpty
+                    self._not_empty.wait()
+                req = self._reqs[0]
+                remaining = max(req.timestamp - time.time(), 0)
+                if not remaining:
+                    break
+                elif not block:
+                    # TODO should we raise an exception in such case?
+                    raise QueueEmpty
+                self._not_empty.wait(remaining)
+            self._not_full.notify()
+            return self._reqs.pop(0)
+
+    def get_nowait(self):
+        """Remove and return an item from the queue without blocking.
+
+        Only get an item if one is immediately available. Otherwise
+        raise the Empty exception.
+        """
+        return self.get(False)
 
 
 class Request(object):
-
-    def __init__(self, fn, args = None, kwargs = None, timeout = 0):
+    '''Common class for all requests to LoadManager
+    '''
+    def __init__(self, fn, args = None, kwargs = None, timeout = 0, blocker=False):
         self.fn = fn
         self.args = args or ()
         self.kwargs = kwargs or {}
         self._ret = None
         self._err = None
         self._done = threading.Event()
-        self.timestemp = timeout + time.time()
+        # Time when request should be executed.
+        self.timestamp = timeout + time.time()
+        self._blocker = blocker
+
+    def is_blocker(self):
+        '''
+        If request is blocker it MUST be in Load Manager request queue.
+        '''
+        return self._blocker
 
     def wait(self):
         self._done.wait()
@@ -133,16 +189,13 @@ class LoadManager(object):
 
     def _queue_request(self, req):
         try:
-            self._req_queue.put(req)
-        except Queue.Full:
+            self._req_queue.put(req, req.is_blocker())
+        except QueueFull:
             self.logger.error('Too many requests, ignore(%r)', len(self._workers))
 
     def _worker_thread_fn(self):
         while not self._should_stop:
             req = self._req_queue.get()
-            if not req:
-                time.sleep(0.1)
-                continue
             req()
             new_req = req.wait()
             if new_req:
@@ -154,7 +207,7 @@ class LoadManager(object):
                 self = args[0]
                 req = Request(fn, args, kwargs)
                 try:
-                    self._req_queue.put(req)
+                    self._req_queue.put_nowait(req)
                 except Queue.Full:
                     raise VCMMDError(VCMMD_ERROR_TOO_MANY_REQUESTS)
                 if sync:
