@@ -137,17 +137,22 @@ class Request(object):
 
     def __call__(self):
         try:
-            ret = self.fn(*self.args, **self.kwargs)
+            self._ret = self.fn(*self.args, **self.kwargs)
+            return self._ret
         except VCMMDError as err:
             self._err = err
-        else:
-            self._ret = ret
-        self._done.set()
+        finally:
+            self._done.set()
 
 
 class LoadManager(object):
 
     FALLBACK_POLICY = 'NoOpPolicy'
+
+    class ShutdownException(Exception):
+        """Raise when shutdown request is received
+        """
+        pass
 
     def __init__(self):
         self.logger = logging.getLogger('vcmmd.ldmgr')
@@ -163,7 +168,6 @@ class LoadManager(object):
 
         self._req_queue = RQueue(maxsize = 25)
         self._workers = [threading.Thread(target=self._worker_thread_fn) for _ in range(thn)]
-        self._should_stop = False
         [w.start() for w in self._workers]
 
         # Load a policy
@@ -194,10 +198,12 @@ class LoadManager(object):
             self.logger.error('Too many requests, ignore(%r)', len(self._workers))
 
     def _worker_thread_fn(self):
-        while not self._should_stop:
+        while True:
             req = self._req_queue.get()
-            req()
-            new_req = req.wait()
+            try:
+                new_req = req()
+            except LoadManager.ShutdownException:
+                return
             if new_req:
                 self._queue_request(new_req)
 
@@ -217,7 +223,10 @@ class LoadManager(object):
 
     @_request()
     def _do_shutdown(self):
-        self._should_stop = True
+        def shutdown():
+            raise LoadManager.ShutdownException
+        for w in self._workers:
+            self._queue_request(Request(shutdown, blocker=True))
 
     def shutdown(self):
         self._do_shutdown()
