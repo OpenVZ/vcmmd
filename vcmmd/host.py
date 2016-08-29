@@ -149,8 +149,8 @@ class Host(object):
 
     def ksmtune(self, params):
         for key, val in params.iteritems():
-            with open(self.KSM_CONTROL_PATH % key, 'w') as f:
-                try:
+            try:
+                with open(self.KSM_CONTROL_PATH % key, 'w') as f:
                     f.write(str(val))
-                except IOError, err:
-                    self.logger.error("Failed to set %r = %r", self.KSM_CONTROL_PATH % key, val)
+            except IOError, err:
+                self.logger.error("Failed to set %r = %r", self.KSM_CONTROL_PATH % key, val)
