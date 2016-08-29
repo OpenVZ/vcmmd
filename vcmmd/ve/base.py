@@ -231,7 +231,6 @@ class VE(object):
 
         self.active = True
         self._log_info('Activated')
-        self.update_stats()
 
     def deactivate(self):
         '''Mark VE inactive.

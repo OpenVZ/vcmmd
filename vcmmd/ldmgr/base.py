@@ -37,7 +37,6 @@ from vcmmd.ve_config import VEConfig, DefaultVEConfig
 from vcmmd.config import VCMMDConfig
 from vcmmd.ve import VE
 from vcmmd.host import Host
-from vcmmd.ldmgr.policy import PolicySet, BalloonPolicy, NumaPolicy
 
 
 class RQueue:
@@ -102,31 +101,23 @@ class LoadManager(object):
 
         self._host = Host()
 
-        self._req_queue = Queue.Queue()
-        self._last_update = 0
-        self._worker = threading.Thread(target=self._worker_thread_fn)
-        self._should_stop = False
-
         cfg = VCMMDConfig()
 
+        thn = cfg.get_num('LoadManager.ThreadsNum', 5)
+
+        self._req_queue = RQueue(maxsize = 25)
+        self._workers = [threading.Thread(target=self._worker_thread_fn) for _ in range(thn)]
+        self._should_stop = False
+        [w.start() for w in self._workers]
+
         # Load a policy
-        self._load_policy_set()
+        self._load_policy(cfg.get_str('LoadManager.Policy',
+                                      self.FALLBACK_POLICY))
 
-        # Configure update interval
-        self._update_interval = cfg.get_num('LoadManager.UpdateInterval',
-                                            default=self._policy.DEFAULT_BALANCE_INTERVAL,
-                                            integer=True, minimum=1)
-        self.logger.info('Update interval set to %ds', self._update_interval)
-
-        self._worker.start()
-
-    def _get_policy(self, policy_name, policy_class):
+    def _load_policy(self, policy_name):
         try:
             policy_module = importlib.import_module(
                 'vcmmd.ldmgr.policies.' + policy_name)
-            policy = getattr(policy_module, policy_name)
-            if policy_class not in policy.__bases__:
-                raise ImportError
         except ImportError as err:
             self.logger.error("Failed to load policy '%s': %s",
                               policy_name, err)
@@ -134,40 +125,28 @@ class LoadManager(object):
             policy_name = self.FALLBACK_POLICY
             policy_module = importlib.import_module(
                 'vcmmd.ldmgr.policies.' + policy_name)
-            policy = getattr(policy_module, policy_name)
-        return policy
-
-    def _load_policy_set(self):
-        cfg = VCMMDConfig()
-        self._policy = PolicySet(
-            self._get_policy(
-                cfg.get_str('LoadManager.BalloonPolicy', self.FALLBACK_POLICY),
-                BalloonPolicy
-            )(),
-            self._get_policy(
-                cfg.get_str('LoadManager.NumaPolicy', self.FALLBACK_POLICY),
-                NumaPolicy
-            )()
-        )
-        self.logger.info("Loaded policy '%s'", self._policy.get_name())
+        self._policy = getattr(policy_module, policy_name)()
+        self.logger.info("Loaded policy '%s'", policy_name)
+        reqs = self._policy.sched_req()
+        for req in reqs:
+            self._queue_request(req)
 
     def _queue_request(self, req):
-        self._req_queue.put(req)
-
-    def _process_request(self):
-        timeout = (self._last_update + self._update_interval - time.time())
-        block = timeout > 0
         try:
-            req = self._req_queue.get(block=block, timeout=timeout)
-        except Queue.Empty:
-            self._balance_ves()
-        else:
-            req()
-            self._req_queue.task_done()
+            self._req_queue.put(req)
+        except Queue.Full:
+            self.logger.error('Too many requests, ignore(%r)', len(self._workers))
 
     def _worker_thread_fn(self):
         while not self._should_stop:
-            self._process_request()
+            req = self._req_queue.get()
+            if not req:
+                time.sleep(0.1)
+                continue
+            req()
+            new_req = req.wait()
+            if new_req:
+                self._queue_request(new_req)
 
     def _request(sync=True):
         def wrap(fn):
@@ -189,21 +168,7 @@ class LoadManager(object):
 
     def shutdown(self):
         self._do_shutdown()
-        self._worker.join()
-
-    def _balance_ves(self):
-        # Update VE stats if enough time has passed
-        now = time.time()
-        if now > self._last_update + self._update_interval:
-            self._last_update = now
-            self._host.update_stats()
-            for ve in self._registered_ves.itervalues():
-                if ve.active:
-                    ve.update_stats()
-                    self._policy.ve_updated(ve)
-
-        # Call the policy to calculate VEs' quotas.
-        self._policy.balance()
+        [w.join() for w in self._workers]
 
     def _check_guarantees(self, delta):
         mem_min = sum(ve.mem_min for ve in self._registered_ves.itervalues())
@@ -226,7 +191,6 @@ class LoadManager(object):
         self._policy.ve_registered(ve)
 
         self.logger.info('Registered %s (%s)', ve, ve.config)
-        self._balance_ves()
 
     @_request()
     def activate_ve(self, ve_name):
@@ -236,7 +200,6 @@ class LoadManager(object):
 
         ve.activate()
         self._policy.ve_activated(ve)
-        self._balance_ves()
 
     @_request()
     def update_ve_config(self, ve_name, ve_config):
@@ -251,7 +214,6 @@ class LoadManager(object):
         ve.effective_limit = min(ve.config.limit, self._host.ve_mem)
 
         self._policy.ve_config_updated(ve)
-        self._balance_ves()
 
     @_request()
     def deactivate_ve(self, ve_name):
@@ -261,7 +223,6 @@ class LoadManager(object):
 
         ve.deactivate()
         self._policy.ve_deactivated(ve)
-        self._balance_ves()
 
     @_request()
     def unregister_ve(self, ve_name):
@@ -276,7 +237,6 @@ class LoadManager(object):
             self._policy.ve_deactivated(ve)
 
         self.logger.info('Unregistered %s', ve)
-        self._balance_ves()
 
     def is_ve_active(self, ve_name):
         with self._registered_ves_lock:
