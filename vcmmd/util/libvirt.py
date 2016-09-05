@@ -116,7 +116,11 @@ def lookup_qemu_machine_pid(name):
     '''Given the name of a QEMU machine, lookup its PID.
     '''
     for proc in psutil.process_iter():
-        cmd = proc.cmdline()
+        # Workaround for old psutil(1.2.1)
+        if isinstance(proc.cmdline, list):
+            cmd = proc.cmdline
+        else:
+            cmd = proc.cmdline()
         if not cmd or not cmd[0].endswith('qemu-kvm'):
             continue
         name_idx = cmd.index('-name') + 1

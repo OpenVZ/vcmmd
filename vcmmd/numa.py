@@ -22,6 +22,7 @@ import re, os, psutil
 from vcmmd.util.singleton import Singleton
 from vcmmd.util.stats import Stats
 from vcmmd.util.misc import parse_range_list
+import multiprocessing
 
 class Numa(object):
     __metaclass__ = Singleton
@@ -31,7 +32,16 @@ class Numa(object):
         self.nodes = {i: Node(i) for i in self.get_nodes_ids()}
 
     def get_num_logical_cpus(self):
-        return psutil.cpu_count(logical = True)
+        if hasattr(psutil, 'cpu_count'):
+             return psutil.cpu_count(logical = True)
+        # Workaround for old psutil(1.2.1)
+        # multiprocessing.cpu_count relies on a _SC_NPROCESSORS_ONLN
+        # The values might differ with _SC_NPROCESSORS_CONF in systems with
+        # advanced CPU power management functionality.
+        # In some occasions multiprocessing.cpu_count may raise a
+        # NotImplementedError while psutil will be able to obtain
+        # the number of CPUs.
+        return multiprocessing.cpu_count()
 
     def get_logical_cpus_ids(self):
         #FIXME: may be non-sequential, but numad had not cared about this.
