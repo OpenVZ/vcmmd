@@ -20,6 +20,7 @@
 
 from vcmmd.host import Host
 from vcmmd.ldmgr.base import Request
+from vcmmd.config import VCMMDConfig
 import logging
 
 
