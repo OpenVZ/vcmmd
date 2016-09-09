@@ -82,6 +82,10 @@ class BalloonPolicy(Policy):
     '''
     def __init__(self):
         super(BalloonPolicy, self).__init__()
+        bc = VCMMDConfig().get_bool("LoadManager.Controllers.Balloon", True)
+        self.logger.info("Controllers.Balloon = %r" % bc)
+        if not bc:
+            return
         self.controllers.add(self.balloon_controller)
         self.balloon_timeout = 5
 
@@ -142,6 +146,10 @@ class NumaPolicy(Policy):
     '''
     def __init__(self):
         super(NumaPolicy, self).__init__()
+        nc = VCMMDConfig().get_bool("LoadManager.Controllers.NUMA", True)
+        self.logger.info("Controllers.NUMA = %r" % nc)
+        if not nc:
+            return
         self.controllers.add(self.numa_controller)
         self.numa_timeout = 60 * 5
 
@@ -178,6 +186,10 @@ class KSMPolicy(Policy):
     '''
     def __init__(self):
         super(KSMPolicy, self).__init__()
+        kc = VCMMDConfig().get_bool("LoadManager.Controllers.KSM", True)
+        self.logger.info("Controllers.KSM = %r" % kc)
+        if not kc:
+            return
         self.controllers.add(self.ksm_controller)
         self.ksm_timeout = 60
 
