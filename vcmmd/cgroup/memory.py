@@ -28,6 +28,7 @@ from vcmmd.cgroup import idlememscan
 from vcmmd.cgroup.base import Cgroup
 from vcmmd.util.limits import INT64_MAX
 from vcmmd.util.singleton import Singleton
+from vcmmd.util.limits import PAGE_SIZE
 
 
 class _IdleMemScanner:
@@ -246,5 +247,5 @@ class MemoryCgroup(Cgroup):
                 node, value = int(node), int(value)
                 if node not in res:
                     res[node] = {}
-                res[node][name] = value
+                res[node][name] = value * PAGE_SIZE
         return res
