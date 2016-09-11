@@ -40,4 +40,4 @@ class CpuSetCgroup(Cgroup):
         self._write_file_str("cpus",",".join(map(str,cpus)))
 
     def set_node_list(self, nodes):
-        self._write_file_str("mems",",".join(map(lambda x: str(x.id),nodes)))
+        self._write_file_str("mems",",".join(map(lambda x: str(x),nodes)))

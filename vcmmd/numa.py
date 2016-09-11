@@ -17,23 +17,87 @@
 #
 # Our contact details: Parallels IP Holdings GmbH, Vordergasse 59, 8200
 # Schaffhausen, Switzerland.
-import re, os, psutil
+import os, psutil
 
-from vcmmd.util.singleton import Singleton
+from vcmmd.env import Env
 from vcmmd.util.stats import Stats
 from vcmmd.util.misc import parse_range_list
 import multiprocessing
+from vcmmd.util.threading import update_stats_single
+
+
+class NumaStats(object):
+
+
+    class MemStats(Stats):
+        ABSOLUTE_STATS = [
+            'memtotal',
+            'memusage',
+        ]
+
+
+    class CpuStats(Stats):
+        # TODO move to cumulative
+        ABSOLUTE_STATS = [
+            'cpuuser',
+            'cpunice',
+            'cpusystem',
+            'cpuidle',
+        ]
+
+    def __init__(self, node_ids, cpu_list):
+        self.memstats = {n: NumaStats.MemStats() for n in node_ids}
+        self.cpustats = {n: {c: NumaStats.CpuStats() for c in cpu_list[n]} for n in node_ids}
+        self.node_ids = node_ids
+
+    def update_memstats(self, memstats):
+        for n in self.node_ids:
+            self.memstats[n]._update(**memstats.get(n, {}))
+
+    def update_cpustats(self, cpustats):
+        for n in self.node_ids:
+            for c in self.cpustats[n]:
+                self.cpustats[n][c]._update(**cpustats.get(c, {}))
+
+    def report(self):
+        ret = {}
+        for n in self.cpustats:
+            ret[n] = {'numa_memory': self.memstats[n].report()}
+            for c in self.cpustats[n]:
+                ret[n].update({'numa_cpus': self.cpustats[n][c].report()})
+        return ret
+
+    def __str__(self):
+        return str(self.report())
+
 
 class Numa(object):
-    __metaclass__ = Singleton
 
-    def __init__(self):
-        self.cpus = {i: CPU(i) for i in self.get_logical_cpus_ids()}
-        self.nodes = {i: Node(i) for i in self.get_nodes_ids()}
+    NUMA_NODE_SYS_PATH = "/sys/devices/system/node/node%d/"
+    __inited = False
 
-    def get_num_logical_cpus(self):
+    def __init__(self, env):
+        assert isinstance(env, Env)
+        self.__env = env
+        Numa.init()
+        self.stats = NumaStats(self.nodes_ids, self.cpu_list)
+
+    @classmethod
+    def init(cls):
+        if cls.__inited:
+            return
+        cls.nodes_ids = cls.get_nodes_ids()
+        cls.cpu_list = {}
+        for n in cls.nodes_ids:
+	    node_dir = cls.NUMA_NODE_SYS_PATH % n
+            with open(node_dir + "cpulist") as f:
+                cls.cpu_list[n] = parse_range_list(f.read())
+        cls.__inited = True
+
+    @staticmethod
+    def get_logical_cpus_ids():
         if hasattr(psutil, 'cpu_count'):
-             return psutil.cpu_count(logical = True)
+             return range(psutil.cpu_count(logical = True))
         # Workaround for old psutil(1.2.1)
         # multiprocessing.cpu_count relies on a _SC_NPROCESSORS_ONLN
         # The values might differ with _SC_NPROCESSORS_CONF in systems with
@@ -43,110 +107,13 @@ class Numa(object):
         # the number of CPUs.
         return multiprocessing.cpu_count()
 
-    def get_logical_cpus_ids(self):
-        #FIXME: may be non-sequential, but numad had not cared about this.
-        return range(self.get_num_logical_cpus())
-
-    def get_nodes_ids(self):
-        # FIXME: in numad ids were saved
+    @staticmethod
+    def get_nodes_ids():
         with open("/sys/devices/system/node/online") as node_list:
             return parse_range_list(node_list.read())
 
-    def read_cpu_stats(self):
-        stats = open("/proc/stat", "r").readlines()
-        for cpu in self.cpus.values():
-            cpu.update_stats(stats)
-
     def update_stats(self):
-        self.read_cpu_stats()
-        for node in self.nodes.values():
-            node.update_stats()
-
-    def __str__(self):
-        res = "CPUs:\n"
-        for cpu in self.cpus.values():
-            res += "\t%s\n" % cpu
-        res += "Nodes:\n"
-        for node in self.nodes.values():
-            res += "\t%s\n" % node
-        return res
-
-class NodeStats(Stats):
-
-    ABSOLUTE_STATS = [
-        'memtotal',         # total amount of physical memory on host
-        'memfree',          # amount of memory left completely unused by host
-        'inactivefile',     # pagecache memory that can be reclaimed without
-                            #  huge performance impact
-        'filepages',        # memory used for file cache
-        'sreclaimable',     # amount of SLAB reclaimable memory
-        'cpuidle',          # percentage of time spent in the idle task
-    ]
-
-    CUMULATIVE_STATS = []
-
-    ALL_STATS = ABSOLUTE_STATS + CUMULATIVE_STATS
-
-class Node(object):
-    def __init__(self, node_id):
-        self.id = node_id
-        self.node_dir = "/sys/devices/system/node/node%d/" % self.id
-        self.update_topology()
-        self.stats = NodeStats()
-
-    def update_topology(self):
-        self.cpu_list = parse_range_list(open(self.node_dir + "cpulist").read())
-
-    def update_stats(self):
-        meminfo = open(self.node_dir + "meminfo").readlines()
-
-        stats = {}
-        for line in meminfo:
-            line = line.split()
-            # Node NUM VARIABLE: VALUE [kB]
-            stats[line[2][:-1]] = int(line[3])
-
-        self.stats._update(**{
-            "memtotal" : stats["MemTotal"],
-            "memfree" : stats["MemFree"],
-            "inactivefile" : stats["Inactive(file)"],
-            "filepages" : stats["FilePages"],
-            "sreclaimable" : stats["SReclaimable"],
-        # TODO: cpuidle sometimes more than 100
-            "cpuidle" : sum(Numa().cpus[x].stats.idle for x in self.cpu_list)
-        })
-
-    def __str__(self):
-        l = ["cpu_list", "stats"]
-        return ("Node %s: %s" %
-            (self.id, {x : str(self.__dict__[x]) for x in l}))
-
-class CPUStats(Stats):
-
-    ABSOLUTE_STATS = []
-
-    CUMULATIVE_STATS = [
-        'idle'                # percentage of time spent in the idle task
-    ]
-
-    ALL_STATS = ABSOLUTE_STATS + CUMULATIVE_STATS
-
-    def __str__(self):
-        return str({x : getattr(self, x, None) for x in self.ALL_STATS})
-
-
-class CPU(object):
-    def __init__(self, id):
-        self.id = id
-        self.stats = CPUStats()
-
-    def update_stats(self, stat = None):
-        if not stat:
-            stat = open("/proc/stat", "r").readlines()
-        line = [x for x in stat if ("cpu%s" % self.id) in x][0]
-        idle = int(line.split()[4])
-        self.stats._update(**{"idle" : idle})
-
-    def __str__(self):
-        l = ["stats"]
-        return ("CPU %s:%s" % (self.id, {x : str(self.__dict__[x]) for x in l}))
+        cpustats = self.__env.get_cpu_stats()
+        self.stats.update_cpustats(cpustats)
+        memstats = self.__env.get_numa_stats()
+        self.stats.update_memstats(memstats)
