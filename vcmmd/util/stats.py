@@ -29,43 +29,45 @@ class Stats(object):
 
     CUMULATIVE_STATS = []
 
-    ALL_STATS = ABSOLUTE_STATS + CUMULATIVE_STATS
-
     def __init__(self):
-        self._stats = {k: -1 for k in self.ALL_STATS}
-        self._raw_stats = {}
-        self._last_update = 0
+        self.ALL_STATS = self.ABSOLUTE_STATS + self.CUMULATIVE_STATS
+        self.__stats = {k: -1 for k in self.ALL_STATS}
+        self.__raw_stats = {}
+        self.__last_update = 0
 
     def __getattr__(self, name):
         try:
-            return self._stats[name]
+            return self.__stats[name]
         except KeyError:
             raise AttributeError
 
     def __str__(self):
-        return ' '.join('%s:%d' % (k, self._stats[k]) for k in self.ALL_STATS)
+        return str(self.__stats)
 
     def _update(self, **stats):
-        prev_stats = self._raw_stats
-        self._raw_stats = stats
+        prev_stats = self.__raw_stats
+        self.__raw_stats = stats
+        __stats = {}
 
         for k in self.ABSOLUTE_STATS:
             v = stats.get(k, -1)
             if v < 0:  # stat unavailable => return -1
                 v = -1
-            self._stats[k] = v
+            __stats[k] = v
 
         now = time.time()
-        delta_t = now - self._last_update
-        self._last_update = now
+        self.delta_t = now - self.__last_update
+        self.__last_update = now
 
         for k in self.CUMULATIVE_STATS:
             cur, prev = stats.get(k, -1), prev_stats.get(k, -1)
             if cur < 0 or prev < 0:  # stat unavailable => return -1
                 delta = -1
             else:
-                delta = int((cur - prev) / delta_t)
-            self._stats[k] = delta
+                delta = int((cur - prev) / self.delta_t)
+            __stats[k] = delta
+        # stats update should be thread-safe
+        self.__stats = __stats
 
     def report(self):
-        return [(s, self._stats[s]) for s in self.ALL_STATS]
+        return self.__stats.copy()
