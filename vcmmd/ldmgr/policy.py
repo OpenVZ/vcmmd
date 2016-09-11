@@ -95,7 +95,6 @@ class BalloonPolicy(Policy):
     def __init__(self):
         super(BalloonPolicy, self).__init__()
         bc = VCMMDConfig().get_bool("LoadManager.Controllers.Balloon", True)
-        self.logger.info("Controllers.Balloon = %r" % bc)
         if not bc:
             return
         self.controllers.add(self.balloon_controller)
@@ -151,7 +150,6 @@ class NumaPolicy(Policy):
     def __init__(self):
         super(NumaPolicy, self).__init__()
         nc = VCMMDConfig().get_bool("LoadManager.Controllers.NUMA", True)
-        self.logger.info("Controllers.NUMA = %r" % nc)
         if not nc:
             return
         self.controllers.add(self.numa_controller)
@@ -193,7 +191,6 @@ class KSMPolicy(Policy):
     def __init__(self):
         super(KSMPolicy, self).__init__()
         kc = VCMMDConfig().get_bool("LoadManager.Controllers.KSM", True)
-        self.logger.info("Controllers.KSM = %r" % kc)
         if not kc:
             return
         self.controllers.add(self.ksm_controller)
@@ -206,10 +203,15 @@ class KSMPolicy(Policy):
     def ksm_controller(self):
         self.update_ksm_stats()
         params = self.get_ksm_params()
+
+        run = params.get('run', None)
+        if run is not None and self.host.stats.ksm_run != run:
+            self.host.log_info("Switch KSM run: %s" % run)
+
         self.host.ksmtune(params)
 
         return Request(self.ksm_controller, timeout=self.ksm_timeout, blocker=True)
 
     @abstractmethod
     def get_ksm_params(self):
-        return {}
+        pass
