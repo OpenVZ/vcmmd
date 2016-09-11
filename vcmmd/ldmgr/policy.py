@@ -17,54 +17,65 @@
 #
 # Our contact details: Parallels IP Holdings GmbH, Vordergasse 59, 8200
 # Schaffhausen, Switzerland.
+import logging
+from abc import ABCMeta, abstractmethod
+from threading import Lock
 
 from vcmmd.host import Host
 from vcmmd.ldmgr.base import Request
 from vcmmd.config import VCMMDConfig
-import logging
 
 
 class Policy(object):
     '''Load manager policy interface.
     '''
 
+    __metaclass__ = ABCMeta
+
     def __init__(self):
         self.logger = logging.getLogger('vcmmd.ldmgr.policy')
-        self.ve_list = []  # List of all managed activated VEs
-        self.ve_list_all = []  # List of all managed VEs
-        self.ve_data = {}  # Dictionary of all managed VEs to their policy data
         self.host = Host() # Singleton object with host related data
         self.controllers = set()
+        self.__ve_data = {}  # Dictionary of all managed VEs to their policy data
+        self.__ve_data_lock = Lock()
 
     def get_name(self):
         return self.__class__.__name__
 
-    def get_policy_data(self, ve):
-        return self.ve_data[ve]
+    def get_policy_data(self, t):
+        with self.__ve_data_lock:
+            return list(self.__ve_data.get(t, {}).itervalues())
+
+    def rm_policy_data(self, t, ve):
+        with self.__ve_data_lock:
+            self.__ve_data.get(t, {}).pop(ve, None)
 
     def set_policy_data(self, ve, data):
-        self.ve_data[ve] = data
+        with self.__ve_data_lock:
+            t = type(data)
+            if t not in self.__ve_data:
+                self.__ve_data[t] = {}
+            self.__ve_data[t][ve] = data
 
     def ve_activated(self, ve):
         '''Called right after a VE gets activated.
         '''
-        self.ve_list.append(ve)
+        pass
 
     def ve_deactivated(self, ve):
         '''Called right after a VE gets deactivated.
         '''
-        self.ve_list.remove(ve)
-        self.ve_data.pop(ve, None)
+        pass
 
     def ve_registered(self, ve):
         '''Called right after a VE gets activated.
         '''
-        self.ve_list_all.append(ve)
+        pass
 
     def ve_unregistered(self, ve):
         '''Called right after a VE gets deactivated.
         '''
-        self.ve_list_all.remove(ve)
+        pass
 
     def ve_config_updated(self, ve):
         '''Called right after a VE's configuration update.
@@ -90,6 +101,7 @@ class BalloonPolicy(Policy):
         self.controllers.add(self.balloon_controller)
         self.balloon_timeout = 5
 
+    @abstractmethod
     def update_balloon_stats(self):
         pass
 
@@ -101,20 +113,10 @@ class BalloonPolicy(Policy):
         '''
         self.update_balloon_stats()
 
-        self.host.ve_mem_reserved = sum(ve.mem_min for ve in self.ve_list_all if not ve.active)
-        self.host.active_ve_mem = self.host.ve_mem - self.host.ve_mem_reserved
-
         ve_quotas = self.calculate_balloon_size()
-
-        sum_protection = sum(ve_quotas[ve][1] for ve in ve_quotas)
-        if sum_protection > self.host.active_ve_mem:
-            self.logger.error('Sum protection greater than mem available (%d > %d)',
-                              sum_protection, self.host.active_ve_mem)
 
         # Apply the quotas.
         for ve, (target, protection) in ve_quotas.iteritems():
-            if sum_protection > self.host.active_ve_mem:
-                protection = ve.mem_min
             ve.set_mem(target=target, protection=protection)
 
         # We need to set memory.low for machine.slice to infinity, otherwise
@@ -130,6 +132,7 @@ class BalloonPolicy(Policy):
 
         return Request(self.balloon_controller, timeout=self.balloon_timeout, blocker=True)
 
+    @abstractmethod
     def calculate_balloon_size(self):
         '''Calculate VE memory quotas
 
@@ -154,6 +157,7 @@ class NumaPolicy(Policy):
         self.controllers.add(self.numa_controller)
         self.numa_timeout = 60 * 5
 
+    @abstractmethod
     def update_numa_stats(self):
         pass
 
@@ -172,6 +176,7 @@ class NumaPolicy(Policy):
 
         return Request(self.numa_controller, timeout=self.numa_timeout, blocker=True)
 
+    @abstractmethod
     def get_numa_migrations(self):
         '''Suggest VE numa node migrations.
 
@@ -194,6 +199,7 @@ class KSMPolicy(Policy):
         self.controllers.add(self.ksm_controller)
         self.ksm_timeout = 60
 
+    @abstractmethod
     def update_ksm_stats(self):
         pass
 
@@ -204,5 +210,6 @@ class KSMPolicy(Policy):
 
         return Request(self.ksm_controller, timeout=self.ksm_timeout, blocker=True)
 
+    @abstractmethod
     def get_ksm_params(self):
         return {}
