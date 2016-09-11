@@ -37,7 +37,6 @@ from vcmmd.util.libvirt import (virDomainProxy,
 from vcmmd.util.misc import roundup
 from vcmmd.util.limits import PAGE_SIZE
 from vcmmd.util.misc import parse_range_list
-from vcmmd.numa import Numa
 from libvirt import VIR_DOMAIN_NUMATUNE_MEM_STRICT as NUMATUNE_MEM_STRICT
 from libvirt import VIR_DOMAIN_AFFECT_CURRENT as AFFECT_CURRENT
 
@@ -202,21 +201,18 @@ class VMImpl(VEImpl):
 
         return parse_range_list(ret['numa_nodeset'])
 
-    def set_node_list(self, nodes):
+    def set_node_list(self, nodes, cpus):
         '''Change list of nodes for VM
 
         This function change VM affinity and migrate VM's memory accordingly to
         list of NUMA nodes
         '''
-        cpus = []
-        for node in nodes:
-            cpus.extend(node.cpu_list)
         cpu_map = [0] * (max(cpus) + 1)
         for i in cpus:
             cpu_map[i] = 1
         cpu_map = tuple(cpu_map)
 
-        params = {'numa_nodeset': ','.join([str(n.id) for n in nodes]),
+        params = {'numa_nodeset': ','.join([str(node) for node in nodes]),
                   'numa_mode': NUMATUNE_MEM_STRICT}
 
         try:

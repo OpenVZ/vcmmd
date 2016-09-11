@@ -20,8 +20,10 @@
 
 from __future__ import absolute_import
 
-import logging
 import psutil
+import re
+import socket
+from abc import ABCMeta
 
 from vcmmd.util.singleton import Singleton
 from vcmmd.util.stats import Stats
@@ -29,7 +31,8 @@ from vcmmd.util.misc import clamp
 from vcmmd.util.threading import update_stats_single
 from vcmmd.config import VCMMDConfig
 from vcmmd.cgroup import MemoryCgroup
-from vcmmd.numa import Numa
+from vcmmd.numa import Numa as AbsNuma
+from vcmmd.env import Env
 
 
 class HostStats(Stats):
@@ -54,18 +57,25 @@ class HostStats(Stats):
         'ksm_full_scans',   # how many times all mergeable areas have been scanned
     ]
 
-    ALL_STATS = ABSOLUTE_STATS + CUMULATIVE_STATS
+
+HostMeta = type("HostMeta", (Singleton, ABCMeta), {})
 
 
-class Host(object):
+class Host(Env):
 
-    __metaclass__ = Singleton
+    __metaclass__ = HostMeta
 
     KSM_CONTROL_PATH = '/sys/kernel/mm/ksm/%s'
 
-    def __init__(self):
-        self.logger = logging.getLogger('vcmmd.host')
 
+    class Numa(AbsNuma):
+        @update_stats_single
+        def update_stats(self):
+            super(Host.Numa, self).update_stats()
+
+    def __init__(self):
+        self.hostname = socket.gethostname()
+        super(Host, self).__init__("vcmmd.host")
         self.stats = HostStats()
         # Reserve memory for the system
         total_mem = psutil.virtual_memory().total
@@ -80,11 +90,14 @@ class Host(object):
         self._set_slice_mem('user', self.user_mem)
         # Calculate size of memory available for VEs
         self.ve_mem = self.total_mem - self.host_mem - self.user_mem - self.sys_mem
-        self.logger.info('%d bytes available for VEs', self.ve_mem)
+        self.log_info('%d bytes available for VEs', self.ve_mem)
         if self.ve_mem < 0:
-            self.logger.error('Not enough memory to run VEs!')
+            self.log_err('Not enough memory to run VEs!')
 
-        self.numa = Numa()
+        self.numa = Host.Numa(self)
+
+    def __str__(self):
+        return self.hostname
 
     def _mem_size_from_config(self, name, mem_total, default):
         cfg = VCMMDConfig()
@@ -104,11 +117,11 @@ class Host(object):
             memcg.write_mem_low(value)
             memcg.write_oom_guarantee(value)
         except IOError as err:
-            self.logger.error('Failed to set reservation for %s slice: %s',
+            self.log_err('Failed to set reservation for %s slice: %s',
                               name, err)
         else:
             if verbose:
-                self.logger.info('Reserved %s bytes for %s slice', value, name)
+                self.log_info('Reserved %s bytes for %s slice', value, name)
 
     @update_stats_single
     def update_stats(self):
@@ -125,7 +138,7 @@ class Host(object):
                     ksm_stats[datum] = int(ksm_stats_file.read())
             except IOError, (errno, msg):
                 ksm_stats[datum] = -1
-                self.logger.error("Failed to update stat: open %s failed: %s" % (name, msg))
+                self.log_err("Failed to update stat: open %s failed: %s" % (name, msg))
         mem = psutil.virtual_memory()
 
         stats = {'memtotal': self.total_mem,
@@ -140,12 +153,6 @@ class Host(object):
                  'ksm_run': ksm_stats.get('run', -1),
                  }
         self.stats._update(**stats)
-        self.logger.debug('update_stats: %s', self.stats)
-
-    @update_stats_single
-    def update_numa_stats(self):
-        self.numa.update_stats()
-        self.logger.debug('update_numa_stats: %s', self.numa)
 
     def ksmtune(self, params):
         for key, val in params.iteritems():
@@ -153,4 +160,57 @@ class Host(object):
                 with open(self.KSM_CONTROL_PATH % key, 'w') as f:
                     f.write(str(val))
             except IOError, err:
-                self.logger.error("Failed to set %r = %r", self.KSM_CONTROL_PATH % key, val)
+                # few options could be not changed until page shared/sharing != 0
+                # need start ksmd for update stats if it's not running.
+                self.log_debug("Failed to set %r = %r", self.KSM_CONTROL_PATH % key, val)
+
+    def get_numa_stats(self):
+        ret = {}
+        for n in self.numa.nodes_ids:
+            node_dir = self.numa.NUMA_NODE_SYS_PATH % n
+            stats = {}
+            try:
+                with open(node_dir + "meminfo") as f:
+                    meminfo = f.readlines()
+            except IOError as err:
+                self.log_err('Failed to update memory stats: %s', err)
+                continue
+
+            for line in meminfo:
+                line = line.split()
+                # Node NUM VARIABLE: VALUE [kB]
+                stats[line[2][:-1]] = int(line[3])
+
+            memusage = ((stats.get("MemTotal", -1) << 10) -
+                        (stats.get("MemFree", -1) << 10) -
+                        ((stats.get("Inactive(anon)", -1) << 10) / 2) -
+                        (stats.get("Inactive(file)", -1) << 10))
+
+            memtotal = stats.get("MemTotal", -1) << 10
+
+            ret[n] = {'memusage': memusage > 0 and memusage or -1,
+                      'memtotal': memtotal > 0 and memtotal or -1,
+                     }
+        return ret
+
+    def get_cpu_stats(self):
+        try:
+            with open("/proc/stat") as f:
+                stats = f.readlines()
+        except IOError as err:
+            self.log_err('Failed to update CPU stats: %s', err)
+            return {}
+
+        names = ["cpuuser", "cpunice", "cpusystem", "cpuidle"]
+        cpustats = {}
+        for line in stats:
+            if not re.search("cpu\d+", line):
+                continue
+            res = {}
+            cpu, data = re.split(" ", line, maxsplit = 1)
+            cpu = int(cpu[3:])
+            for name, value in zip(names, re.findall("(\d+)", data)):
+                res[name] = int(value)
+            cpustats[cpu] = res
+
+        return cpustats
