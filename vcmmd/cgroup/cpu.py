@@ -28,7 +28,7 @@ class CpuCgroup(Cgroup):
     CONTROLLER = 'cpu'
 
     def get_cpu_stats(self):
-        names = ["user", "nice", "system", "idle"]
+        names = ["cpuuser", "cpunice", "cpusystem", "cpuidle"]
         stats = self._read_file_str("proc.stat")
         res = {}
         for line in stats.splitlines():
@@ -37,8 +37,7 @@ class CpuCgroup(Cgroup):
             cpu, data = re.split(" ", line, maxsplit = 1)
             cpu = int(cpu[3:])
             for name, value in zip(names, re.findall("(\d+)", data)):
-                name, value = "cpu" + name, int(value)
                 if cpu not in res:
                     res[cpu] = {}
-                res[cpu][name] = value
+                res[cpu][name] = int(value)
         return res
