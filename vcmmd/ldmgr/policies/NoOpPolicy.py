@@ -20,29 +20,18 @@
 
 from __future__ import absolute_import
 
-from vcmmd.ldmgr.policy import BalloonPolicy, NumaPolicy, KSMPolicy
+from vcmmd.ldmgr.policy import NumaPolicy, KSMPolicy as AbsKsmPolicy
 
 
-class NoOpPolicy(BalloonPolicy, NumaPolicy, KSMPolicy):
-    '''No Operation load manager policy.
-
-    Set memory quotas to configured limits and let the host kernel do the rest.
-    This will only work satisfactory if the host kernel can reclaim memory from
-    VEs effectively and is smart enough to detect a VE's working set by itself.
+class KsmPolicy(AbsKsmPolicy):
+    ''' VCMMD in conflict with ksmtuned, so this base KSM policy,
+        mostly "copycat" ksmtuned
     '''
-
-    def calculate_balloon_size(self):
-        return {ve: (ve.config.limit, ve.mem_min) for ve in self.ve_list}
-
-    def get_numa_migrations(self):
-        return {ve: None for ve in self.ve_list}
-
     def update_ksm_stats(self):
         self.host.update_stats()
+        self.host.log_debug('update stats: %s', self.host.stats)
 
     def get_ksm_params(self):
-        ''' Base KSM policy, mostly cp/ps from ksmtuned
-        '''
         ksm_pages_boost = 300
         ksm_pages_decay = -50
         ksm_npages_min = 64
@@ -51,13 +40,13 @@ class NoOpPolicy(BalloonPolicy, NumaPolicy, KSMPolicy):
         ksm_sleep_ms_baseline = 10
         ksm_hostmem_baseline = 16 << 30
 
-        params = {}
+        params = {'merge_across_nodes': int(not isinstance(self, NumaPolicy))}
 
         need_stats = (self.host.stats.memtotal, self.host.stats.memfree,
                       self.host.stats.memavail, self.host.stats.ksm_pages_to_scan)
 
         if filter(lambda x: x < 0, need_stats):
-            return {}
+            return params
 
         ksm_shareable = sum(ve.effective_limit + ve.mem_overhead for ve in self.ve_list)
         if ksm_shareable < (1 - ksm_threshold) * self.host.stats.memtotal and \
@@ -75,4 +64,17 @@ class NoOpPolicy(BalloonPolicy, NumaPolicy, KSMPolicy):
 
             new = self.host.stats.ksm_pages_to_scan + delta
             params['pages_to_scan'] = min(max(ksm_npages_min, new), ksm_npages_max)
+
         return params
+
+
+class NoOpPolicy(KsmPolicy):
+    '''No Operation load manager policy.
+
+    Set memory quotas to configured limits and let the host kernel do the rest.
+    This will only work satisfactory if the host kernel can reclaim memory from
+    VEs effectively and is smart enough to detect a VE's working set by itself.
+    '''
+    def ve_activated(self, ve):
+        super(NoOpPolicy, self).ve_activated(ve)
+        ve.set_mem(ve.config.limit, ve.mem_min)
