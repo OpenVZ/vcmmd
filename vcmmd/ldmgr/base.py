@@ -233,15 +233,17 @@ class LoadManager(object):
         [w.join() for w in self._workers]
 
     def _check_guarantees(self, delta):
-        mem_min = sum(ve.mem_min for ve in self._registered_ves.itervalues())
+        with self._registered_ves_lock:
+            mem_min = sum(ve.mem_min for ve in self._registered_ves.itervalues())
         mem_min += delta
         if mem_min > self._host.ve_mem:
             raise VCMMDError(VCMMD_ERROR_UNABLE_APPLY_VE_GUARANTEE)
 
     @_request()
     def register_ve(self, ve_name, ve_type, ve_config):
-        if ve_name in self._registered_ves:
-            raise VCMMDError(VCMMD_ERROR_VE_NAME_ALREADY_IN_USE)
+        with self._registered_ves_lock:
+            if ve_name in self._registered_ves:
+                raise VCMMDError(VCMMD_ERROR_VE_NAME_ALREADY_IN_USE)
 
         ve_config.complete(DefaultVEConfig)
         ve = VE(ve_type, ve_name, ve_config)
@@ -256,7 +258,8 @@ class LoadManager(object):
 
     @_request()
     def activate_ve(self, ve_name):
-        ve = self._registered_ves.get(ve_name)
+        with self._registered_ves_lock:
+            ve = self._registered_ves.get(ve_name)
         if ve is None:
             raise VCMMDError(VCMMD_ERROR_VE_NOT_REGISTERED)
 
@@ -265,7 +268,8 @@ class LoadManager(object):
 
     @_request()
     def update_ve_config(self, ve_name, ve_config):
-        ve = self._registered_ves.get(ve_name)
+        with self._registered_ves_lock:
+            ve = self._registered_ves.get(ve_name)
         if ve is None:
             raise VCMMDError(VCMMD_ERROR_VE_NOT_REGISTERED)
 
@@ -279,7 +283,8 @@ class LoadManager(object):
 
     @_request()
     def deactivate_ve(self, ve_name):
-        ve = self._registered_ves.get(ve_name)
+        with self._registered_ves_lock:
+            ve = self._registered_ves.get(ve_name)
         if ve is None:
             raise VCMMDError(VCMMD_ERROR_VE_NOT_REGISTERED)
 
@@ -288,7 +293,8 @@ class LoadManager(object):
 
     @_request()
     def unregister_ve(self, ve_name):
-        ve = self._registered_ves.get(ve_name)
+        with self._registered_ves_lock:
+            ve = self._registered_ves.get(ve_name)
         if ve is None:
             raise VCMMDError(VCMMD_ERROR_VE_NOT_REGISTERED)
 
@@ -301,11 +307,11 @@ class LoadManager(object):
         self.logger.info('Unregistered %s', ve)
 
     def is_ve_active(self, ve_name):
-        with self._registered_ves_lock:
-            try:
+        try:
+            with self._registered_ves_lock:
                 return self._registered_ves[ve_name].active
-            except KeyError:
-                raise VCMMDError(VCMMD_ERROR_VE_NOT_REGISTERED)
+        except KeyError:
+            raise VCMMDError(VCMMD_ERROR_VE_NOT_REGISTERED)
 
     def get_ve_config(self, ve_name):
         with self._registered_ves_lock:
@@ -328,14 +334,13 @@ class LoadManager(object):
     def get_stats(self, ve_name):
         with self._registered_ves_lock:
             ve = self._registered_ves.get(ve_name)
-            if ve is None:
-                raise VCMMDError(VCMMD_ERROR_VE_NOT_REGISTERED)
-            res = ve.stats.report()
-            for id, stat in ve.numa_stats.iteritems():
-                res.extend([("N%s_" % id + stat, value) for stat, value in stat.report()])
-            return res
+        if ve is None:
+            raise VCMMDError(VCMMD_ERROR_VE_NOT_REGISTERED)
+        res = ve.stats.report().iteritems()
+        return res
 
     def get_quotas(self):
-        return [(ve.name, ve.target, ve.protection)
-                for ve in self._registered_ves.itervalues()
-                if ve.active and ve.target is not None]
+        with self._registered_ves_lock:
+            return [(ve.name, ve.target, ve.protection)
+                    for ve in self._registered_ves.itervalues()
+                    if ve.active and ve.target is not None]
