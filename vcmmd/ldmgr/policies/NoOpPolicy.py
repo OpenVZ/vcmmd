@@ -48,9 +48,7 @@ class KsmPolicy(AbsKsmPolicy):
         if filter(lambda x: x < 0, need_stats):
             return params
 
-        ksm_shareable = sum(ve.effective_limit + ve.mem_overhead for ve in self.ve_list)
-        if ksm_shareable < (1 - ksm_threshold) * self.host.stats.memtotal and \
-           self.host.stats.memfree > ksm_threshold * self.host.stats.memtotal:
+        if self.host.stats.memfree > ksm_threshold * self.host.stats.memtotal:
             params['run'] = 0
         else:
             params['run'] = 1
