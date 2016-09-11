@@ -152,6 +152,9 @@ class NumaPolicy(Policy):
         nc = VCMMDConfig().get_bool("LoadManager.Controllers.NUMA", True)
         if not nc:
             return
+        elif len(self.host.numa.nodes_ids) < 2:
+            self.logger.info("Found < 2 NUMA nodes, no need balance")
+            return
         self.controllers.add(self.numa_controller)
         self.numa_timeout = 60 * 5
 
