@@ -33,6 +33,9 @@ class CpuSetCgroup(Cgroup):
     def get_node_list(self):
         return parse_range_list(self._read_file_str("mems"))
 
+    def set_memory_migrate(self, val):
+        self._write_file_str("memory_migrate", str(int(val)))
+
     def set_cpu_list(self, cpus):
         self._write_file_str("cpus",",".join(map(str,cpus)))
 
