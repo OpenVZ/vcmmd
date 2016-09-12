@@ -233,8 +233,7 @@ class LoadManager(object):
         [w.join() for w in self._workers]
 
     def _check_guarantees(self, delta):
-        with self._registered_ves_lock:
-            mem_min = sum(ve.mem_min for ve in self._registered_ves.itervalues())
+        mem_min = sum(ve.mem_min for ve in self._registered_ves.itervalues())
         mem_min += delta
         if mem_min > self._host.ve_mem:
             raise VCMMDError(VCMMD_ERROR_UNABLE_APPLY_VE_GUARANTEE)
@@ -245,66 +244,64 @@ class LoadManager(object):
             if ve_name in self._registered_ves:
                 raise VCMMDError(VCMMD_ERROR_VE_NAME_ALREADY_IN_USE)
 
-        ve_config.complete(DefaultVEConfig)
-        ve = VE(ve_type, ve_name, ve_config)
-        self._check_guarantees(ve.mem_min)
-        ve.effective_limit = min(ve.config.limit, self._host.ve_mem)
+            ve_config.complete(DefaultVEConfig)
+            ve = VE(ve_type, ve_name, ve_config)
+            self._check_guarantees(ve.mem_min)
+            ve.effective_limit = min(ve.config.limit, self._host.ve_mem)
 
-        with self._registered_ves_lock:
             self._registered_ves[ve_name] = ve
-        self._policy.ve_registered(ve)
+            self._policy.ve_registered(ve)
 
-        self.logger.info('Registered %s (%s)', ve, ve.config)
+            self.logger.info('Registered %s (%s)', ve, ve.config)
 
     @_request()
     def activate_ve(self, ve_name):
         with self._registered_ves_lock:
             ve = self._registered_ves.get(ve_name)
-        if ve is None:
-            raise VCMMDError(VCMMD_ERROR_VE_NOT_REGISTERED)
+            if ve is None:
+                raise VCMMDError(VCMMD_ERROR_VE_NOT_REGISTERED)
 
-        ve.activate()
-        self._policy.ve_activated(ve)
+            ve.activate()
+            self._policy.ve_activated(ve)
 
     @_request()
     def update_ve_config(self, ve_name, ve_config):
         with self._registered_ves_lock:
             ve = self._registered_ves.get(ve_name)
-        if ve is None:
-            raise VCMMDError(VCMMD_ERROR_VE_NOT_REGISTERED)
+            if ve is None:
+                raise VCMMDError(VCMMD_ERROR_VE_NOT_REGISTERED)
 
-        ve_config.complete(ve.config)
-        self._check_guarantees(ve_config.mem_min - ve.config.mem_min)
+            ve_config.complete(ve.config)
+            self._check_guarantees(ve_config.mem_min - ve.config.mem_min)
 
-        ve.set_config(ve_config)
-        ve.effective_limit = min(ve.config.limit, self._host.ve_mem)
+            ve.set_config(ve_config)
+            ve.effective_limit = min(ve.config.limit, self._host.ve_mem)
 
-        self._policy.ve_config_updated(ve)
+            self._policy.ve_config_updated(ve)
 
     @_request()
     def deactivate_ve(self, ve_name):
         with self._registered_ves_lock:
             ve = self._registered_ves.get(ve_name)
-        if ve is None:
-            raise VCMMDError(VCMMD_ERROR_VE_NOT_REGISTERED)
+            if ve is None:
+                raise VCMMDError(VCMMD_ERROR_VE_NOT_REGISTERED)
 
-        ve.deactivate()
-        self._policy.ve_deactivated(ve)
+            ve.deactivate()
+            self._policy.ve_deactivated(ve)
 
     @_request()
     def unregister_ve(self, ve_name):
         with self._registered_ves_lock:
             ve = self._registered_ves.get(ve_name)
-        if ve is None:
-            raise VCMMDError(VCMMD_ERROR_VE_NOT_REGISTERED)
+            if ve is None:
+                raise VCMMDError(VCMMD_ERROR_VE_NOT_REGISTERED)
 
-        with self._registered_ves_lock:
             del self._registered_ves[ve.name]
-        self._policy.ve_unregistered(ve)
-        if ve.active:
-            self._policy.ve_deactivated(ve)
 
-        self.logger.info('Unregistered %s', ve)
+            self._policy.ve_unregistered(ve)
+            if ve.active:
+                self._policy.ve_deactivated(ve)
+                self.logger.info('Unregistered %s', ve)
 
     def is_ve_active(self, ve_name):
         try:
