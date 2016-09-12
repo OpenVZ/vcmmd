@@ -217,8 +217,10 @@ class VE(Env):
         self.log_info('Deactivated')
 
     def get_numa_stats(self):
-        assert self.active
         try:
+            if not self.active:
+                raise Error('VE is not activated')
+
             cg = self._get_obj()._memcg
             return cg.get_numa_stats()
         except (Error, IOError) as err:
@@ -226,8 +228,10 @@ class VE(Env):
         return {}
 
     def get_cpu_stats(self):
-        assert self.active
         try:
+            if not self.active:
+                raise Error('VE is not activated')
+
             cg = self._get_obj()._cpucg
             return cg.get_cpu_stats()
         except (Error, IOError) as err:
@@ -238,9 +242,10 @@ class VE(Env):
     def update_stats(self):
         '''Update VE stats.
         '''
-        assert self.active
-
         try:
+            if not self.active:
+                raise Error('VE is not activated')
+
             obj = self._get_obj()
             self.stats._update(**obj.get_stats())
         except Error as err:
@@ -270,10 +275,11 @@ class VE(Env):
     def set_mem(self, target = None, protection = None):
         '''Set VE memory consumption target.
         '''
-        assert self.active
-
         msg = ''
         try:
+            if not self.active:
+                raise Error('VE is not activated')
+
             obj = self._get_obj()
             if target is not None:
                 obj.set_mem_target(target)
