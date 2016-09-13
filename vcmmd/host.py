@@ -188,7 +188,7 @@ class Host(Env):
 
             memtotal = stats.get("MemTotal", -1) << 10
 
-            ret[n] = {'memusage': memusage > 0 and memusage or -1,
+            ret[n] = {'memusage': memtotal > 0 and memusage or -1,
                       'memtotal': memtotal > 0 and memtotal or -1,
                      }
         return ret
