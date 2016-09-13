@@ -325,4 +325,4 @@ class VE(Env):
         except Error as err:
             self.log_err('Failed to bind NUMA nodes: %s' % err)
         else:
-            self.log_info('set_node_list: %s' % (nodes,))
+            self.log_debug('set_node_list: %s' % (nodes,))
