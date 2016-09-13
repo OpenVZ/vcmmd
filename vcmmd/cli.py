@@ -267,6 +267,15 @@ def _handle_current_policy(args):
 
     print RPCProxy().get_current_policy()
 
+def _handle_get_config(args):
+    parser = OptionParser('Usage: %%prog config',
+                          description='Print current VCMMD config.')
+
+    (options, args) = parser.parse_args(args)
+    if len(args) > 0:
+        parser.error('superfluous arguments')
+
+    print RPCProxy().get_config()
 
 def _handle_get_format_stats(parser, args, prettify):
     (options, args) = parser.parse_args(args)
@@ -324,7 +333,7 @@ def main():
                           'command := register | activate | update | '
                           'deactivate | unregister | list | set-log-level | '
                           'get-current-policy | get-stats | '
-                          'get-missing-stats | get-quotas',
+                          'get-missing-stats | get-quotas | config',
                           description='Call a command on the VCMMD service. '
                           'See \'%prog <command> --help\' to read about a '
                           'specific subcommand.',
@@ -346,6 +355,7 @@ def main():
             'list': _handle_list,
             'set-log-level': _handle_log_level,
             'get-current-policy': _handle_current_policy,
+            'config': _handle_get_config,
             'get-stats': _handle_get_stats,
             'get-missing-stats': _handle_get_missing_stats,
             'get-quotas': _handle_get_quotas,

@@ -341,3 +341,6 @@ class LoadManager(object):
             return [(ve.name, ve.target, ve.protection)
                     for ve in self._registered_ves.itervalues()
                     if ve.active and ve.target is not None]
+
+    def get_config(self):
+        return VCMMDConfig().report(j=True)

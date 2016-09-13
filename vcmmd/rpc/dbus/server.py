@@ -123,6 +123,10 @@ class _LoadManagerObject(dbus.service.Object):
     def GetCurrentPolicy(self):
         return self.ldmgr.get_current_policy()
 
+    @dbus.service.method(IFACE, in_signature='', out_signature='s')
+    def GetConfig(self):
+        return self.ldmgr.get_config()
+
     @dbus.service.method(IFACE, in_signature='', out_signature='ia(sx)')
     def GetStats(self, ve_name):
         ve_name = str(ve_name)

@@ -142,3 +142,21 @@ class VCMMDConfig(object):
                 raise ValueError("must be one of %s, got %r" %
                                  (tuple(choices), str(val)))
         return self.get(name, default, checkfn)
+
+    def report(self, j=False):
+        cfg_dict = {}
+        for name in self._cache:
+            x = cfg_dict
+            path = name.split('.')
+            key = path[-1]
+            path = path[:-1]
+            for section in path:
+                if section not in x:
+                    x[section] = {}
+                x = x[section]
+            x[key] = self._cache[name]
+
+        if j:
+            return json.dumps(cfg_dict, sort_keys=True,
+                              indent=4, separators=(',', ': '))
+        return cfg_dict
