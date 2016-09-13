@@ -24,6 +24,7 @@ import psutil
 import re
 import socket
 from abc import ABCMeta
+import multiprocessing
 
 from vcmmd.util.singleton import Singleton
 from vcmmd.util.stats import Stats
@@ -214,3 +215,16 @@ class Host(Env):
             cpustats[cpu] = res
 
         return cpustats
+
+    @staticmethod
+    def get_cpu_count():
+        if hasattr(psutil, 'cpu_count'):
+             return psutil.cpu_count(logical = True)
+        # Workaround for old psutil(1.2.1)
+        # multiprocessing.cpu_count relies on a _SC_NPROCESSORS_ONLN
+        # The values might differ with _SC_NPROCESSORS_CONF in systems with
+        # advanced CPU power management functionality.
+        # In some occasions multiprocessing.cpu_count may raise a
+        # NotImplementedError while psutil will be able to obtain
+        # the number of CPUs.
+        return multiprocessing.cpu_count()

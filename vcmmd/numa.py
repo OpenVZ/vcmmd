@@ -17,12 +17,11 @@
 #
 # Our contact details: Parallels IP Holdings GmbH, Vordergasse 59, 8200
 # Schaffhausen, Switzerland.
-import os, psutil
+import os
 
 from vcmmd.env import Env
 from vcmmd.util.stats import Stats
 from vcmmd.util.misc import parse_range_list
-import multiprocessing
 from vcmmd.util.threading import update_stats_single
 
 
@@ -93,19 +92,6 @@ class Numa(object):
             with open(node_dir + "cpulist") as f:
                 cls.cpu_list[n] = parse_range_list(f.read())
         cls.__inited = True
-
-    @staticmethod
-    def get_logical_cpus_ids():
-        if hasattr(psutil, 'cpu_count'):
-             return range(psutil.cpu_count(logical = True))
-        # Workaround for old psutil(1.2.1)
-        # multiprocessing.cpu_count relies on a _SC_NPROCESSORS_ONLN
-        # The values might differ with _SC_NPROCESSORS_CONF in systems with
-        # advanced CPU power management functionality.
-        # In some occasions multiprocessing.cpu_count may raise a
-        # NotImplementedError while psutil will be able to obtain
-        # the number of CPUs.
-        return multiprocessing.cpu_count()
 
     @staticmethod
     def get_nodes_ids():
