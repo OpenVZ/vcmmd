@@ -24,6 +24,7 @@ from vcmmd.ve_type import (VE_TYPE_CT,
                            VE_TYPE_VM_WINDOWS)
 from vcmmd.ve_config import VEConfig
 from vcmmd.rpc.dbus.client import RPCProxy
+from vcmmd.error import VCMMDError, VCMMD_ERROR_VE_NAME_ALREADY_IN_USE
 
 PAGE_SIZE = os.sysconf('SC_PAGESIZE')
 
@@ -88,7 +89,12 @@ for vm in srv.get_vm_list_ex(consts.PVTF_CT | consts.PVTF_VM).wait():
 
     kv['vram'] = vm.get_video_ram_size() << 20
 
-    proxy.register_ve(uuid, ve_type, VEConfig(**kv), 0)
+    try:
+        proxy.register_ve(uuid, ve_type, VEConfig(**kv), 0)
+    except VCMMDError as e:
+        if e.errno == VCMMD_ERROR_VE_NAME_ALREADY_IN_USE:
+            continue
+        raise
 
     if state == consts.VMS_RUNNING:
         proxy.activate_ve(uuid, 0)
