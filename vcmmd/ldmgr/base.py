@@ -89,6 +89,7 @@ class RQueue(object):
                     if not block:
                         raise QueueEmpty
                     self._not_empty.wait()
+                    continue
                 req = self._reqs[0]
                 remaining = max(req.timestamp - time.time(), 0)
                 if not remaining:
@@ -97,8 +98,9 @@ class RQueue(object):
                     # TODO should we raise an exception in such case?
                     raise QueueEmpty
                 self._not_empty.wait(remaining)
+            req = self._reqs.pop(0)
             self._not_full.notify()
-            return self._reqs.pop(0)
+            return req
 
     def get_nowait(self):
         """Remove and return an item from the queue without blocking.
