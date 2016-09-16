@@ -76,3 +76,7 @@ class NoOpPolicy(KsmPolicy):
     def ve_activated(self, ve):
         super(NoOpPolicy, self).ve_activated(ve)
         ve.set_mem(ve.config.limit, ve.mem_min)
+
+    def ve_config_updated(self, ve):
+        super(NoOpPolicy, self).ve_config_updated(ve)
+        ve.set_mem(ve.config.limit, ve.mem_min)
