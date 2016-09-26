@@ -118,17 +118,6 @@ class BalloonPolicy(Policy):
         for ve, (target, protection) in ve_quotas.iteritems():
             ve.set_mem(target=target, protection=protection)
 
-        # We need to set memory.low for machine.slice to infinity, otherwise
-        # memory.low in sub-cgroups won't have any effect. We can't do it on
-        # start, because machine.slice might not exist at that time (it is
-        # created on demand, when the first VM starts).
-        #
-        # This is safe, because there is nothing running inside machine.slice
-        # but VMs, each of which should have its memory.low configured
-        # properly.
-        # TODO need only once
-        self.host._set_slice_mem('machine', -1, verbose=False)
-
         return Request(self.balloon_controller, timeout=self.balloon_timeout, blocker=True)
 
     @abstractmethod
