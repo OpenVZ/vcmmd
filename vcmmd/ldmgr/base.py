@@ -49,7 +49,7 @@ class RQueue(object):
         self._maxsize = maxsize
         self._reqs = []
         self._lock = threading.Lock()
-        self._sort = lambda: self._reqs.sort(lambda x,y: int(x.timestamp - y.timestamp))
+        self._sort = lambda: self._reqs.sort(lambda x, y: int(x.timestamp - y.timestamp))
         self._not_empty = threading.Condition(self._lock)
         self._not_full = threading.Condition(self._lock)
 
@@ -114,7 +114,7 @@ class RQueue(object):
 class Request(object):
     '''Common class for all requests to LoadManager
     '''
-    def __init__(self, fn, args = None, kwargs = None, timeout = 0, blocker=False):
+    def __init__(self, fn, args=None, kwargs=None, timeout=0, blocker=False):
         self.fn = fn
         self.args = args or ()
         self.kwargs = kwargs or {}
@@ -168,7 +168,7 @@ class LoadManager(object):
 
         thn = cfg.get_num('LoadManager.ThreadsNum', 5)
 
-        self._req_queue = RQueue(maxsize = 25)
+        self._req_queue = RQueue(maxsize=25)
         self._workers = [threading.Thread(target=self._worker_thread_fn) for _ in range(thn)]
         [w.start() for w in self._workers]
 
