@@ -67,6 +67,11 @@ def _add_memval_config_options(parser):
                       help='use powers of 1000 not 1024')
 
 
+def _add_json_format_option(parser):
+    parser.add_option('-j', action='store_true',
+                      help='json format output')
+
+
 def _ve_config_from_options(options):
     kv = {}
     if options.guarantee is not None:
@@ -267,15 +272,27 @@ def _handle_current_policy(args):
 
     print RPCProxy().get_current_policy()
 
-def _handle_get_config(args):
-    parser = OptionParser('Usage: %%prog config',
-                          description='Print current VCMMD config.')
+def _handle_policy_counts(args):
+    parser = OptionParser('Usage: %%prog policy-count',
+                          description='Print policy counts.')
+    _add_json_format_option(parser)
 
     (options, args) = parser.parse_args(args)
     if len(args) > 0:
         parser.error('superfluous arguments')
 
-    print RPCProxy().get_config()
+    print RPCProxy().get_policy_counts(bool(options.j))
+
+def _handle_get_config(args):
+    parser = OptionParser('Usage: %%prog config',
+                          description='Print current VCMMD config.')
+    _add_json_format_option(parser)
+
+    (options, args) = parser.parse_args(args)
+    if len(args) > 0:
+        parser.error('superfluous arguments')
+
+    print RPCProxy().get_config(bool(options.j))
 
 def _handle_get_format_stats(parser, args, prettify):
     (options, args) = parser.parse_args(args)
@@ -333,7 +350,7 @@ def main():
                           'command := register | activate | update | '
                           'deactivate | unregister | list | set-log-level | '
                           'get-current-policy | get-stats | '
-                          'get-missing-stats | get-quotas | config',
+                          'get-missing-stats | get-quotas | config | policy-counts',
                           description='Call a command on the VCMMD service. '
                           'See \'%prog <command> --help\' to read about a '
                           'specific subcommand.',
@@ -356,6 +373,7 @@ def main():
             'set-log-level': _handle_log_level,
             'get-current-policy': _handle_current_policy,
             'config': _handle_get_config,
+            'policy-counts': _handle_policy_counts,
             'get-stats': _handle_get_stats,
             'get-missing-stats': _handle_get_missing_stats,
             'get-quotas': _handle_get_quotas,

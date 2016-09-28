@@ -71,8 +71,11 @@ class RPCProxy(object):
     def get_current_policy(self):
         return self._iface.GetCurrentPolicy()
 
-    def get_config(self):
-        return self._iface.GetConfig()
+    def get_config(self, j):
+        return self._iface.GetConfig(j)
+
+    def get_policy_counts(self, j):
+        return self._iface.GetPolicyCounts(j)
 
     def get_stats(self, ve):
         err, stats = self._iface.GetStats(ve)

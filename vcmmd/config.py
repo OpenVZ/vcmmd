@@ -20,8 +20,10 @@
 
 import json
 import logging
+import pprint
 
 from vcmmd.util.singleton import Singleton
+from vcmmd.util.misc import print_dict
 
 
 class VCMMDConfig(object):
@@ -156,7 +158,4 @@ class VCMMDConfig(object):
                 x = x[section]
             x[key] = self._cache[name]
 
-        if j:
-            return json.dumps(cfg_dict, sort_keys=True,
-                              indent=4, separators=(',', ': '))
-        return cfg_dict
+        return print_dict(cfg_dict, j)

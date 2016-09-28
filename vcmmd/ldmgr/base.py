@@ -355,5 +355,8 @@ class LoadManager(object):
                     for ve in self._registered_ves.itervalues()
                     if ve.active and ve.target is not None]
 
-    def get_config(self):
-        return VCMMDConfig().report(j=True)
+    def get_config(self, j):
+        return VCMMDConfig().report(j)
+
+    def get_policy_counts(self, j):
+        return self._policy.report(j)

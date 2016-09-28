@@ -24,6 +24,7 @@ from threading import Lock
 from vcmmd.host import Host
 from vcmmd.ldmgr.base import Request
 from vcmmd.config import VCMMDConfig
+from vcmmd.util.misc import print_dict
 
 
 class Policy(object):
@@ -38,6 +39,7 @@ class Policy(object):
         self.controllers = set()
         self.__ve_data = {}  # Dictionary of all managed VEs to their policy data
         self.__ve_data_lock = Lock()
+        self.counts = {}
 
     def get_name(self):
         return self.__class__.__name__
@@ -88,6 +90,9 @@ class Policy(object):
             ret.append(ctrl())
         return ret
 
+    def report(self, j=False):
+        return print_dict(self.counts, j)
+
 
 class BalloonPolicy(Policy):
     '''Manages balloons in VEs.
@@ -95,6 +100,7 @@ class BalloonPolicy(Policy):
     def __init__(self):
         super(BalloonPolicy, self).__init__()
         bc = VCMMDConfig().get_bool("LoadManager.Controllers.Balloon", True)
+        self.counts['Balloon'] = {}
         if not bc:
             return
         self.controllers.add(self.balloon_controller)
@@ -139,6 +145,9 @@ class NumaPolicy(Policy):
     def __init__(self):
         super(NumaPolicy, self).__init__()
         nc = VCMMDConfig().get_bool("LoadManager.Controllers.NUMA", True)
+        self.counts['NUMA'] = {}
+        self.counts['NUMA']['ve'] = {}
+        self.counts['NUMA']['node'] = {i: 0 for i in self.host.numa.nodes_ids}
         if not nc:
             return
         elif len(self.host.numa.nodes_ids) < 2:
@@ -146,6 +155,10 @@ class NumaPolicy(Policy):
             return
         self.controllers.add(self.numa_controller)
         self.numa_timeout = 60 * 5
+
+    def ve_activated(self, ve):
+        super(NumaPolicy, self).ve_activated(ve)
+        self.counts['NUMA']['ve'][ve.name] = 0
 
     @abstractmethod
     def update_numa_stats(self):
@@ -163,6 +176,12 @@ class NumaPolicy(Policy):
         for ve, nodes in changes.iteritems():
             if nodes:
                 ve.set_node_list(nodes)
+
+        for ve, nodes in changes.iteritems():
+            if nodes is not None:
+                self.counts['NUMA']['ve'][ve.name] += 1
+                for node in nodes:
+                    self.counts['NUMA']['node'][node] += 1
 
         return Request(self.numa_controller, timeout=self.numa_timeout, blocker=True)
 
@@ -183,6 +202,7 @@ class KSMPolicy(Policy):
     def __init__(self):
         super(KSMPolicy, self).__init__()
         kc = VCMMDConfig().get_bool("LoadManager.Controllers.KSM", True)
+        self.counts['KSM'] = {'run': 0}
         if not kc:
             return
         self.controllers.add(self.ksm_controller)
@@ -198,6 +218,7 @@ class KSMPolicy(Policy):
 
         run = params.get('run', None)
         if run is not None and self.host.stats.ksm_run != run:
+            self.counts['KSM']['run'] += 1
             self.host.log_info("Switch KSM run: %s" % run)
 
         self.host.ksmtune(params)

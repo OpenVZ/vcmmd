@@ -18,6 +18,13 @@
 # Our contact details: Parallels IP Holdings GmbH, Vordergasse 59, 8200
 # Schaffhausen, Switzerland.
 from itertools import chain
+import pprint, json
+
+def print_dict(d, j=False):
+        if j:
+            return json.dumps(d, sort_keys=True,
+                              indent=4, separators=(',', ': '))
+        return pprint.pformat(d)
 
 def roundup(v, t):
     return v if (v % t) == 0 else v + t - (v % t)
