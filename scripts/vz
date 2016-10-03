@@ -3,6 +3,8 @@
 
 import os
 import sys
+import subprocess
+import time
 
 
 def _excepthook(exc_type, exc_value, exc_traceback):
@@ -44,6 +46,17 @@ DEFAULT_GUARANTEE = {
     VE_TYPE_VM_LINUX: 40,
     VE_TYPE_VM_WINDOWS: 40,
 }
+
+#Wait for virtuozzo.target, which indicates that VE list can be retrived
+# via prlsdkapi.
+cmd = ["systemctl", "is-active", "virtuozzo.target"]
+for wait in xrange(120):
+    try:
+        if subprocess.check_output(cmd) == "active\n":
+            break
+    except subprocess.CalledProcessError:
+        pass
+    time.sleep(1)
 
 helper = prlsdkapi.ApiHelper()
 helper.init(consts.PRL_VERSION_7X)
