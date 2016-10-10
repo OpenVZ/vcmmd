@@ -30,6 +30,8 @@ _VEConfigFields = [     # tag
     'vram',             # 3
 ]
 
+_VEConfigFields_string = [
+]
 
 class VEConfig(object):
     '''Represents a VE's memory configuration.
@@ -60,6 +62,7 @@ class VEConfig(object):
     guarantee:      0
     limit:          1
     swap:           2
+    vram:           3
 
     The tags are used for converting the config to a tuple/array and back.
     '''
@@ -69,7 +72,10 @@ class VEConfig(object):
         for k, v in kv.iteritems():
             if k not in _VEConfigFields:
                 raise TypeError("unexpected keyword argument '%s'" % k)
-            self._kv[str(k)] = int(v)
+            if k not in _VEConfigFields_string:
+                self._kv[str(k)] = int(v)
+            else:
+                self._kv[str(k)] = str(v)
 
     def __getattr__(self, name):
         try:
@@ -78,7 +84,7 @@ class VEConfig(object):
             raise AttributeError
 
     def __str__(self):
-        return ' '.join('%s:%d' % (k, self._kv[k])
+        return ' '.join('%s:%s' % (k, self._kv[k])
                         for k in _VEConfigFields if k in self._kv)
 
     @property
@@ -101,51 +107,38 @@ class VEConfig(object):
             if k not in self._kv:
                 self._kv[k] = v
 
-    def as_dict(self):
-        '''Convert to a dictionary.
-        '''
-        return dict(self._kv)
-
-    def as_tuple(self):
-        '''Convert to a tuple. Values in the tuple are ordered by tag. If a
-        field is absent, the corresponding element of the tuple will be set
-        to None.
-        '''
-        return tuple(self._kv.get(k, None) for k in _VEConfigFields)
-
-    @staticmethod
-    def from_tuple(tupl):
-        '''Make a config from a tuple. Tuple indices are taken for config tags.
-        If the tuple's length is less than the number of tags, missing fields
-        will be left unset. If the tuple's length is greater than the number of
-        tags, the superfluous values will be silently ignored.
-        '''
-        return VEConfig(**dict(zip(_VEConfigFields, tupl)))
-
     def as_array(self):
-        '''Convert to an array of (tag, value) pairs.
+        '''Convert to an array of (tag, value, string) turples.
         '''
         arr = []
         for tag, name in zip(xrange(len(_VEConfigFields)), _VEConfigFields):
             try:
-                val = self._kv[name]
+                if name in _VEConfigFields_string:
+                    val = 0
+                    string = self._kv[name]
+                else:
+                    val = self._kv[name]
+                    string = ""
             except KeyError:
                 continue
-            arr.append((tag, val))
+            arr.append((tag, val, string))
         return arr
 
     @staticmethod
     def from_array(arr):
-        '''Make a config from an array of (tag, value) pairs. Unknown tags are
-        silently ignored.
+        '''Make a config from an array of (tag, value, string) turples. Unknown
+        tags are silently ignored.
         '''
         kv = {}
-        for tag, val in arr:
+        for tag, val, string in arr:
             try:
                 name = _VEConfigFields[tag]
             except IndexError:
                 continue
-            kv[name] = val
+            if name in _VEConfigFields_string:
+                kv[name] = str(string)
+            else:
+                kv[name] = int(val)
         return VEConfig(**kv)
 
 

@@ -42,7 +42,7 @@ class _LoadManagerObject(dbus.service.Object):
         bus_name = dbus.service.BusName(BUS_NAME, bus)
         super(_LoadManagerObject, self).__init__(bus_name, PATH)
 
-    @dbus.service.method(IFACE, in_signature='sia(qt)u', out_signature='i')
+    @dbus.service.method(IFACE, in_signature='sia(qts)u', out_signature='i')
     def RegisterVE(self, ve_name, ve_type, ve_config, flags):
         ve_name = str(ve_name)
         ve_type = int(ve_type)
@@ -64,7 +64,7 @@ class _LoadManagerObject(dbus.service.Object):
         else:
             return 0
 
-    @dbus.service.method(IFACE, in_signature='sa(qt)u', out_signature='i')
+    @dbus.service.method(IFACE, in_signature='sa(qts)u', out_signature='i')
     def UpdateVE(self, ve_name, ve_config, flags):
         ve_name = str(ve_name)
         ve_config = VEConfig.from_array(ve_config)
@@ -103,7 +103,7 @@ class _LoadManagerObject(dbus.service.Object):
         except VCMMDError as err:
             return (err.errno, False)
 
-    @dbus.service.method(IFACE, in_signature='s', out_signature='iat')
+    @dbus.service.method(IFACE, in_signature='s', out_signature='ia(qts)')
     def GetVEConfig(self, ve_name):
         ve_name = str(ve_name)
         try:
@@ -111,7 +111,7 @@ class _LoadManagerObject(dbus.service.Object):
         except VCMMDError as err:
             return (err.errno, [])
 
-    @dbus.service.method(IFACE, in_signature='', out_signature='a(sibat)')
+    @dbus.service.method(IFACE, in_signature='', out_signature='a(siba(qts))')
     def GetAllRegisteredVEs(self):
         return self.ldmgr.get_all_registered_ves()
 
