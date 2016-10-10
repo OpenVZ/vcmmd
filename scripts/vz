@@ -87,6 +87,9 @@ for vm in srv.get_vm_list_ex(consts.PVTF_CT | consts.PVTF_VM).wait():
 
     kv = {}
 
+    kv['nodelist'] = str(vm.get_node_mask())
+    kv['cpulist'] = str(vm.get_cpu_mask())
+
     ram_size = vm.get_ram_size()
     kv['limit'] = ram_size << 20
 

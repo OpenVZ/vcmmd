@@ -21,6 +21,7 @@
 from __future__ import absolute_import
 
 from vcmmd.util.limits import UINT64_MAX
+from vcmmd.util.misc import parse_range_list
 
 
 _VEConfigFields = [     # tag
@@ -28,9 +29,13 @@ _VEConfigFields = [     # tag
     'limit',            # 1
     'swap',             # 2
     'vram',             # 3
+    'nodelist',         # 4
+    'cpulist',          # 5
 ]
 
 _VEConfigFields_string = [
+    'nodelist',         # 4
+    'cpulist',          # 5
 ]
 
 class VEConfig(object):
@@ -55,6 +60,16 @@ class VEConfig(object):
                     Amount of memory that should be reserved for a VE's
                     graphic card.
 
+    nodelist:       NUMA node list
+
+                    Bitmask of NUMA nodes on the physical server to use for
+                    executing the virtual environment process.
+
+    cpulist:        CPU list
+
+                    Bitmask of CPUs on the physical server to use for executing
+                    the virtual environment process.
+
     All values are in bytes.
 
     Every field is tagged as follows:
@@ -63,18 +78,26 @@ class VEConfig(object):
     limit:          1
     swap:           2
     vram:           3
+    nodelist:       4
+    cpulist:        5
 
     The tags are used for converting the config to a tuple/array and back.
     '''
 
     def __init__(self, **kv):
         self._kv = {}
+        #FIXME: remove then these values are passed into config
+        kv['nodelist'] = ""
+        kv['cpulist'] = ""
         for k, v in kv.iteritems():
             if k not in _VEConfigFields:
                 raise TypeError("unexpected keyword argument '%s'" % k)
             if k not in _VEConfigFields_string:
                 self._kv[str(k)] = int(v)
             else:
+                if k in ['nodelist', 'cpulist']:
+                    self._kv[str(k)] = parse_range_list(str(v))
+                    continue
                 self._kv[str(k)] = str(v)
 
     def __getattr__(self, name):
@@ -115,7 +138,10 @@ class VEConfig(object):
             try:
                 if name in _VEConfigFields_string:
                     val = 0
-                    string = self._kv[name]
+                    if isinstance(self._kv[name], list):
+                        string = ",".join(map(str,self._kv[name]))
+                    else:
+                        string = str(self._kv[name])
                 else:
                     val = self._kv[name]
                     string = ""
