@@ -41,3 +41,6 @@ class CpuCgroup(Cgroup):
                     res[cpu] = {}
                 res[cpu][name] = int(value)
         return res
+
+    def get_nr_cpus(self):
+        return self._read_file_int("nr_cpus")

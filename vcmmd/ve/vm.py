@@ -276,6 +276,14 @@ class VMImpl(VEImpl):
         except libvirtError as err:
             raise Error(str(err))
 
+    @property
+    def nr_cpus(self):
+        try:
+            self._nr_cpus = self._libvirt_domain.vcpusFlags(AFFECT_LIVE)
+            return self._nr_cpus
+        except libvirtError:
+            return getattr(self, "_nr_cpus", -1)
+
 
 class VMLinImpl(VMImpl):
 
