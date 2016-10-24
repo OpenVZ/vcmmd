@@ -160,6 +160,10 @@ class NumaPolicy(Policy):
         super(NumaPolicy, self).ve_activated(ve)
         self.counts['NUMA']['ve'][ve.name] = 0
 
+    def ve_deactivated(self, ve):
+        super(NumaPolicy, self).ve_deactivated(ve)
+        ve.set_node_list(self.host.numa.nodes_ids)
+
     @abstractmethod
     def update_numa_stats(self):
         pass

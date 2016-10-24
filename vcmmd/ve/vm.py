@@ -66,6 +66,21 @@ class VMImpl(VEImpl):
         if not self._cpucg.exists():
             raise Error("Cpu cgroup not found: '%s'" % self._cpucg.abs_path)
 
+        self._emulatorcg = CpuSetCgroup(cgroup[CpuSetCgroup.CONTROLLER])
+        if not self._emulatorcg.exists():
+            raise Error("Cpuset cgroup not found: '%s'" % self._cpucg.abs_path)
+
+        max_vcpus = self._libvirt_domain.maxVcpus()
+        self._vcpucg = {}
+        vcpu_path = self._emulatorcg.path
+        assert vcpu_path.endswith('emulator')
+        vcpu_path = '%s/vcpu%%d' % vcpu_path[:-len('emulator')]
+
+        for vcpu in range(max_vcpus):
+            self._vcpucg[vcpu] = CpuSetCgroup(vcpu_path % vcpu)
+            if not self._cpucg.exists():
+                raise Error("Cpuset cgroup not found: '%s'" % self._cpucg.abs_path)
+
     def set_memstats_period(self, period):
         try:
             self._libvirt_domain.setMemoryStatsPeriod(period)
@@ -201,12 +216,30 @@ class VMImpl(VEImpl):
 
         return parse_range_list(ret['numa_nodeset'])
 
-    def set_node_list(self, nodes, cpus):
+    def set_node_list(self, nodes, cpus, libvirt = False):
         '''Change list of nodes for VM
 
         This function change VM affinity and migrate VM's memory accordingly to
         list of NUMA nodes
         '''
+        if libvirt:
+            return self.set_node_list_libvirt(nodes, cpus)
+
+        cpu_map = ','.join([str(cpu) for cpu in cpus])
+        node_mask = ','.join([str(node) for node in nodes])
+        try:
+            for vcpu in self._vcpucg:
+                self._vcpucg[vcpu].set_cpu_list(cpus)
+                self._vcpucg[vcpu].set_node_list(nodes)
+                self._vcpucg[vcpu].set_memory_migrate(True)
+
+            self._emulatorcg.set_cpu_list(cpus)
+            self._emulatorcg.set_node_list(nodes)
+            self._emulatorcg.set_memory_migrate(True)
+        except IOError as err:
+            raise Error('Cgroup write failed: %s' % err)
+
+    def set_node_list_libvirt(self, nodes, cpus):
         cpu_map = [0] * (max(cpus) + 1)
         for i in cpus:
             cpu_map[i] = 1
