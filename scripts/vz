@@ -87,6 +87,9 @@ for vm in srv.get_vm_list_ex(consts.PVTF_CT | consts.PVTF_VM).wait():
 
     kv = {}
 
+    kv['nodelist'] = str(vm.get_node_mask())
+    kv['cpulist'] = str(vm.get_cpu_mask())
+
     ram_size = vm.get_ram_size()
     kv['limit'] = ram_size << 20
 
@@ -103,7 +106,7 @@ for vm in srv.get_vm_list_ex(consts.PVTF_CT | consts.PVTF_VM).wait():
     kv['vram'] = vm.get_video_ram_size() << 20
 
     try:
-        proxy.register_ve(uuid, ve_type, VEConfig(**kv), 0)
+        proxy.register_ve(uuid, ve_type, VEConfig(**kv).as_array(), 0)
     except VCMMDError as e:
         if e.errno == VCMMD_ERROR_VE_NAME_ALREADY_IN_USE:
             continue

@@ -136,16 +136,25 @@ class CTImpl(VEImpl):
             raise Error('Cgroup read failed: %s' % err)
         return node_list
 
-    def set_node_list(self, nodes, cpus):
-        '''Change list of nodes for CT
+    def pin_node_mem(self, nodes):
+        '''Change list of memory nodes for CT
 
-        This function change CT affinity and migrate CT's memory accordingly to
-        list of NUMA nodes
+        This function changes CT affinity for memory and migrates CT's memory
+        accordingly
         '''
         try:
             self._cpusetcg.set_node_list(nodes)
-            self._cpusetcg.set_cpu_list(cpus)
             self._cpusetcg.set_memory_migrate(True)
+        except IOError as err:
+            raise Error('Cgroup write failed: %s' % err)
+
+    def pin_cpu_list(self, cpus):
+        '''Change list of CPUs for CT
+
+        This function changes CT affinity for CPUs
+        '''
+        try:
+            self._cpusetcg.set_cpu_list(cpus)
         except IOError as err:
             raise Error('Cgroup write failed: %s' % err)
 

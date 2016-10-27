@@ -38,7 +38,9 @@ from vcmmd.util.misc import roundup
 from vcmmd.util.limits import PAGE_SIZE
 from vcmmd.util.misc import parse_range_list
 from libvirt import VIR_DOMAIN_NUMATUNE_MEM_STRICT as NUMATUNE_MEM_STRICT
-from libvirt import VIR_DOMAIN_AFFECT_CURRENT as AFFECT_CURRENT
+from libvirt import (VIR_DOMAIN_AFFECT_CURRENT as AFFECT_CURRENT,
+                     VIR_DOMAIN_AFFECT_LIVE as AFFECT_LIVE,
+                     VIR_DOMAIN_AFFECT_CONFIG as AFFECT_CONFIG)
 
 
 class VMImpl(VEImpl):
@@ -216,44 +218,62 @@ class VMImpl(VEImpl):
 
         return parse_range_list(ret['numa_nodeset'])
 
-    def set_node_list(self, nodes, cpus, libvirt = False):
-        '''Change list of nodes for VM
+    def pin_node_mem(self, nodes, libvirt = False):
+        '''Change list of memory nodes for VM
 
-        This function change VM affinity and migrate VM's memory accordingly to
-        list of NUMA nodes
+        This function changes VM affinity for memory and migrates VM's memory
+        accordingly
         '''
         if libvirt:
-            return self.set_node_list_libvirt(nodes, cpus)
+            return self.pin_node_mem_libvirt(nodes)
 
-        cpu_map = ','.join([str(cpu) for cpu in cpus])
         node_mask = ','.join([str(node) for node in nodes])
         try:
             for vcpu in self._vcpucg:
-                self._vcpucg[vcpu].set_cpu_list(cpus)
                 self._vcpucg[vcpu].set_node_list(nodes)
                 self._vcpucg[vcpu].set_memory_migrate(True)
 
-            self._emulatorcg.set_cpu_list(cpus)
             self._emulatorcg.set_node_list(nodes)
             self._emulatorcg.set_memory_migrate(True)
         except IOError as err:
             raise Error('Cgroup write failed: %s' % err)
 
-    def set_node_list_libvirt(self, nodes, cpus):
+    def pin_node_mem_libvirt(self, nodes):
+        params = {'numa_nodeset': ','.join([str(node) for node in nodes]),
+                  'numa_mode': NUMATUNE_MEM_STRICT}
+
+        try:
+            self._libvirt_domain.setNumaParameters(params, AFFECT_CURRENT)
+        except libvirtError as err:
+            raise Error(str(err))
+
+    def pin_cpu_list(self, cpus, libvirt = False):
+        '''Change list of CPUs for VM
+
+        This function changes VM affinity for CPUs
+        '''
+        if libvirt:
+            return self.pin_cpu_list_libvirt(cpus)
+
+        cpu_map = ','.join([str(cpu) for cpu in cpus])
+        try:
+            for vcpu in self._vcpucg:
+                self._vcpucg[vcpu].set_cpu_list(cpus)
+
+            self._emulatorcg.set_cpu_list(cpus)
+        except IOError as err:
+            raise Error('Cgroup write failed: %s' % err)
+
+    def pin_cpu_list_libvirt(self, cpus):
         cpu_map = [0] * (max(cpus) + 1)
         for i in cpus:
             cpu_map[i] = 1
         cpu_map = tuple(cpu_map)
 
-        params = {'numa_nodeset': ','.join([str(node) for node in nodes]),
-                  'numa_mode': NUMATUNE_MEM_STRICT}
-
         try:
             max_vcpus = self._libvirt_domain.maxVcpus()
             for vcpu in range(max_vcpus):
                 self._libvirt_domain.pinVcpu(vcpu, cpu_map)
-
-            self._libvirt_domain.setNumaParameters(params, AFFECT_CURRENT)
             self._libvirt_domain.pinEmulator(cpu_map, AFFECT_CURRENT)
         except libvirtError as err:
             raise Error(str(err))

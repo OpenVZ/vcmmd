@@ -326,7 +326,7 @@ class LoadManager(object):
     def get_ve_config(self, ve_name):
         with self._registered_ves_lock:
             try:
-                return self._registered_ves[ve_name].config.as_tuple()
+                return self._registered_ves[ve_name].config.as_array()
             except KeyError:
                 raise VCMMDError(VCMMD_ERROR_VE_NOT_REGISTERED)
 
@@ -335,7 +335,7 @@ class LoadManager(object):
         with self._registered_ves_lock:
             for ve in self._registered_ves.itervalues():
                 result.append((ve.name, ve.VE_TYPE, ve.active,
-                               ve.config.as_tuple()))
+                               ve.config.as_array()))
         return result
 
     def get_current_policy(self):

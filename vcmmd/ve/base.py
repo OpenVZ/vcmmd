@@ -118,7 +118,14 @@ class VEImpl(object):
         '''
         pass
 
-    def set_node_list(self,nodes):
+    def pin_node_mem(self, nodes):
+        '''
+        Should be expanded when memory migration "knob" will be implemented
+        in kernel.
+        '''
+        pass
+
+    def pin_cpu_list(self, cpus):
         '''
         Should be expanded when memory migration "knob" will be implemented
         in kernel.
@@ -198,6 +205,7 @@ class VE(Env):
             raise VCMMDError(VCMMD_ERROR_VE_ALREADY_ACTIVE)
 
         self.active = True
+        self.numa_enforce_settings()
         self.log_info('Activated')
 
     def deactivate(self):
@@ -311,6 +319,7 @@ class VE(Env):
             raise VCMMDError(VCMMD_ERROR_VE_OPERATION_FAILED)
 
         self.config = config
+        self.numa_enforce_settings()
         self.log_info('Config updated: %s', config)
 
     def set_node_list(self, nodes):
@@ -319,10 +328,46 @@ class VE(Env):
         cpus = set()
         for n in nodes:
             cpus.update(self.numa.cpu_list[n])
+        self.pin_node_mem(nodes)
+        self.pin_cpu_list(cpus)
+
+    def pin_node_mem(self, nodes):
+        '''Change list of memory nodes for VE
+
+        This function changes VE affinity for memory and migrates VE's memory
+        accordingly
+        '''
+        obj = self._get_obj()
         try:
-            obj = self._get_obj()
-            obj.set_node_list(nodes, cpus)
+            obj.pin_node_mem(nodes)
         except Error as err:
             self.log_err('Failed to bind NUMA nodes: %s' % err)
         else:
-            self.log_debug('set_node_list: %s' % (nodes,))
+            self.log_debug('pin_node_mem: %s' % (nodes,))
+
+    def pin_cpu_list(self, cpus):
+        '''Change list of CPUs for VE
+
+        This function changes VE affinity for CPUs
+        '''
+        obj = self._get_obj()
+        try:
+            obj.pin_cpu_list(cpus)
+        except Error as err:
+            self.log_err('Failed to bind CPU list: %s' % err)
+        else:
+            self.log_debug('pin_cpu_list: %s' % (cpus,))
+
+    def reset_numa_settings(self):
+        '''Reset all NUMA-related bindings
+        '''
+        self.pin_node_mem(self.numa.nodes_ids)
+        self.pin_cpu_list(sum(self.numa.cpu_list.itervalues(), []))
+
+    def numa_enforce_settings(self):
+        if self.config.nodelist or self.config.cpulist:
+            self.reset_numa_settings()
+            if self.config.nodelist:
+                self.pin_node_mem(self.config.nodelist)
+            if self.config.cpulist:
+                self.pin_cpu_list(self.config.cpulist)

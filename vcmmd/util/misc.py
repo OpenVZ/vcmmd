@@ -41,8 +41,10 @@ def parse_range(rng):
     '''Function produces list of integers which fall in range described in input string
     i.e. "1-9" -> [1,2,3,4,5,6,7,8,9] or "1" -> [1]
     '''
+    if not rng:
+        return []
     parts = rng.split('-')
-    if 1 > len(parts) > 2:
+    if len(parts) > 2:
         raise ValueError("Bad range: '%s'" % (rng,))
     parts = [int(i) for i in parts]
     start = parts[0]
