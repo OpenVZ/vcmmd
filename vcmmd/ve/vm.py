@@ -230,10 +230,8 @@ class VMImpl(VEImpl):
             nr_vcpus = self._libvirt_domain.vcpusFlags(AFFECT_LIVE)
             for vcpu in range(nr_vcpus):
                 self._vcpucg[vcpu].set_node_list(nodes)
-                self._vcpucg[vcpu].set_memory_migrate(True)
 
             self._emulatorcg.set_node_list(nodes)
-            self._emulatorcg.set_memory_migrate(True)
         except IOError as err:
             raise Error('Cgroup write failed: %s' % err)
 
