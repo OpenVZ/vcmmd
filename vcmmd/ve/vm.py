@@ -240,7 +240,7 @@ class VMImpl(VEImpl):
                   'numa_mode': NUMATUNE_MEM_STRICT}
 
         try:
-            self._libvirt_domain.setNumaParameters(params, AFFECT_CURRENT)
+            self._libvirt_domain.setNumaParameters(params, AFFECT_LIVE)
         except libvirtError as err:
             raise Error(str(err))
 
@@ -272,7 +272,7 @@ class VMImpl(VEImpl):
             nr_vcpus = self._libvirt_domain.vcpusFlags(AFFECT_LIVE)
             for vcpu in range(nr_vcpus):
                 self._libvirt_domain.pinVcpu(vcpu, cpu_map)
-            self._libvirt_domain.pinEmulator(cpu_map, AFFECT_CURRENT)
+            self._libvirt_domain.pinEmulator(cpu_map, AFFECT_LIVE)
         except libvirtError as err:
             raise Error(str(err))
 
