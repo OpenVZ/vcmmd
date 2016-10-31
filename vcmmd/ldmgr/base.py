@@ -173,8 +173,17 @@ class LoadManager(object):
         [w.start() for w in self._workers]
 
         # Load a policy
-        self._load_policy(cfg.get_str('LoadManager.Policy',
-                                      self.FALLBACK_POLICY))
+        policy_name = cfg.get_str('LoadManager.Policy', self.FALLBACK_POLICY)
+        policy_name = self._load_alias(policy_name)
+        self._load_policy(policy_name)
+
+    def _load_alias(self, policy_name):
+        try:
+            alias = importlib.import_module('vcmmd.ldmgr.policies.alias')
+        except ImportError as err:
+            return policy_name
+
+        return alias.alias.get(policy_name, policy_name)
 
     def _load_policy(self, policy_name):
         try:
