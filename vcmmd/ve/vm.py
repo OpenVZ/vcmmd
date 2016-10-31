@@ -80,8 +80,6 @@ class VMImpl(VEImpl):
 
         for vcpu in range(max_vcpus):
             self._vcpucg[vcpu] = CpuSetCgroup(vcpu_path % vcpu)
-            if not self._cpucg.exists():
-                raise Error("Cpuset cgroup not found: '%s'" % self._cpucg.abs_path)
 
     def set_memstats_period(self, period):
         try:
@@ -229,7 +227,8 @@ class VMImpl(VEImpl):
 
         node_mask = ','.join([str(node) for node in nodes])
         try:
-            for vcpu in self._vcpucg:
+            nr_vcpus = self._libvirt_domain.vcpusFlags(AFFECT_LIVE)
+            for vcpu in range(nr_vcpus):
                 self._vcpucg[vcpu].set_node_list(nodes)
                 self._vcpucg[vcpu].set_memory_migrate(True)
 
@@ -257,7 +256,8 @@ class VMImpl(VEImpl):
 
         cpu_map = ','.join([str(cpu) for cpu in cpus])
         try:
-            for vcpu in self._vcpucg:
+            nr_vcpus = self._libvirt_domain.vcpusFlags(AFFECT_LIVE)
+            for vcpu in range(nr_vcpus):
                 self._vcpucg[vcpu].set_cpu_list(cpus)
 
             self._emulatorcg.set_cpu_list(cpus)
@@ -271,8 +271,8 @@ class VMImpl(VEImpl):
         cpu_map = tuple(cpu_map)
 
         try:
-            max_vcpus = self._libvirt_domain.maxVcpus()
-            for vcpu in range(max_vcpus):
+            nr_vcpus = self._libvirt_domain.vcpusFlags(AFFECT_LIVE)
+            for vcpu in range(nr_vcpus):
                 self._libvirt_domain.pinVcpu(vcpu, cpu_map)
             self._libvirt_domain.pinEmulator(cpu_map, AFFECT_CURRENT)
         except libvirtError as err:
