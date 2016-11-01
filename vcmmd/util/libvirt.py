@@ -115,6 +115,7 @@ class virDomainProxy(object):
 def lookup_qemu_machine_pid(name):
     '''Given the name of a QEMU machine, lookup its PID.
     '''
+    version = virConnectionProxy().getLibVersion()
     for proc in psutil.process_iter():
         # Workaround for old psutil(1.2.1)
         if isinstance(proc.cmdline, list):
@@ -124,9 +125,18 @@ def lookup_qemu_machine_pid(name):
         if not cmd or not cmd[0].endswith('qemu-kvm'):
             continue
         name_idx = cmd.index('-name') + 1
-        if (name_idx < len(cmd) and
-                cmd[name_idx].split(',')[0] == name):
-            return proc.pid
+
+        # Workaround PSBM-54553
+        # libvirt 1.3 cmd: "-name guest_name,debug-threads=on"
+        # libvirt 2.4 cmd: "-name guest=guest_name,debug-threads=on"
+        # NOTE: '=' in VE name is acceptable
+        if name_idx < len(cmd):
+            if ((version >= 2004000 and
+                cmd[name_idx].split(',')[0][len('guest='):] == name)
+            or (version < 2004000 and
+                cmd[name_idx].split(',')[0] == name)):
+                return proc.pid
+
     raise OSError("No such process: '%s'" % name)
 
 
