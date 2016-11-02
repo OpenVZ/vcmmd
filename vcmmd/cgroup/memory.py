@@ -143,28 +143,31 @@ class MemoryCgroup(Cgroup):
     def write_mem_high(self, val):
         self._write_file_mem_val('high', val)
 
+    def write_mem_config(self, mem, sw):
+        mem_old = self._read_file_int('limit_in_bytes')
+        memsw = mem + sw
+        if mem > mem_old:
+            self.write_memsw_limit_in_bytes( memsw)
+            self.write_limit_in_bytes(mem)
+        else:
+            self.write_limit_in_bytes(mem)
+            self.write_memsw_limit_in_bytes( memsw)
+
     def read_mem_max(self):
         return self._read_file_int('limit_in_bytes')
 
-    def write_mem_max(self, val):
-        mem = self._read_file_int('limit_in_bytes')
-        memsw = self._read_file_int('memsw.limit_in_bytes')
-        swp = max(memsw - mem, 0)
-        if val > mem:
-            self._write_file_mem_val('memsw.limit_in_bytes', val + swp)
-            self._write_file_mem_val('limit_in_bytes', val)
-        else:
-            self._write_file_mem_val('limit_in_bytes', val)
-            self._write_file_mem_val('memsw.limit_in_bytes', val + swp)
+    def write_limit_in_bytes(self, val):
+	# Warning: also changes swap size to memsw.limit_in_bytes - val
+        self._write_file_mem_val('limit_in_bytes', val)
 
     def read_swap_max(self):
         mem = self._read_file_int('limit_in_bytes')
         memsw = self._read_file_int('memsw.limit_in_bytes')
         return max(memsw - mem, 0)
 
-    def write_swap_max(self, val):
-        mem = self._read_file_int('limit_in_bytes')
-        self._write_file_mem_val('memsw.limit_in_bytes', mem + val)
+    def write_memsw_limit_in_bytes(self, val):
+	# Warning: changes swap size to val - limit_in_bytes
+        self._write_file_mem_val('memsw.limit_in_bytes', val)
 
     def read_mem_stat(self):
         return self._read_file_kv('stat')

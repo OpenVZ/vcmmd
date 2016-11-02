@@ -118,10 +118,9 @@ class CTImpl(VEImpl):
     def set_config(self, config):
         try:
             self._memcg.write_oom_guarantee(config.guarantee)
-            self._memcg.write_mem_max(config.limit)
+            self._memcg.write_mem_config(config.limit, config.swap)
             self._memcg.write_tcp_mem_limit(config.limit / 8)
             self._memcg.write_udp_mem_limit(config.limit / 8)
-            self._memcg.write_swap_max(config.swap)
         except IOError as err:
             raise Error('Cgroup write failed: %s' % err)
 
