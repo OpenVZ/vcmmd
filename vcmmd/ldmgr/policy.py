@@ -223,8 +223,15 @@ class KSMPolicy(Policy):
 
         self.host.ksmtune(params)
 
+        params = self.get_thp_params()
+        if params is not None:
+            self.host.thptune(params)
+
         return Request(self.ksm_controller, timeout=self.ksm_timeout, blocker=True)
 
     @abstractmethod
     def get_ksm_params(self):
+        pass
+
+    def get_thp_params(self):
         pass

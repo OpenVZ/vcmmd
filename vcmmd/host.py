@@ -67,6 +67,7 @@ class Host(Env):
     __metaclass__ = HostMeta
 
     KSM_CONTROL_PATH = '/sys/kernel/mm/ksm/%s'
+    THP_CONTROL_PATH = '/sys/kernel/mm/transparent_hugepage/khugepaged/%s'
 
 
     class Numa(AbsNuma):
@@ -154,6 +155,14 @@ class Host(Env):
                  'ksm_run': ksm_stats.get('run', -1),
                  }
         self.stats._update(**stats)
+
+    def thptune(self, params):
+        for key, val in params.iteritems():
+            try:
+                with open(self.THP_CONTROL_PATH % key, 'w') as f:
+                    f.write(str(val))
+            except IOError, err:
+                self.log_debug("Failed to set %r = %r", self.THP_CONTROL_PATH % key, val)
 
     def ksmtune(self, params):
         for key, val in params.iteritems():
