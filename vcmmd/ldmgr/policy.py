@@ -25,6 +25,7 @@ from vcmmd.host import Host
 from vcmmd.ldmgr.base import Request
 from vcmmd.config import VCMMDConfig
 from vcmmd.util.misc import print_dict
+from vcmmd.ve_type import VE_TYPE_CT
 
 
 class Policy(object):
@@ -72,7 +73,8 @@ class Policy(object):
     def ve_registered(self, ve):
         '''Called right after a VE gets activated.
         '''
-        pass
+        if ve.VE_TYPE == VE_TYPE_CT:
+            ve.set_mem(ve.config.limit, ve.mem_min)
 
     def ve_unregistered(self, ve):
         '''Called right after a VE gets deactivated.
