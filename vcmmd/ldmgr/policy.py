@@ -62,7 +62,7 @@ class Policy(object):
     def ve_activated(self, ve):
         '''Called right after a VE gets activated.
         '''
-        pass
+        ve.set_mem(ve.config.limit, ve.mem_min)
 
     def ve_deactivated(self, ve):
         '''Called right after a VE gets deactivated.
@@ -82,7 +82,7 @@ class Policy(object):
     def ve_config_updated(self, ve):
         '''Called right after a VE's configuration update.
         '''
-        pass
+        ve.set_mem(ve.config.limit, ve.mem_min)
 
     def sched_req(self):
         ret = []
