@@ -232,7 +232,7 @@ class VMImpl(VEImpl):
                 self._vcpucg[vcpu].set_node_list(nodes)
 
             self._emulatorcg.set_node_list(nodes)
-        except IOError as err:
+        except (IOError, libvirtError) as err:
             raise Error('Cgroup write failed: %s' % err)
 
     def pin_node_mem_libvirt(self, nodes):
@@ -259,7 +259,7 @@ class VMImpl(VEImpl):
                 self._vcpucg[vcpu].set_cpu_list(cpus)
 
             self._emulatorcg.set_cpu_list(cpus)
-        except IOError as err:
+        except (IOError, libvirtError) as err:
             raise Error('Cgroup write failed: %s' % err)
 
     def pin_cpu_list_libvirt(self, cpus):
