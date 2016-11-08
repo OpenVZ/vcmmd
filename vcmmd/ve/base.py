@@ -285,9 +285,6 @@ class VE(Env):
         '''
         msg = ''
         try:
-            if not self.active:
-                raise Error('VE is not activated')
-
             obj = self._get_obj()
             if target is not None:
                 obj.set_mem_target(target)
@@ -307,9 +304,6 @@ class VE(Env):
         '''Update VE config.
         '''
         _check_ve_config(config)
-
-        if not self.active:
-            raise VCMMDError(VCMMD_ERROR_VE_NOT_ACTIVE)
 
         try:
             obj = self._get_obj()
