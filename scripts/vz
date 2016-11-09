@@ -5,6 +5,8 @@ import os
 import sys
 import subprocess
 import time
+import re
+import xml.etree.ElementTree as ET
 
 
 def _excepthook(exc_type, exc_value, exc_traceback):
@@ -27,6 +29,9 @@ from vcmmd.ve_type import (VE_TYPE_CT,
 from vcmmd.ve_config import VEConfig
 from vcmmd.rpc.dbus.client import RPCProxy
 from vcmmd.error import VCMMDError, VCMMD_ERROR_VE_NAME_ALREADY_IN_USE
+from vcmmd.ve.ct import _lookup_cgroup
+from vcmmd.cgroup import MemoryCgroup
+from vcmmd.util.libvirt import virDomainProxy
 
 PAGE_SIZE = os.sysconf('SC_PAGESIZE')
 
@@ -80,30 +85,37 @@ for vm in srv.get_vm_list_ex(consts.PVTF_CT | consts.PVTF_VM).wait():
     if state not in (consts.VMS_RUNNING, consts.VMS_PAUSED):
         continue
 
+    kv = {}
+
     if ve_type == VE_TYPE_CT:
         uuid = vm.get_ct_id()
+        memcg = _lookup_cgroup(MemoryCgroup, uuid)
+        ram_size = memcg.read_mem_max()
+        vram = None
+        swap = memcg.read_swap_max()
     else:
         uuid = vm.get_uuid()[1:-1]
-
-    kv = {}
+        dom = virDomainProxy(uuid)
+        ram_size = dom.maxMemory() << 10
+        video = ET.fromstring(dom.XMLDesc()).findall("./devices/video/model")
+        vram = sum(map(lambda v: int(v.attrib.get('vram',0)), video)) << 10
+        swap = None
 
     kv['nodelist'] = str(vm.get_node_mask())
     kv['cpulist'] = str(vm.get_cpu_mask())
 
-    ram_size = vm.get_ram_size()
-    kv['limit'] = ram_size << 20
+    kv['limit'] = ram_size
 
     mem_guarantee = vm.get_mem_guarantee_size()
     guar_pct = (mem_guarantee[1] if mem_guarantee[0] else
                 DEFAULT_GUARANTEE[ve_type])
-    kv['guarantee'] = (ram_size * guar_pct / 100) << 20
+    kv['guarantee'] = ram_size * guar_pct / 100
 
-    try:
-        kv['swap'] = vm.get_resource(consts.PCR_SWAPPAGES)[1] * PAGE_SIZE
-    except prlsdkapi.PrlSDKError:
-        pass
+    if swap:
+        kv['swap'] = swap
 
-    kv['vram'] = vm.get_video_ram_size() << 20
+    if vram:
+        kv['vram'] = vram
 
     try:
         proxy.register_ve(uuid, ve_type, VEConfig(**kv), 0)
