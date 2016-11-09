@@ -32,7 +32,8 @@ from vcmmd.error import (VCMMDError,
                          VCMMD_ERROR_VE_NAME_ALREADY_IN_USE,
                          VCMMD_ERROR_VE_NOT_REGISTERED,
                          VCMMD_ERROR_UNABLE_APPLY_VE_GUARANTEE,
-                         VCMMD_ERROR_TOO_MANY_REQUESTS)
+                         VCMMD_ERROR_TOO_MANY_REQUESTS,
+                         VCMMD_ERROR_VE_NOT_ACTIVE)
 from vcmmd.ve_config import VEConfig, DefaultVEConfig
 from vcmmd.config import VCMMDConfig
 from vcmmd.ve import VE
@@ -292,6 +293,8 @@ class LoadManager(object):
             ve = self._registered_ves.get(ve_name)
             if ve is None:
                 raise VCMMDError(VCMMD_ERROR_VE_NOT_REGISTERED)
+            if not ve.active:
+                raise VCMMDError(VCMMD_ERROR_VE_NOT_ACTIVE)
 
             ve_config.complete(ve.config)
             self._check_guarantees(ve_config.mem_min - ve.config.mem_min)
