@@ -87,10 +87,14 @@ class Numa(object):
             return
         cls.nodes_ids = cls.get_nodes_ids()
         cls.cpu_list = {}
-        for n in cls.nodes_ids:
+        for n in cls.nodes_ids[:]:
 	    node_dir = cls.NUMA_NODE_SYS_PATH % n
             with open(node_dir + "cpulist") as f:
-                cls.cpu_list[n] = parse_range_list(f.read())
+                cpu_list = parse_range_list(f.read())
+                if not cpu_list:
+                    cls.nodes_ids.remove(n)
+                    continue
+                cls.cpu_list[n] = cpu_list
         cls.__inited = True
 
     @staticmethod
