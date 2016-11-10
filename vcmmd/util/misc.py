@@ -41,7 +41,7 @@ def parse_range(rng):
     '''Function produces list of integers which fall in range described in input string
     i.e. "1-9" -> [1,2,3,4,5,6,7,8,9] or "1" -> [1]
     '''
-    if not rng:
+    if not rng or rng.isspace():
         return []
     parts = rng.split('-')
     if len(parts) > 2:
