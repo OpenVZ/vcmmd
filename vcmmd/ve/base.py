@@ -365,3 +365,7 @@ class VE(Env):
                 self.pin_node_mem(self.config.nodelist)
             if self.config.cpulist:
                 self.pin_cpu_list(self.config.cpulist)
+
+    @property
+    def nr_cpus(self):
+        return self._get_obj().nr_cpus

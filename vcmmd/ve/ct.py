@@ -157,6 +157,14 @@ class CTImpl(VEImpl):
         except IOError as err:
             raise Error('Cgroup write failed: %s' % err)
 
+    @property
+    def nr_cpus(self):
+        try:
+            self._nr_cpus = self._cpucg.get_nr_cpus()
+            return self._nr_cpus
+        except IOError:
+            return getattr(self, "_nr_cpus", -1)
+
 
 class ServiceCTImpl(CTImpl):
 
