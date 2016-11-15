@@ -52,7 +52,7 @@ def _lookup_cgroup(klass, name):
     raise Error("cgroup not found: '%s'" % cg.abs_path)
 
 
-class CTImpl(VEImpl):
+class ABSVEImpl(VEImpl):
 
     VE_TYPE = VE_TYPE_CT
 
@@ -60,7 +60,6 @@ class CTImpl(VEImpl):
         self._memcg = _lookup_cgroup(MemoryCgroup, name)
         self._blkcg = _lookup_cgroup(BlkIOCgroup, name)
         self._cpucg = _lookup_cgroup(CpuCgroup, name)
-        self._cpusetcg = _lookup_cgroup(CpuSetCgroup, name)
 
         self.mem_limit = UINT64_MAX
 
@@ -126,6 +125,21 @@ class CTImpl(VEImpl):
 
         self.mem_limit = min(self.mem_limit, config.limit)
 
+    @property
+    def nr_cpus(self):
+        try:
+            self._nr_cpus = self._cpucg.get_nr_cpus()
+            return self._nr_cpus
+        except IOError:
+            return getattr(self, "_nr_cpus", -1)
+
+
+class CTImpl(ABSVEImpl):
+
+    def __init__(self, name):
+        super(CTImpl, self).__init__(name)
+        self._cpusetcg = _lookup_cgroup(CpuSetCgroup, name)
+
     def get_node_list(self):
         '''Get list of nodes where CT is running
         '''
@@ -157,16 +171,9 @@ class CTImpl(VEImpl):
         except IOError as err:
             raise Error('Cgroup write failed: %s' % err)
 
-    @property
-    def nr_cpus(self):
-        try:
-            self._nr_cpus = self._cpucg.get_nr_cpus()
-            return self._nr_cpus
-        except IOError:
-            return getattr(self, "_nr_cpus", -1)
 
 
-class ServiceCTImpl(CTImpl):
+class ServiceCTImpl(ABSVEImpl):
 
     VE_TYPE = VE_TYPE_SERVICE
 
