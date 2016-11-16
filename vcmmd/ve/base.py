@@ -359,7 +359,7 @@ class VE(Env):
         self.pin_cpu_list(sum(self.numa.cpu_list.itervalues(), []))
 
     def numa_enforce_settings(self):
-        if self.config.nodelist or self.config.cpulist:
+        if self.numa_configured():
             self.reset_numa_settings()
             if self.config.nodelist:
                 self.pin_node_mem(self.config.nodelist)
@@ -369,3 +369,6 @@ class VE(Env):
     @property
     def nr_cpus(self):
         return self._get_obj().nr_cpus
+
+    def numa_configured(self):
+        return self.config.nodelist or self.config.cpulist
