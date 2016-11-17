@@ -351,7 +351,12 @@ class LoadManager(object):
         return result
 
     def get_current_policy(self):
-        return self._policy.get_name()
+        cfg = VCMMDConfig().get_str('LoadManager.Policy')
+        cur = self._policy.get_name()
+        if self._load_alias(cfg) == cur:
+            return cfg
+        else:
+            return cur
 
     def get_stats(self, ve_name):
         with self._registered_ves_lock:
