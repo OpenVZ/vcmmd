@@ -86,9 +86,6 @@ class VEConfig(object):
 
     def __init__(self, **kv):
         self._kv = {}
-        #FIXME: remove then these values are passed into config
-        kv['nodelist'] = ""
-        kv['cpulist'] = ""
         for k, v in kv.iteritems():
             if k not in _VEConfigFields:
                 raise TypeError("unexpected keyword argument '%s'" % k)
@@ -171,4 +168,6 @@ class VEConfig(object):
 DefaultVEConfig = VEConfig(guarantee=0,
                            limit=UINT64_MAX,
                            swap=UINT64_MAX,
-                           vram=0)
+                           vram=0,
+                           nodelist="",
+                           cpulist="")
