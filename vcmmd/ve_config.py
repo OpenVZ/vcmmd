@@ -31,12 +31,19 @@ _VEConfigFields = [     # tag
     'vram',             # 3
     'nodelist',         # 4
     'cpulist',          # 5
+    'guarantee_type',   # 6
 ]
 
 _VEConfigFields_string = [
     'nodelist',         # 4
     'cpulist',          # 5
 ]
+
+VCMMD_MEMGUARANTEE_AUTO = 0
+VCMMD_MEMGUARANTEE_PERCENTS = 1
+
+VCMMD_EMPTY_MASK = ''
+
 
 class VEConfig(object):
     '''Represents a VE's memory configuration.
@@ -70,7 +77,7 @@ class VEConfig(object):
                     Bitmask of CPUs on the physical server to use for executing
                     the virtual environment process.
 
-    All values are in bytes.
+    guarantee_type: Default ve memory guarantee type "auto" or in percent.
 
     Every field is tagged as follows:
 
@@ -80,6 +87,7 @@ class VEConfig(object):
     vram:           3
     nodelist:       4
     cpulist:        5
+    guarantee_type: 6
 
     The tags are used for converting the config to a tuple/array and back.
     '''
@@ -170,4 +178,5 @@ DefaultVEConfig = VEConfig(guarantee=0,
                            swap=UINT64_MAX,
                            vram=0,
                            nodelist="",
-                           cpulist="")
+                           cpulist="",
+                           guarantee_type=VCMMD_MEMGUARANTEE_AUTO)

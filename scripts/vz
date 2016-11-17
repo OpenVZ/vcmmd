@@ -26,7 +26,7 @@ from vcmmd.ve_type import (VE_TYPE_CT,
                            VE_TYPE_VM,
                            VE_TYPE_VM_LINUX,
                            VE_TYPE_VM_WINDOWS)
-from vcmmd.ve_config import VEConfig
+from vcmmd.ve_config import VEConfig, VCMMD_MEMGUARANTEE_PERCENTS
 from vcmmd.rpc.dbus.client import RPCProxy
 from vcmmd.error import VCMMDError, VCMMD_ERROR_VE_NAME_ALREADY_IN_USE
 from vcmmd.ve.ct import _lookup_cgroup
@@ -107,7 +107,7 @@ for vm in srv.get_vm_list_ex(consts.PVTF_CT | consts.PVTF_VM).wait():
     kv['limit'] = ram_size
 
     mem_guarantee = vm.get_mem_guarantee_size()
-    guar_pct = (mem_guarantee[1] if mem_guarantee[0] else
+    guar_pct = (mem_guarantee[1] if mem_guarantee[0] == VCMMD_MEMGUARANTEE_PERCENTS else
                 DEFAULT_GUARANTEE[ve_type])
     kv['guarantee'] = ram_size * guar_pct / 100
 
