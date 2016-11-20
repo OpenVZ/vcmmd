@@ -205,7 +205,6 @@ class VE(Env):
             raise VCMMDError(VCMMD_ERROR_VE_ALREADY_ACTIVE)
 
         self.active = True
-        self.numa_enforce_settings()
         self.log_info('Activated')
 
     def deactivate(self):
@@ -313,7 +312,6 @@ class VE(Env):
             raise VCMMDError(VCMMD_ERROR_VE_OPERATION_FAILED)
 
         self.config = config
-        self.numa_enforce_settings()
         self.log_info('Config updated: %s', config)
 
     def set_node_list(self, nodes):
