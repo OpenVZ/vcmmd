@@ -98,6 +98,7 @@ class VMImpl(VEImpl):
         return config_overhead + guest_mem_overhead
 
     def get_stats(self):
+        self.set_memstats_period(2)
         try:
             name = self._libvirt_domain.name()
             if name not in VMImpl.__cached_stats:
@@ -110,13 +111,6 @@ class VMImpl(VEImpl):
             raise Error('Failed to retrieve libvirt domain stats: %s' % err)
 
         memstats = {k.split('.')[1]: v for k,v in stats.iteritems() if k.startswith('balloon')}
-        t = time.time()
-        if t - memstats.get('last-update', t) > min(60, self.__memstats_update_period * 10):
-            # remove stale counters
-            # 'rss' and 'actual' should always be up-to-date
-            for k in set(memstats.keys()) - set(['rss', 'actual']):
-                del memstats[k]
-
         try:
             memcg_stat = self._memcg.read_mem_stat()
         except IOError as err:
