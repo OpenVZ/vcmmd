@@ -149,7 +149,7 @@ def _lookup_ve_impl(ve_type):
 
 
 def _check_ve_name(name):
-    if not name or '/' in name:
+    if not name:
         raise VCMMDError(VCMMD_ERROR_INVALID_VE_NAME)
 
 
