@@ -329,8 +329,8 @@ class VE(Env):
         This function changes VE affinity for memory and migrates VE's memory
         accordingly
         '''
-        obj = self._get_obj()
         try:
+            obj = self._get_obj()
             obj.pin_node_mem(nodes)
         except Error as err:
             self.log_err('Failed to bind NUMA nodes: %s' % err)
@@ -342,8 +342,8 @@ class VE(Env):
 
         This function changes VE affinity for CPUs
         '''
-        obj = self._get_obj()
         try:
+            obj = self._get_obj()
             obj.pin_cpu_list(cpus)
         except Error as err:
             self.log_err('Failed to bind CPU list: %s' % err)

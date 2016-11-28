@@ -221,8 +221,7 @@ class VMImpl(VEImpl):
 
         node_mask = ','.join([str(node) for node in nodes])
         try:
-            nr_vcpus = self._libvirt_domain.vcpusFlags(AFFECT_LIVE)
-            for vcpu in range(nr_vcpus):
+            for vcpu in range(self.nr_cpus):
                 self._vcpucg[vcpu].set_node_list(nodes)
 
             self._emulatorcg.set_node_list(nodes)
@@ -248,8 +247,7 @@ class VMImpl(VEImpl):
 
         cpu_map = ','.join([str(cpu) for cpu in cpus])
         try:
-            nr_vcpus = self._libvirt_domain.vcpusFlags(AFFECT_LIVE)
-            for vcpu in range(nr_vcpus):
+            for vcpu in range(self.nr_cpus):
                 self._vcpucg[vcpu].set_cpu_list(cpus)
 
             self._emulatorcg.set_cpu_list(cpus)
@@ -263,8 +261,7 @@ class VMImpl(VEImpl):
         cpu_map = tuple(cpu_map)
 
         try:
-            nr_vcpus = self._libvirt_domain.vcpusFlags(AFFECT_LIVE)
-            for vcpu in range(nr_vcpus):
+            for vcpu in range(self.nr_cpus):
                 self._libvirt_domain.pinVcpu(vcpu, cpu_map)
             self._libvirt_domain.pinEmulator(cpu_map, AFFECT_LIVE)
         except libvirtError as err:

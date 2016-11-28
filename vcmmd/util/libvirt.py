@@ -121,7 +121,11 @@ def lookup_qemu_machine_pid(name):
         if isinstance(proc.cmdline, list):
             cmd = proc.cmdline
         else:
-            cmd = proc.cmdline()
+            try:
+                cmd = proc.cmdline()
+            except psutil.NoSuchProcess:
+                raise OSError("No such process: '%s'" % name)
+
         if not cmd or not cmd[0].endswith('qemu-kvm'):
             continue
         name_idx = cmd.index('-name') + 1
