@@ -31,7 +31,7 @@ _VEConfigFields = [     # tag
     'vram',             # 3
     'nodelist',         # 4
     'cpulist',          # 5
-#    'guarantee_type',   # 6
+    'guarantee_type',   # 6
 ]
 
 _VEConfigFields_string = [
@@ -178,5 +178,5 @@ DefaultVEConfig = VEConfig(guarantee=0,
                            swap=UINT64_MAX,
                            vram=0,
                            nodelist="",
-                           cpulist="")
-                           #guarantee_type=VCMMD_MEMGUARANTEE_AUTO)
+                           cpulist="",
+                           guarantee_type=VCMMD_MEMGUARANTEE_AUTO)
