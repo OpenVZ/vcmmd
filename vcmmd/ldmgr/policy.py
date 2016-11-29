@@ -18,6 +18,7 @@
 # Our contact details: Parallels IP Holdings GmbH, Vordergasse 59, 8200
 # Schaffhausen, Switzerland.
 import logging
+import types
 from abc import ABCMeta, abstractmethod
 from threading import Lock
 
@@ -157,6 +158,7 @@ class NumaPolicy(Policy):
             return
         self.controllers.add(self.numa_controller)
         self.numa_timeout = 60 * 5
+        self.__prev_numa_migrations = {}
 
     def ve_activated(self, ve):
         super(NumaPolicy, self).ve_activated(ve)
@@ -175,16 +177,20 @@ class NumaPolicy(Policy):
         self.update_numa_stats()
 
         changes = self.get_numa_migrations()
-        for ve, nodes in changes.iteritems():
-            if nodes:
+        for ve, nodes in tuple(changes.iteritems()):
+            if not isinstance(nodes, (list, tuple, types.NoneType)):
+                self.logger.error("Invalid nodes list: %r for ve: %s" % (nodes, ve))
+                del changes[ve]
+            elif nodes:
                 ve.set_node_list(nodes)
 
         for ve, nodes in changes.iteritems():
-            if nodes is not None:
+            if nodes != self.__prev_numa_migrations.get(ve, None):
                 self.counts['NUMA']['ve'][ve.name] += 1
                 for node in nodes:
                     self.counts['NUMA']['node'][node] += 1
 
+        self.__prev_numa_migrations = changes
         return Request(self.numa_controller, timeout=self.numa_timeout, blocker=True)
 
     @abstractmethod
