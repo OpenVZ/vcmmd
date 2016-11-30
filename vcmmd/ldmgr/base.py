@@ -221,29 +221,15 @@ class LoadManager(object):
 
     def _request(sync=True):
         def wrap(fn):
-            argnames = fn.func_code.co_varnames[:fn.func_code.co_argcount]
-            fname = fn.func_name
-
             def wrapped(*args, **kwargs):
                 self = args[0]
-                request = "Request %s#%d(%s) " % (fname, wrapped.c, ', '.join(
-                    '%s=%s' % e for e in
-                    (zip(argnames,args)[1:]) + kwargs.items()))
-                start = time.time()
-                wrapped.c += 1
-                self.logger.info(request + "started")
                 req = Request(fn, args, kwargs)
                 try:
                     self._req_queue.put_nowait(req)
                 except Queue.Full:
-                    self.logger.info(request + "dropped")
                     raise VCMMDError(VCMMD_ERROR_TOO_MANY_REQUESTS)
                 if sync:
-                    ret = req.wait()
-                    self.logger.info(request + "returned %s after %.2fs" % (ret,
-                        time.time() - start))
-                    return ret
-            wrapped.c = 0
+                    return req.wait()
             return wrapped
         return wrap
 

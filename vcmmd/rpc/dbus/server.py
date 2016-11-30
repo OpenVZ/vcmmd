@@ -22,6 +22,7 @@ from __future__ import absolute_import
 
 import logging
 import threading
+import time
 
 import dbus
 import dbus.service
@@ -41,107 +42,165 @@ class _LoadManagerObject(dbus.service.Object):
         bus = dbus.SystemBus()
         bus_name = dbus.service.BusName(BUS_NAME, bus)
         super(_LoadManagerObject, self).__init__(bus_name, PATH)
+        self.logger = logging.getLogger('vcmmd.ldmgr')
+        self.request_num = 0
+
+    def _log(self, fn):
+        fname = fn.func_name
+
+        def wrapped(*args, **kwargs):
+            start = time.time()
+            self.request_num += 1
+            request = "Request %d %s" % (self.request_num, fname)
+            self.logger.info("%s started" % request)
+            ret = fn(*args, **kwargs)
+            t = time.time() - start
+            self.logger.info("%s worked %.2fs" % (request, t))
+            return ret
+        return wrapped
 
     @dbus.service.method(IFACE, in_signature='sia(qts)u', out_signature='i')
     def RegisterVE(self, ve_name, ve_type, ve_config, flags):
-        ve_name = str(ve_name)
-        ve_type = int(ve_type)
-        ve_config = VEConfig.from_array(ve_config)
-        try:
-            self.ldmgr.register_ve(ve_name, ve_type, ve_config)
-        except VCMMDError as err:
-            return err.errno
-        else:
-            return 0
+        @self._log
+        def RegisterVE(self, ve_name, ve_type, ve_config, flags):
+            ve_name = str(ve_name)
+            ve_type = int(ve_type)
+            ve_config = VEConfig.from_array(ve_config)
+            try:
+                self.ldmgr.register_ve(ve_name, ve_type, ve_config)
+            except VCMMDError as err:
+                return err.errno
+            else:
+                return 0
+        return RegisterVE(self, ve_name, ve_type, ve_config, flags)
 
     @dbus.service.method(IFACE, in_signature='su', out_signature='i')
     def ActivateVE(self, ve_name, flags):
-        ve_name = str(ve_name)
-        try:
-            self.ldmgr.activate_ve(ve_name)
-        except VCMMDError as err:
-            return err.errno
-        else:
-            return 0
+        @self._log
+        def ActivateVE(self, ve_name, flags):
+            ve_name = str(ve_name)
+            try:
+                self.ldmgr.activate_ve(ve_name)
+            except VCMMDError as err:
+                return err.errno
+            else:
+                return 0
+        return ActivateVE(self, ve_name, flags)
 
     @dbus.service.method(IFACE, in_signature='sa(qts)u', out_signature='i')
     def UpdateVE(self, ve_name, ve_config, flags):
-        ve_name = str(ve_name)
-        ve_config = VEConfig.from_array(ve_config)
-        try:
-            self.ldmgr.update_ve_config(ve_name, ve_config)
-        except VCMMDError as err:
-            return err.errno
-        else:
-            return 0
+        @self._log
+        def UpdateVE(self, ve_name, ve_config, flags):
+            ve_name = str(ve_name)
+            ve_config = VEConfig.from_array(ve_config)
+            try:
+                self.ldmgr.update_ve_config(ve_name, ve_config)
+            except VCMMDError as err:
+                return err.errno
+            else:
+                return 0
+        return UpdateVE(self, ve_name, ve_config, flags)
 
     @dbus.service.method(IFACE, in_signature='s', out_signature='i')
     def DeactivateVE(self, ve_name):
-        ve_name = str(ve_name)
-        try:
-            self.ldmgr.deactivate_ve(ve_name)
-        except VCMMDError as err:
-            return err.errno
-        else:
-            return 0
+        @self._log
+        def DeactivateVE(self, ve_name):
+            ve_name = str(ve_name)
+            try:
+                self.ldmgr.deactivate_ve(ve_name)
+            except VCMMDError as err:
+                return err.errno
+            else:
+                return 0
+        return DeactivateVE(self, ve_name)
 
     @dbus.service.method(IFACE, in_signature='s', out_signature='i')
     def UnregisterVE(self, ve_name):
-        ve_name = str(ve_name)
-        try:
-            self.ldmgr.unregister_ve(ve_name)
-        except VCMMDError as err:
-            return err.errno
-        else:
-            return 0
+        @self._log
+        def UnregisterVE(self, ve_name):
+            ve_name = str(ve_name)
+            try:
+                self.ldmgr.unregister_ve(ve_name)
+            except VCMMDError as err:
+                return err.errno
+            else:
+                return 0
+        return UnregisterVE(self, ve_name)
 
     @dbus.service.method(IFACE, in_signature='s', out_signature='ib')
     def IsVEActive(self, ve_name):
-        ve_name = str(ve_name)
-        try:
-            return (0, self.ldmgr.is_ve_active(ve_name))
-        except VCMMDError as err:
-            return (err.errno, False)
+        @self._log
+        def IsVEActive(self, ve_name):
+            ve_name = str(ve_name)
+            try:
+                return (0, self.ldmgr.is_ve_active(ve_name))
+            except VCMMDError as err:
+                return (err.errno, False)
+        return IsVEActive(self, ve_name)
 
     @dbus.service.method(IFACE, in_signature='s', out_signature='ia(qts)')
     def GetVEConfig(self, ve_name):
-        ve_name = str(ve_name)
-        try:
-            return (0, self.ldmgr.get_ve_config(ve_name))
-        except VCMMDError as err:
-            return (err.errno, [])
+        @self._log
+        def GetVEConfig(self, ve_name):
+            ve_name = str(ve_name)
+            try:
+                return (0, self.ldmgr.get_ve_config(ve_name))
+            except VCMMDError as err:
+                return (err.errno, [])
+        return GetVEConfig(self, ve_name)
 
     @dbus.service.method(IFACE, in_signature='', out_signature='a(siba(qts))')
     def GetAllRegisteredVEs(self):
-        return self.ldmgr.get_all_registered_ves()
+        @self._log
+        def GetAllRegisteredVEs(self):
+            return self.ldmgr.get_all_registered_ves()
+        return GetAllRegisteredVEs(self)
 
     @dbus.service.method(IFACE, in_signature='i', out_signature='')
     def SetLogLevel(self, lvl):
-        logging.getLogger('vcmmd').setLevel(lvl)
+        @self._log
+        def SetLogLevel(self, lvl):
+            logging.getLogger('vcmmd').setLevel(lvl)
+        return SetLogLevel(self)
 
     @dbus.service.method(IFACE, in_signature='', out_signature='s')
     def GetCurrentPolicy(self):
-        return self.ldmgr.get_current_policy()
+        @self._log
+        def GetCurrentPolicy(self):
+            return self.ldmgr.get_current_policy()
+        return GetCurrentPolicy(self)
 
     @dbus.service.method(IFACE, in_signature='b', out_signature='s')
     def GetConfig(self, j):
-        return self.ldmgr.get_config(j)
+        @self._log
+        def GetConfig(self, j):
+            return self.ldmgr.get_config(j)
+        return GetConfig(self, j)
 
     @dbus.service.method(IFACE, in_signature='b', out_signature='s')
     def GetPolicyCounts(self, j):
-        return self.ldmgr.get_policy_counts(j)
+        @self._log
+        def GetPolicyCounts(self, j):
+            return self.ldmgr.get_policy_counts(j)
+        return GetPolicyCounts(self, j)
 
     @dbus.service.method(IFACE, in_signature='', out_signature='ia(sx)')
     def GetStats(self, ve_name):
-        ve_name = str(ve_name)
-        try:
-            return (0, self.ldmgr.get_stats(ve_name))
-        except VCMMDError as err:
-            return (err.errno, [])
+        @self._log
+        def GetStats(self, ve_name):
+            ve_name = str(ve_name)
+            try:
+                return (0, self.ldmgr.get_stats(ve_name))
+            except VCMMDError as err:
+                return (err.errno, [])
+        return GetStats(self, j)
 
     @dbus.service.method(IFACE, in_signature='', out_signature='a(stt)')
     def GetQuotas(self):
-        return self.ldmgr.get_quotas()
+        @self._log
+        def GetQuotas(self):
+            return self.ldmgr.get_quotas()
+        return GetQuotas(self)
 
 
 class RPCServer(object):
