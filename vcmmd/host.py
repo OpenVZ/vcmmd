@@ -83,10 +83,11 @@ class Host(Env):
         total_mem = psutil.virtual_memory().total
         self.total_mem = total_mem
         self.host_mem = self._mem_size_from_config('HostMem', total_mem,
-                                                   (0.04, 128 << 20, 320 << 20))
+                                                   (0.04, 320 << 20, 512 << 20))
         self.sys_mem = self._mem_size_from_config('SysMem', total_mem,
-                                                  (0.04, 128 << 20, 320 << 20))
-        self._set_slice_mem('system', self.sys_mem)
+                                                  (0.04, 320 << 20, 512 << 20))
+        oom_guarantee = max(self.sys_mem * 2, 700 << 20)
+        self._set_slice_mem('system', self.sys_mem, oom_guarantee)
         self.user_mem = self._mem_size_from_config('UserMem', total_mem,
                                                    (0.02, 32 << 20, 128 << 20))
         self._set_slice_mem('user', self.user_mem)
@@ -111,13 +112,15 @@ class Host(Env):
                            default=default[2], integer=True, minimum=0)
         return clamp(int(mem_total * share), min_, max_)
 
-    def _set_slice_mem(self, name, value, verbose=True):
+    def _set_slice_mem(self, name, value, oom_guarantee=None, verbose=True):
+        if oom_guarantee is None:
+            oom_guarantee = value
         memcg = MemoryCgroup(name + '.slice')
         if not memcg.exists():
             return
         try:
             memcg.write_mem_low(value)
-            memcg.write_oom_guarantee(value)
+            memcg.write_oom_guarantee(oom_guarantee)
         except IOError as err:
             self.log_err('Failed to set reservation for %s slice: %s',
                               name, err)
