@@ -26,6 +26,7 @@ from vcmmd.host import Host
 from vcmmd.ldmgr.base import Request
 from vcmmd.config import VCMMDConfig
 from vcmmd.util.misc import print_dict
+from vcmmd.util.cpu_features import get_cpuinfo_features
 from vcmmd.ve_type import VE_TYPE_CT
 
 
@@ -212,6 +213,9 @@ class KSMPolicy(Policy):
         kc = VCMMDConfig().get_bool("LoadManager.Controllers.KSM", True)
         self.counts['KSM'] = {'run': 0}
         if not kc:
+            return
+        if 'hypervisor' in get_cpuinfo_features():
+            self.logger.info("Running in hypervisor, no need for ksm")
             return
         self.controllers.add(self.ksm_controller)
         self.ksm_timeout = 60
