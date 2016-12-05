@@ -67,7 +67,7 @@ class Host(Env):
     __metaclass__ = HostMeta
 
     KSM_CONTROL_PATH = '/sys/kernel/mm/ksm/%s'
-    THP_CONTROL_PATH = '/sys/kernel/mm/transparent_hugepage/khugepaged/%s'
+    THP_CONTROL_PATH = '/sys/kernel/mm/transparent_hugepage/%s'
 
 
     class Numa(AbsNuma):
