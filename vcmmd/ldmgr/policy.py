@@ -216,6 +216,8 @@ class KSMPolicy(Policy):
             return
         if 'hypervisor' in get_cpuinfo_features():
             self.logger.info("Running in hypervisor, no need for ksm")
+            self.host.thptune({"khugepaged/defrag": "0"})
+            self.host.thptune({"enabled": "never", "defrag": "never"})
             return
         self.controllers.add(self.ksm_controller)
         self.ksm_timeout = 60
