@@ -161,7 +161,7 @@ class _LoadManagerObject(dbus.service.Object):
         @self._log
         def SetLogLevel(self, lvl):
             logging.getLogger('vcmmd').setLevel(lvl)
-        return SetLogLevel(self)
+        return SetLogLevel(self, lvl)
 
     @dbus.service.method(IFACE, in_signature='', out_signature='s')
     def GetCurrentPolicy(self):
@@ -193,7 +193,7 @@ class _LoadManagerObject(dbus.service.Object):
                 return (0, self.ldmgr.get_stats(ve_name))
             except VCMMDError as err:
                 return (err.errno, [])
-        return GetStats(self, j)
+        return GetStats(self, ve_name)
 
     @dbus.service.method(IFACE, in_signature='', out_signature='a(stt)')
     def GetQuotas(self):
