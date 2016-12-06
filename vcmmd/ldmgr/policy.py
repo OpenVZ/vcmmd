@@ -103,7 +103,7 @@ class BalloonPolicy(Policy):
     '''
     def __init__(self):
         super(BalloonPolicy, self).__init__()
-        bc = VCMMDConfig().get_bool("LoadManager.Controllers.Balloon", True)
+        bc = VCMMDConfig().get_bool("LoadManager.Controllers.Balloon", False)
         self.counts['Balloon'] = {}
         if not bc:
             return
