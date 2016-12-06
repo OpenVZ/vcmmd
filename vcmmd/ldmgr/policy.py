@@ -148,22 +148,27 @@ class NumaPolicy(Policy):
     '''
     def __init__(self):
         super(NumaPolicy, self).__init__()
-        nc = VCMMDConfig().get_bool("LoadManager.Controllers.NUMA", True)
-        self.counts['NUMA'] = {}
-        self.counts['NUMA']['ve'] = {}
-        self.counts['NUMA']['node'] = {i: 0 for i in self.host.numa.nodes_ids}
+        host_has_numa = len(self.host.numa.nodes_ids) > 1
+        default = host_has_numa
+
+        nc = VCMMDConfig().get_bool("LoadManager.Controllers.NUMA", default)
+
         if not nc:
+            if not host_has_numa:
+                self.logger.info("Found < 2 NUMA nodes, no need balance")
             return
-        elif len(self.host.numa.nodes_ids) < 2:
-            self.logger.info("Found < 2 NUMA nodes, no need balance")
-            return
+
         self.controllers.add(self.numa_controller)
         self.numa_timeout = 60 * 5
         self.__prev_numa_migrations = {}
+        self.counts['NUMA'] = {}
+        self.counts['NUMA']['ve'] = {}
+        self.counts['NUMA']['node'] = {i: 0 for i in self.host.numa.nodes_ids}
 
     def ve_activated(self, ve):
         super(NumaPolicy, self).ve_activated(ve)
-        self.counts['NUMA']['ve'][ve.name] = 0
+        if 'NUMA' in self.counts:
+            self.counts['NUMA']['ve'][ve.name] = 0
 
     @abstractmethod
     def update_numa_stats(self):
@@ -210,17 +215,21 @@ class KSMPolicy(Policy):
     '''
     def __init__(self):
         super(KSMPolicy, self).__init__()
-        kc = VCMMDConfig().get_bool("LoadManager.Controllers.KSM", True)
-        self.counts['KSM'] = {'run': 0}
+        nested_v = 'hypervisor' in get_cpuinfo_features()
+        default = not nested_v
+
+        kc = VCMMDConfig().get_bool("LoadManager.Controllers.KSM", default)
+
         if not kc:
+            if nested_v:
+                self.host.thptune({"khugepaged/defrag": "0"})
+                self.host.thptune({"enabled": "never", "defrag": "never"})
+                self.logger.info("Running in hypervisor, no need for ksm")
             return
-        if 'hypervisor' in get_cpuinfo_features():
-            self.logger.info("Running in hypervisor, no need for ksm")
-            self.host.thptune({"khugepaged/defrag": "0"})
-            self.host.thptune({"enabled": "never", "defrag": "never"})
-            return
+
         self.controllers.add(self.ksm_controller)
         self.ksm_timeout = 60
+        self.counts['KSM'] = {'run': 0}
 
     @abstractmethod
     def update_ksm_stats(self):
