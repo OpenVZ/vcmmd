@@ -156,8 +156,8 @@ class CTImpl(ABSVEImpl):
         accordingly
         '''
         try:
-            self._cpusetcg.set_node_list(nodes)
             self._cpusetcg.set_memory_migrate(True)
+            self._cpusetcg.set_node_list(nodes)
         except IOError as err:
             raise Error('Cgroup write failed: %s' % err)
 
