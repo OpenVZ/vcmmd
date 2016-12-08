@@ -58,10 +58,47 @@ class ABSVEImpl(VEImpl):
 
     def __init__(self, name):
         self._memcg = _lookup_cgroup(MemoryCgroup, name)
-        self._blkcg = _lookup_cgroup(BlkIOCgroup, name)
-        self._cpucg = _lookup_cgroup(CpuCgroup, name)
 
         self.mem_limit = UINT64_MAX
+
+    def set_mem_protection(self, value):
+        # Use memcg/memory.low to protect the CT from host pressure.
+        try:
+            self._memcg.write_mem_low(value)
+        except IOError as err:
+            raise Error('Cgroup write failed: %s' % err)
+
+    def set_mem_target(self, value):
+        # Decreasing memory.high might take long as it implies memory reclaim,
+        # so do it asynchronously.
+        #
+        # XXX: For the sake of simplicity, we don't care about failures here.
+        # It is acceptable, because adjusting memory.high may fail only if
+        # the cgroup gets destroyed, which we will see and report anyway from
+        # get_stats().
+        _thread_pool.apply_async(self._memcg.write_mem_high, (value,))
+
+        self.mem_limit = value
+
+    def set_config(self, config):
+        try:
+            self._memcg.write_oom_guarantee(config.guarantee)
+            self._memcg.write_mem_config(config.limit, config.swap)
+            self._memcg.write_tcp_mem_limit(config.limit / 8)
+            self._memcg.write_udp_mem_limit(config.limit / 8)
+        except IOError as err:
+            raise Error('Cgroup write failed: %s' % err)
+
+        self.mem_limit = min(self.mem_limit, config.limit)
+
+
+class CTImpl(ABSVEImpl):
+
+    def __init__(self, name):
+        super(CTImpl, self).__init__(name)
+        self._cpusetcg = _lookup_cgroup(CpuSetCgroup, name)
+        self._blkcg = _lookup_cgroup(BlkIOCgroup, name)
+        self._cpucg = _lookup_cgroup(CpuCgroup, name)
 
     def get_stats(self):
         try:
@@ -95,36 +132,6 @@ class ABSVEImpl(VEImpl):
                 'wr_bytes': io_service_bytes[1],
                 'last_update': int(time.time())}
 
-    def set_mem_protection(self, value):
-        # Use memcg/memory.low to protect the CT from host pressure.
-        try:
-            self._memcg.write_mem_low(value)
-        except IOError as err:
-            raise Error('Cgroup write failed: %s' % err)
-
-    def set_mem_target(self, value):
-        # Decreasing memory.high might take long as it implies memory reclaim,
-        # so do it asynchronously.
-        #
-        # XXX: For the sake of simplicity, we don't care about failures here.
-        # It is acceptable, because adjusting memory.high may fail only if
-        # the cgroup gets destroyed, which we will see and report anyway from
-        # get_stats().
-        _thread_pool.apply_async(self._memcg.write_mem_high, (value,))
-
-        self.mem_limit = value
-
-    def set_config(self, config):
-        try:
-            self._memcg.write_oom_guarantee(config.guarantee)
-            self._memcg.write_mem_config(config.limit, config.swap)
-            self._memcg.write_tcp_mem_limit(config.limit / 8)
-            self._memcg.write_udp_mem_limit(config.limit / 8)
-        except IOError as err:
-            raise Error('Cgroup write failed: %s' % err)
-
-        self.mem_limit = min(self.mem_limit, config.limit)
-
     @property
     def nr_cpus(self):
         try:
@@ -132,13 +139,6 @@ class ABSVEImpl(VEImpl):
             return self._nr_cpus
         except IOError:
             return getattr(self, "_nr_cpus", -1)
-
-
-class CTImpl(ABSVEImpl):
-
-    def __init__(self, name):
-        super(CTImpl, self).__init__(name)
-        self._cpusetcg = _lookup_cgroup(CpuSetCgroup, name)
 
     def get_node_list(self):
         '''Get list of nodes where CT is running

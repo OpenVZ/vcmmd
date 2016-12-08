@@ -7,6 +7,7 @@ import subprocess
 import time
 import re
 import xml.etree.ElementTree as ET
+import psutil
 
 
 def _excepthook(exc_type, exc_value, exc_traceback):
@@ -22,7 +23,8 @@ sys.excepthook = _excepthook
 import prlsdkapi
 from prlsdkapi import consts
 
-from vcmmd.ve_type import (VE_TYPE_CT,
+from vcmmd.ve_type import (VE_TYPE_SERVICE,
+                           VE_TYPE_CT,
                            VE_TYPE_VM,
                            VE_TYPE_VM_LINUX,
                            VE_TYPE_VM_WINDOWS)
@@ -70,6 +72,23 @@ srv = prlsdkapi.Server()
 srv.login_local().wait()
 
 proxy = RPCProxy()
+
+# VStorage must be activated first
+vs_service_name = 'vstorage.slice/vstorage-services.slice'
+vs_cgroup_path = '/sys/fs/cgroup/memory/%s'
+if os.path.isdir(vs_cgroup_path % vs_service_name):
+    total_mem = psutil.virtual_memory().total
+    kv = {}
+    kv['limit'] = int(0.7 * total_mem)
+    kv['guarantee'] = min(total_mem / 5, 4 << 30)
+    kv['swap'] = 0
+    try:
+        proxy.register_ve(vs_service_name, VE_TYPE_SERVICE, VEConfig(**kv), 0)
+        proxy.activate_ve(vs_service_name, 0)
+    except VCMMDError as e:
+        if e.errno == VCMMD_ERROR_VE_NAME_ALREADY_IN_USE:
+            pass
+        raise
 
 for vm in srv.get_vm_list_ex(consts.PVTF_CT | consts.PVTF_VM).wait():
     try:
