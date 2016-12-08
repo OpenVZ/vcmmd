@@ -156,12 +156,6 @@ class CTImpl(ABSVEImpl):
         accordingly
         '''
         try:
-            self._memcg.set_node_list(nodes)
-            return
-        except IOError:
-            pass
-
-        try:
             self._cpusetcg.set_node_list(nodes)
             self._cpusetcg.set_memory_migrate(True)
         except IOError as err:
