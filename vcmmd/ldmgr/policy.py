@@ -183,15 +183,14 @@ class NumaPolicy(Policy):
         self.update_numa_stats()
 
         changes = self.get_numa_migrations()
+
         for ve, nodes in tuple(changes.iteritems()):
             if not isinstance(nodes, (list, tuple, types.NoneType)):
                 self.logger.error("Invalid nodes list: %r for ve: %s" % (nodes, ve))
                 del changes[ve]
-            elif nodes:
-                ve.set_node_list(nodes)
-
-        for ve, nodes in changes.iteritems():
+                continue
             if nodes != self.__prev_numa_migrations.get(ve, None):
+                ve.set_node_list(nodes)
                 self.counts['NUMA']['ve'][ve.name] += 1
                 for node in nodes:
                     self.counts['NUMA']['node'][node] += 1
