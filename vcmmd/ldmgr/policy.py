@@ -136,7 +136,7 @@ class Policy(object):
         err = 'shutdown event'
         while self.__watchdog__run:
             try:
-                events = p.poll(1)
+                events = p.poll(2)
                 for fd,event in events:
                     if event & EPOLLIN:
                         # In an eventfd, there are always 8 bytes
