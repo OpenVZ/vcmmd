@@ -203,8 +203,11 @@ class BalloonPolicy(Policy):
 class NumaPolicy(Policy):
     '''Manages NUMA nodes' load by VEs.
     '''
+
     def __init__(self):
         super(NumaPolicy, self).__init__()
+        self.__apply_changes_lock = Lock()
+
         host_has_numa = len(self.host.numa.nodes_ids) > 1
         default = host_has_numa
 
@@ -216,6 +219,7 @@ class NumaPolicy(Policy):
             return
 
         self.controllers.add(self.numa_controller)
+        self.low_memory_callbacks.add(self.numa_low_memory_callback)
         self.numa_timeout = 60 * 5
         self.__prev_numa_migrations = {}
         self.counts['NUMA'] = {}
@@ -231,16 +235,7 @@ class NumaPolicy(Policy):
     def update_numa_stats(self):
         pass
 
-    def numa_controller(self):
-        '''Reapply_policy VEs between NUMA nodes.
-
-        Expects that self is an appropriate NumaPolicy with overwritten
-        get_numa_migrations.
-        '''
-        self.update_numa_stats()
-
-        changes = self.get_numa_migrations()
-
+    def apply_changes(changes):
         for ve, nodes in tuple(changes.iteritems()):
             if not isinstance(nodes, (list, tuple, types.NoneType)):
                 self.logger.error("Invalid nodes list: %r for ve: %s" % (nodes, ve))
@@ -251,9 +246,21 @@ class NumaPolicy(Policy):
                 self.counts['NUMA']['ve'][ve.name] += 1
                 for node in nodes:
                     self.counts['NUMA']['node'][node] += 1
+                self.__prev_numa_migrations[ve] = nodes
 
-        self.__prev_numa_migrations = changes
-        return Request(self.numa_controller, timeout=self.numa_timeout, blocker=True)
+    def numa_controller(self):
+        '''Reapply_policy VEs between NUMA nodes.
+
+        Expects that self is an appropriate NumaPolicy with overwritten
+        get_numa_migrations.
+        '''
+        with self.__apply_changes_lock:
+            self.update_numa_stats()
+
+            changes = self.get_numa_migrations()
+            self.apply_changes(changes)
+
+            return Request(self.numa_controller, timeout=self.numa_timeout, blocker=True)
 
     @abstractmethod
     def get_numa_migrations(self):
@@ -263,6 +270,16 @@ class NumaPolicy(Policy):
 
         This function must be overridden in sub-class.
         '''
+        pass
+
+    def numa_low_memory_callback(self):
+        with self.__apply_changes_lock:
+            self.update_numa_stats()
+
+            changes = self.get_low_memory_param()
+            self.apply_changes(changes)
+
+    def get_low_memory_param(self):
         pass
 
 
