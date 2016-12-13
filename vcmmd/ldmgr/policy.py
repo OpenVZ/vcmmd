@@ -232,6 +232,11 @@ class NumaPolicy(Policy):
         if 'NUMA' in self.counts:
             self.counts['NUMA']['ve'][ve.name] = 0
 
+    def ve_deactivated(self, ve):
+        super(NumaPolicy, self).ve_deactivated(ve)
+        if 'NUMA' in self.counts and ve.name in self.counts['NUMA']['ve']:
+            del self.counts['NUMA']['ve'][ve.name]
+
     @abstractmethod
     def update_numa_stats(self):
         pass
