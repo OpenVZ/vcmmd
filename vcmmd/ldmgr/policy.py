@@ -19,6 +19,9 @@
 # Schaffhausen, Switzerland.
 import logging
 import types
+import os
+from select import epoll, EPOLLIN
+import struct
 from abc import ABCMeta, abstractmethod
 from threading import Lock
 
@@ -29,12 +32,27 @@ from vcmmd.util.misc import print_dict
 from vcmmd.util.cpu_features import get_cpuinfo_features
 from vcmmd.ve_type import VE_TYPE_CT
 
+def eventfd(init_val, flags):
+    from ctypes import cdll
+    import ctypes
+    libc = cdll.LoadLibrary("libc.so.6")
+    fd = libc.eventfd(ctypes.c_uint(init_val), ctypes.c_int(flags))
+    if fd < 0:
+        err = ctypes.get_errno()
+        msg = os.strerror(err)
+        raise OSError(err, msg)
+    return fd
+
 
 class Policy(object):
     '''Load manager policy interface.
     '''
 
     __metaclass__ = ABCMeta
+
+    MEM_PRES_PATH = '/sys/fs/cgroup/memory/memory.pressure_level'
+    EVENT_CONTR_PATH = '/sys/fs/cgroup/memory/cgroup.event_control'
+    PRESSURE_LEVEL = 'medium'
 
     def __init__(self):
         self.logger = logging.getLogger('vcmmd.ldmgr.policy')
@@ -43,6 +61,7 @@ class Policy(object):
         self.__ve_data = {}  # Dictionary of all managed VEs to their policy data
         self.__ve_data_lock = Lock()
         self.counts = {}
+        self.controllers.add(lambda: Request(self.low_memory_watchdog, blocker=True))
 
     def get_name(self):
         return self.__class__.__name__
@@ -96,6 +115,44 @@ class Policy(object):
 
     def report(self, j=False):
         return print_dict(self.counts, j)
+
+    def shutdown(self):
+        self.__watchdog__run = False
+
+    def low_memory_callback(self):
+        pass
+
+    def low_memory_watchdog(self):
+        self.__watchdog__run = True
+        efd = eventfd(0, 0)
+        mp = open(self.MEM_PRES_PATH)
+        with open(self.EVENT_CONTR_PATH, 'w') as cgc:
+            cgc.write("%d %d %s" % (efd, mp.fileno(), self.PRESSURE_LEVEL))
+
+        p = epoll()
+        p.register(efd)
+
+        self.host.log_info('"Low memory" watchdog started(pressure level=%r).' % self.PRESSURE_LEVEL)
+        err = 'shutdown event'
+        while self.__watchdog__run:
+            try:
+                events = p.poll(1)
+                for fd,event in events:
+                    if event & EPOLLIN:
+                        # In an eventfd, there are always 8 bytes
+                        ret = os.read(efd, 64/8)
+                        num = struct.unpack('Q', ret)
+                        break
+                else:
+                    continue
+            except (ValueError, OSError, IOError) as err:
+                break
+            self.host.log_info('"Low memory" notification received: %d' % num)
+            self.low_memory_callback()
+
+        p.close()
+        os.close(efd)
+        self.host.log_err('"Low memory" watchdog stopped(msg="%s").' % err)
 
 
 class BalloonPolicy(Policy):
