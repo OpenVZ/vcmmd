@@ -249,12 +249,12 @@ class NumaPolicy(Policy):
                 self.logger.error("Invalid nodes list: %r for ve: %s" % (nodes, ve))
                 del changes[ve]
                 continue
-            if nodes != self.__prev_numa_migrations.get(str(ve), None):
+            if nodes != self.__prev_numa_migrations.get(ve.name, None):
                 ve.set_node_list(nodes)
                 self.counts['NUMA']['ve'][ve.name] += 1
                 for node in nodes:
                     self.counts['NUMA']['node'][node] += 1
-                self.__prev_numa_migrations[str(ve)] = nodes
+                self.__prev_numa_migrations[ve.name] = nodes
         self.logger.debug(repr(self.__prev_numa_migrations))
 
     def numa_controller(self):
