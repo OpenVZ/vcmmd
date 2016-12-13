@@ -130,7 +130,7 @@ class Policy(object):
             cgc.write("%d %d %s" % (efd, mp.fileno(), self.PRESSURE_LEVEL))
 
         p = epoll()
-        p.register(efd)
+        p.register(efd, EPOLLIN)
 
         self.host.log_info('"Low memory" watchdog started(pressure level=%r).' % self.PRESSURE_LEVEL)
         err = 'shutdown event'
