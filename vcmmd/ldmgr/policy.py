@@ -58,10 +58,10 @@ class Policy(object):
         self.logger = logging.getLogger('vcmmd.ldmgr.policy')
         self.host = Host() # Singleton object with host related data
         self.controllers = set()
+        self.low_memory_callbacks = set()
         self.__ve_data = {}  # Dictionary of all managed VEs to their policy data
         self.__ve_data_lock = Lock()
         self.counts = {}
-        self.controllers.add(lambda: Request(self.low_memory_watchdog, blocker=True))
 
     def get_name(self):
         return self.__class__.__name__
@@ -111,6 +111,8 @@ class Policy(object):
         ret = []
         for ctrl in self.controllers:
             ret.append(ctrl())
+        if self.low_memory_callbacks:
+            ret.append(Request(self.low_memory_watchdog, blocker=True))
         return ret
 
     def report(self, j=False):
@@ -118,9 +120,6 @@ class Policy(object):
 
     def shutdown(self):
         self.__watchdog__run = False
-
-    def low_memory_callback(self):
-        pass
 
     def low_memory_watchdog(self):
         self.__watchdog__run = True
@@ -147,12 +146,13 @@ class Policy(object):
                     continue
             except (ValueError, OSError, IOError) as err:
                 break
-            self.host.log_info('"Low memory" notification received: %d' % num)
-            self.low_memory_callback()
+            self.host.log_debug('"Low memory" notification received: %d' % num)
+            for callback in self.low_memory_callbacks:
+                callback()
 
         p.close()
         os.close(efd)
-        self.host.log_err('"Low memory" watchdog stopped(msg="%s").' % err)
+        self.host.log_info('"Low memory" watchdog stopped(msg="%s").' % err)
 
 
 class BalloonPolicy(Policy):
