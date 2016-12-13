@@ -241,6 +241,7 @@ class LoadManager(object):
             self._queue_request(Request(shutdown, blocker=True))
 
     def shutdown(self):
+        self._policy.shutdown()
         self._do_shutdown()
         [w.join() for w in self._workers]
 
