@@ -123,6 +123,7 @@ class Policy(object):
         self.__watchdog__run = False
 
     def low_memory_watchdog(self):
+        self.counts['low_mem_events'] = 0
         self.__watchdog__run = True
         efd = eventfd(0, 0)
         mp = open(self.MEM_PRES_PATH)
@@ -150,6 +151,7 @@ class Policy(object):
             self.host.log_debug('"Low memory" notification received: %d' % num)
             for callback in self.low_memory_callbacks:
                 callback()
+            self.counts['low_mem_events'] += 1
 
         p.close()
         os.close(efd)
