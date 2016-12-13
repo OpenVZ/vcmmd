@@ -20,6 +20,7 @@
 import logging
 import types
 import os
+from time import sleep
 from select import epoll, EPOLLIN
 import struct
 from abc import ABCMeta, abstractmethod
@@ -278,6 +279,7 @@ class NumaPolicy(Policy):
 
             changes = self.get_low_memory_param()
             self.apply_changes(changes)
+            sleep(1)
 
     def get_low_memory_param(self):
         pass
