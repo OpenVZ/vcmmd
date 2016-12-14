@@ -370,3 +370,10 @@ class VE(Env):
 
     def numa_configured(self):
         return self.config.nodelist or self.config.cpulist
+
+    def get_rss(self):
+        try:
+            return self._get_obj().get_rss()
+        except Error as err:
+            self.log_err('Failed to get RSS: %s', err)
+        return -1

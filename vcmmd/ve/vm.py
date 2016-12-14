@@ -33,6 +33,7 @@ from vcmmd.ve_type import VE_TYPE_VM, VE_TYPE_VM_LINUX, VE_TYPE_VM_WINDOWS
 from vcmmd.config import VCMMDConfig
 from vcmmd.util.libvirt import (virDomainProxy,
                                 lookup_qemu_machine_cgroup,
+                                lookup_qemu_machine_pid,
                                 virConnectionProxy)
 from vcmmd.util.misc import roundup
 from vcmmd.util.limits import PAGE_SIZE
@@ -41,6 +42,7 @@ from libvirt import VIR_DOMAIN_NUMATUNE_MEM_STRICT as NUMATUNE_MEM_STRICT
 from libvirt import (VIR_DOMAIN_AFFECT_CURRENT as AFFECT_CURRENT,
                      VIR_DOMAIN_AFFECT_LIVE as AFFECT_LIVE,
                      VIR_DOMAIN_AFFECT_CONFIG as AFFECT_CONFIG)
+import psutil
 
 
 class VMImpl(VEImpl):
@@ -80,6 +82,14 @@ class VMImpl(VEImpl):
 
         for vcpu in range(max_vcpus):
             self._vcpucg[vcpu] = CpuSetCgroup(vcpu_path % vcpu)
+
+    def get_rss(self):
+        try:
+            pid = lookup_qemu_machine_pid(self._libvirt_domain.name())
+            p = psutil.Process(pid)
+            return p.get_memory_info().rss
+        except (OSError, libvirtError) as err:
+            raise Error(str(err))
 
     def set_memstats_period(self, period):
         try:

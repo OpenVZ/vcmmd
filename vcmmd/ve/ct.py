@@ -61,6 +61,12 @@ class ABSVEImpl(VEImpl):
 
         self.mem_limit = UINT64_MAX
 
+    def get_rss(self):
+        try:
+            return self._memcg.read_mem_current()
+        except IOError as err:
+            raise Error('Cgroup write failed: %s' % err)
+
     def set_mem_protection(self, value):
         # Use memcg/memory.low to protect the CT from host pressure.
         try:
