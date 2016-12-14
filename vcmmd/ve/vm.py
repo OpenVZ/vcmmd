@@ -83,12 +83,16 @@ class VMImpl(VEImpl):
         for vcpu in range(max_vcpus):
             self._vcpucg[vcpu] = CpuSetCgroup(vcpu_path % vcpu)
 
+        try:
+            self.pid = lookup_qemu_machine_pid(self._libvirt_domain.name())
+        except (OSError, libvirtError) as err:
+            raise Error(str(err))
+
     def get_rss(self):
         try:
-            pid = lookup_qemu_machine_pid(self._libvirt_domain.name())
-            p = psutil.Process(pid)
+            p = psutil.Process(self.pid)
             return p.get_memory_info().rss
-        except (OSError, libvirtError) as err:
+        except psutil.Error as err:
             raise Error(str(err))
 
     def set_memstats_period(self, period):
