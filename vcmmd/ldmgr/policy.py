@@ -236,8 +236,12 @@ class NumaPolicy(Policy):
 
     def ve_deactivated(self, ve):
         super(NumaPolicy, self).ve_deactivated(ve)
-        if 'NUMA' in self.counts and ve.name in self.counts['NUMA']['ve']:
-            del self.counts['NUMA']['ve'][ve.name]
+        if 'NUMA' in self.counts:
+            try:
+                del self.counts['NUMA']['ve'][ve.name]
+                del self.__prev_numa_migrations[ve.name]
+            except KeyError:
+                pass
 
     @abstractmethod
     def update_numa_stats(self):
@@ -255,11 +259,11 @@ class NumaPolicy(Policy):
                 ve.set_node_list(nodes)
                 try:
                     self.counts['NUMA']['ve'][ve.name] += 1
+                    self.__prev_numa_migrations[ve.name] = nodes
                 except KeyError:
                     pass
                 for node in nodes:
                     self.counts['NUMA']['node'][node] += 1
-                self.__prev_numa_migrations[ve.name] = nodes
         self.logger.debug(repr(self.__prev_numa_migrations))
 
     def numa_controller(self):
