@@ -253,7 +253,10 @@ class NumaPolicy(Policy):
                 continue
             if nodes != self.__prev_numa_migrations.get(ve.name, None):
                 ve.set_node_list(nodes)
-                self.counts['NUMA']['ve'][ve.name] += 1
+                try:
+                    self.counts['NUMA']['ve'][ve.name] += 1
+                except KeyError:
+                    pass
                 for node in nodes:
                     self.counts['NUMA']['node'][node] += 1
                 self.__prev_numa_migrations[ve.name] = nodes
