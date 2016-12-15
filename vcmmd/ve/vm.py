@@ -85,8 +85,8 @@ class VMImpl(VEImpl):
 
         try:
             self.pid = lookup_qemu_machine_pid(self._libvirt_domain.name())
-        except (OSError, libvirtError) as err:
-            raise Error(str(err))
+        except EnvironmentError as err:
+            raise Error('Failed to lookup machine pid: %s' % err)
 
     def get_rss(self):
         try:
