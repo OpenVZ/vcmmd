@@ -163,11 +163,14 @@ class BalloonPolicy(Policy):
     '''
     def __init__(self):
         super(BalloonPolicy, self).__init__()
+        self.__apply_changes_lock = Lock()
+
         bc = VCMMDConfig().get_bool("LoadManager.Controllers.Balloon", False)
         self.counts['Balloon'] = {}
         if not bc:
             return
         self.controllers.add(self.balloon_controller)
+        self.low_memory_callbacks.add(self.balloon_controller)
         self.balloon_timeout = 5
 
     @abstractmethod
@@ -180,15 +183,16 @@ class BalloonPolicy(Policy):
         Expects that self is an appropriate BalloonPolicy with overwritten
         calculate_balloon_size.
         '''
-        self.update_balloon_stats()
+        with self.__apply_changes_lock:
+            self.update_balloon_stats()
 
-        ve_quotas = self.calculate_balloon_size()
+            ve_quotas = self.calculate_balloon_size()
 
-        # Apply the quotas.
-        for ve, (target, protection) in ve_quotas.iteritems():
-            ve.set_mem(target=target, protection=protection)
+            # Apply the quotas.
+            for ve, (target, protection) in ve_quotas.iteritems():
+                ve.set_mem(target=target, protection=protection)
 
-        return Request(self.balloon_controller, timeout=self.balloon_timeout, blocker=True)
+            return Request(self.balloon_controller, timeout=self.balloon_timeout, blocker=True)
 
     @abstractmethod
     def calculate_balloon_size(self):
