@@ -56,7 +56,6 @@ class VMImpl(VEImpl):
         except libvirtError as err:
             raise Error('Failed to lookup libvirt domain: %s' % err)
 
-        self.set_memstats_period(0)
         # libvirt places every virtual machine in its own cgroup
         try:
             cgroup = lookup_qemu_machine_cgroup(self._libvirt_domain.name())
