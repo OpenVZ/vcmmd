@@ -141,7 +141,7 @@ class VMImpl(VEImpl):
         blk_stat = {'rd.reqs': 0, 'rd.bytes': 0, 'wr.reqs': 0, 'wr.bytes': 0}
         for s in blk_stat:
             for c in range(0, stats.get('block.count', 0)):
-                blk_stat[s] += stats['block.%d.%s' % (c, s)]
+                blk_stat[s] += stats.get('block.%d.%s' % (c, s), 0)
 
         # libvirt reports memory values in kB, so we need to convert them to
         # bytes
