@@ -145,7 +145,7 @@ class VMImpl(VEImpl):
 
         # libvirt reports memory values in kB, so we need to convert them to
         # bytes
-        return {'actual': memstats.get('actual', -1) << 10,
+        return {'actual': memstats.get('current', -1) << 10,
                 'rss': memstats.get('rss', -1) << 10,
                 'host_mem': host_mem,
                 'host_swap': host_swap,
