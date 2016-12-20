@@ -101,7 +101,7 @@ if os.path.isdir(vs_cgroup_path % vs_service_name) and os.path.exists(vs_config)
         kv['swap'] = clamp(int(j['VStorage']['Swap']['Share'] * total_mem),
                            j['VStorage']['Swap']['Min'],
                            j['VStorage']['Swap']['Max'])
-    except KeyError, TypeError:
+    except KeyError, TypeError, ValueError:
         vs_exc_info = sys.exc_info()
     else:
         try:
