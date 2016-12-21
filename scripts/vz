@@ -151,6 +151,7 @@ for vm in srv.get_vm_list_ex(consts.PVTF_CT | consts.PVTF_VM).wait():
     guar_pct = (mem_guarantee[1] if mem_guarantee[0] == VCMMD_MEMGUARANTEE_PERCENTS else
                 DEFAULT_GUARANTEE[ve_type])
     kv['guarantee'] = ram_size * guar_pct / 100
+    kv['guarantee_type'] = mem_guarantee[0]
 
     if swap:
         kv['swap'] = swap

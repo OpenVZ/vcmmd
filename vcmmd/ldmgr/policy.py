@@ -54,6 +54,7 @@ class Policy(object):
     MEM_PRES_PATH = '/sys/fs/cgroup/memory/memory.pressure_level'
     EVENT_CONTR_PATH = '/sys/fs/cgroup/memory/cgroup.event_control'
     PRESSURE_LEVEL = 'medium'
+    DEFAULT_VM_AUTO_GUARANTEE = 0.4
 
     def __init__(self):
         self.logger = logging.getLogger('vcmmd.ldmgr.policy')

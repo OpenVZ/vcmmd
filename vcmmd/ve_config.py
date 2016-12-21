@@ -172,6 +172,9 @@ class VEConfig(object):
                 kv[name] = int(val)
         return VEConfig(**kv)
 
+    def update(self, guarantee):
+        self._kv['guarantee'] = guarantee
+
 
 DefaultVEConfig = VEConfig(guarantee=0,
                            limit=UINT64_MAX,

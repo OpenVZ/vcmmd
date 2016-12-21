@@ -34,7 +34,8 @@ from vcmmd.error import (VCMMDError,
                          VCMMD_ERROR_UNABLE_APPLY_VE_GUARANTEE,
                          VCMMD_ERROR_TOO_MANY_REQUESTS,
                          VCMMD_ERROR_VE_NOT_ACTIVE)
-from vcmmd.ve_config import VEConfig, DefaultVEConfig
+from vcmmd.ve_config import VEConfig, DefaultVEConfig, VCMMD_MEMGUARANTEE_AUTO
+from vcmmd.ve_type import VE_TYPE_CT, VE_TYPE_SERVICE
 from vcmmd.config import VCMMDConfig
 from vcmmd.ve import VE
 from vcmmd.host import Host
@@ -258,6 +259,9 @@ class LoadManager(object):
                 raise VCMMDError(VCMMD_ERROR_VE_NAME_ALREADY_IN_USE)
 
             ve_config.complete(DefaultVEConfig)
+            if ve_type not in (VE_TYPE_CT, VE_TYPE_SERVICE) and \
+               ve_config.guarantee_type == VCMMD_MEMGUARANTEE_AUTO:
+                ve_config.update(guarantee = int(ve_config.limit * self._policy.DEFAULT_VM_AUTO_GUARANTEE))
             ve = VE(ve_type, ve_name, ve_config)
             self._check_guarantees(ve.mem_min)
             ve.effective_limit = min(ve.config.limit, self._host.ve_mem)
