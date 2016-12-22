@@ -302,6 +302,9 @@ class LoadManager(object):
                 raise VCMMDError(VCMMD_ERROR_VE_NOT_ACTIVE)
 
             ve_config.complete(ve.config)
+            if ve.VE_TYPE not in (VE_TYPE_CT, VE_TYPE_SERVICE) and \
+               ve_config.guarantee_type == VCMMD_MEMGUARANTEE_AUTO:
+                ve_config.update(guarantee = int(ve_config.limit * self._policy.DEFAULT_VM_AUTO_GUARANTEE))
             self._check_guarantees(ve_config.mem_min - ve.config.mem_min)
 
             ve.set_config(ve_config)
