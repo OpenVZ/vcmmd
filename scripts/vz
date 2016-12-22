@@ -137,7 +137,10 @@ for vm in srv.get_vm_list_ex(consts.PVTF_CT | consts.PVTF_VM).wait():
     else:
         uuid = vm.get_uuid()[1:-1]
         dom = virDomainProxy(uuid)
-        ram_size = dom.maxMemory() << 10
+        if vm.is_ram_hotplug_enabled():
+            ram_size = vm.get_ram_size() << 20
+        else:
+            ram_size = dom.maxMemory() << 10
         video = ET.fromstring(dom.XMLDesc()).findall("./devices/video/model")
         vram = sum(map(lambda v: int(v.attrib.get('vram',0)), video)) << 10
         swap = None
