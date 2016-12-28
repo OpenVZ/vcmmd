@@ -87,11 +87,11 @@ vs_config = '/etc/vz/vstorage-limits.conf'
 
 vs_exc_info = None
 if os.path.isdir(vs_cgroup_path % vs_service_name) and os.path.exists(vs_config):
-    with open(vs_config) as f:
-        j = json.loads(f.read())
-    total_mem = psutil.virtual_memory().total
-    kv = {}
     try:
+        with open(vs_config) as f:
+            j = json.loads(f.read())
+        total_mem = psutil.virtual_memory().total
+        kv = {}
         kv['limit'] = clamp(int(j['VStorage']['Limit']['Share'] * total_mem),
                             j['VStorage']['Limit']['Min'],
                             j['VStorage']['Limit']['Max'])
