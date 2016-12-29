@@ -71,6 +71,11 @@ class RPCProxy(object):
     def get_current_policy(self):
         return self._iface.GetCurrentPolicy()
 
+    def switch_policy(self, policy_name):
+        err = self._iface.SwitchPolicy(policy_name)
+        if err:
+            raise VCMMDError(err)
+
     def get_config(self, j):
         return self._iface.GetConfig(j)
 

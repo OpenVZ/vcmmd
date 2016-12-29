@@ -272,6 +272,19 @@ def _handle_current_policy(args):
 
     print RPCProxy().get_current_policy()
 
+def _handle_switch_policy(args):
+    parser = OptionParser('Usage: %%prog switch-policy policy-name',
+                          description='Switch current VCMMD policy.')
+
+    (options, args) = parser.parse_args(args)
+    if len(args) > 1:
+        parser.error('superfluous arguments')
+
+    if len(args) < 1:
+        parser.error('logging level not specified')
+
+    RPCProxy().switch_policy(args[0])
+
 def _handle_policy_counts(args):
     parser = OptionParser('Usage: %%prog policy-count',
                           description='Print policy counts.')
@@ -372,6 +385,7 @@ def main():
             'list': _handle_list,
             'set-log-level': _handle_log_level,
             'get-current-policy': _handle_current_policy,
+            'set-policy': _handle_switch_policy,
             'config': _handle_get_config,
             'policy-counts': _handle_policy_counts,
             'get-stats': _handle_get_stats,

@@ -47,6 +47,7 @@ class VCMMDConfig(object):
         '''
         self._data = None
         self._cache = {}
+        self._filename = filename
 
         self.logger.info("Loading config from file '%s'", filename)
         try:
@@ -56,6 +57,36 @@ class VCMMDConfig(object):
             self.logger.error('Error reading config file: %s', err)
         except ValueError as err:
             self.logger.error('Error parsing config file: %s', err)
+
+    def dump(self, name, val):
+        try:
+            with open(self._filename, 'r') as f:
+                data = json.load(f)
+        except IOError as err:
+            self.logger.error('Error reading config file: %s', err)
+            return
+        except ValueError as err:
+            self.logger.error('Error parsing config file: %s', err)
+            return
+
+        try:
+            _data = data
+            key = name.split('.')[-1]
+            path = name.split('.')[:-1]
+            for k in path:
+                _data = _data[k]
+            _data[key] = val
+        except KeyError:
+            self.logger.error('Error parsing config file: %s', err)
+            return
+
+        try:
+            with open(self._filename, 'w') as f:
+                f.write(json.dumps(data, indent=8))
+        except IOError as err:
+            self.logger.error('Error writing config file: %s', err)
+
+        self._cache[name] = val
 
     def _get(self, name):
         d = self._data

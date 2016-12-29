@@ -33,7 +33,9 @@ from vcmmd.error import (VCMMDError,
                          VCMMD_ERROR_VE_NOT_REGISTERED,
                          VCMMD_ERROR_UNABLE_APPLY_VE_GUARANTEE,
                          VCMMD_ERROR_TOO_MANY_REQUESTS,
-                         VCMMD_ERROR_VE_NOT_ACTIVE)
+                         VCMMD_ERROR_VE_NOT_ACTIVE,
+                         VCMMD_ERROR_POLICY_SET_ACTIVE_VES,
+                         VCMMD_ERROR_POLICY_SET_INVALID_NAME)
 from vcmmd.ve_config import VEConfig, DefaultVEConfig, VCMMD_MEMGUARANTEE_AUTO
 from vcmmd.ve_type import VE_TYPE_CT, VE_TYPE_SERVICE
 from vcmmd.config import VCMMDConfig
@@ -164,20 +166,44 @@ class LoadManager(object):
         self._registered_ves = {}  # str -> VE
         self._registered_ves_lock = threading.Lock()
 
+        self.alias = None
+
+        self.cfg = VCMMDConfig()
+
         self._host = Host()
 
-        cfg = VCMMDConfig()
+        self.start_workers()
 
-        thn = cfg.get_num('LoadManager.ThreadsNum', 5)
+        policy_name = self.cfg.get_str('LoadManager.Policy', self.FALLBACK_POLICY)
+        policy_name = self._load_alias(policy_name)
+        self._load_policy(policy_name)
 
+    def start_workers(self):
+        thn = self.cfg.get_num('LoadManager.ThreadsNum', 5)
         self._req_queue = RQueue(maxsize=25)
+
         self._workers = [threading.Thread(target=self._worker_thread_fn) for _ in range(thn)]
         [w.start() for w in self._workers]
 
-        # Load a policy
-        policy_name = cfg.get_str('LoadManager.Policy', self.FALLBACK_POLICY)
+    def switch_policy(self, policy_name):
+        if self.alias is not None and policy_name not in self.alias:
+            raise VCMMDError(VCMMD_ERROR_POLICY_SET_INVALID_NAME)
+        self.cfg.dump('LoadManager.Policy', policy_name)
         policy_name = self._load_alias(policy_name)
-        self._load_policy(policy_name)
+        with self._registered_ves_lock:
+            for ve_name in self._registered_ves:
+                ve = self._registered_ves.get(ve_name)
+                if ve.VE_TYPE != VE_TYPE_SERVICE:
+                    raise VCMMDError(VCMMD_ERROR_POLICY_SET_ACTIVE_VES)
+            self.shutdown()
+            self.start_workers()
+            # Load a policy
+            self._load_policy(policy_name)
+            for ve_name in self._registered_ves:
+                ve = self._registered_ves.get(ve_name)
+                self._policy.ve_registered(ve)
+                if ve.active:
+                    self._policy.ve_activated(ve)
 
     def _load_alias(self, policy_name):
         try:
@@ -185,7 +211,8 @@ class LoadManager(object):
         except ImportError as err:
             return policy_name
 
-        return alias.alias.get(policy_name, policy_name)
+        self.alias = alias.alias
+        return self.alias.get(policy_name, policy_name)
 
     def _load_policy(self, policy_name):
         try:
@@ -359,7 +386,7 @@ class LoadManager(object):
         return result
 
     def get_current_policy(self):
-        cfg = VCMMDConfig().get_str('LoadManager.Policy')
+        cfg = self.cfg.get_str('LoadManager.Policy')
         cur = self._policy.get_name()
         if self._load_alias(cfg) == cur:
             return cfg

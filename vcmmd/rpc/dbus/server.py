@@ -170,6 +170,18 @@ class _LoadManagerObject(dbus.service.Object):
             return self.ldmgr.get_current_policy()
         return GetCurrentPolicy(self)
 
+    @dbus.service.method(IFACE, in_signature='s', out_signature='i')
+    def SwitchPolicy(self, policy_name):
+        @self._log
+        def SwitchPolicy(self, policy_name):
+            try:
+                self.ldmgr.switch_policy(policy_name)
+            except VCMMDError as err:
+                return err.errno
+            else:
+                return 0
+        return SwitchPolicy(self, policy_name)
+
     @dbus.service.method(IFACE, in_signature='b', out_signature='s')
     def GetConfig(self, j):
         @self._log

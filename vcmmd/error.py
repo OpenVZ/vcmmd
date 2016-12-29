@@ -29,6 +29,8 @@ VCMMD_ERROR_VE_OPERATION_FAILED = 7
 VCMMD_ERROR_UNABLE_APPLY_VE_GUARANTEE = 8
 VCMMD_ERROR_VE_NOT_ACTIVE = 9
 VCMMD_ERROR_TOO_MANY_REQUESTS = 10
+VCMMD_ERROR_POLICY_SET_ACTIVE_VES = 11
+VCMMD_ERROR_POLICY_SET_INVALID_NAME = 12
 
 
 _ERRSTR = {
@@ -43,6 +45,8 @@ _ERRSTR = {
     8: 'Unable to apply VE guarantee',
     9: 'VE not active',
     10: 'Too many requests',
+    11: 'Set policy failed(you have to shutdown all VEs before policy switching)',
+    12: 'Set policy failed(policy name is invalid)',
 }
 
 
