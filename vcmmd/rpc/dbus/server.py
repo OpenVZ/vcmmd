@@ -52,7 +52,8 @@ class _LoadManagerObject(dbus.service.Object):
             start = time.time()
             self.request_num += 1
             request = "Request %d %s" % (self.request_num, fname)
-            self.logger.info("%s started" % request)
+            self.logger.info("%s(%s) started" % (request, ', '.join(
+                    map(str, list(args[1:]) + kwargs.items()))))
             ret = fn(*args, **kwargs)
             t = time.time() - start
             self.logger.info("%s worked %.2fs" % (request, t))
@@ -61,11 +62,11 @@ class _LoadManagerObject(dbus.service.Object):
 
     @dbus.service.method(IFACE, in_signature='sia(qts)u', out_signature='i')
     def RegisterVE(self, ve_name, ve_type, ve_config, flags):
+        ve_config = VEConfig.from_array(ve_config)
         @self._log
         def RegisterVE(self, ve_name, ve_type, ve_config, flags):
             ve_name = str(ve_name)
             ve_type = int(ve_type)
-            ve_config = VEConfig.from_array(ve_config)
             try:
                 self.ldmgr.register_ve(ve_name, ve_type, ve_config)
             except VCMMDError as err:
@@ -89,10 +90,10 @@ class _LoadManagerObject(dbus.service.Object):
 
     @dbus.service.method(IFACE, in_signature='sa(qts)u', out_signature='i')
     def UpdateVE(self, ve_name, ve_config, flags):
+        ve_config = VEConfig.from_array(ve_config)
         @self._log
         def UpdateVE(self, ve_name, ve_config, flags):
             ve_name = str(ve_name)
-            ve_config = VEConfig.from_array(ve_config)
             try:
                 self.ldmgr.update_ve_config(ve_name, ve_config)
             except VCMMDError as err:
