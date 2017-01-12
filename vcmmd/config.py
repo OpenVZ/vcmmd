@@ -35,39 +35,38 @@ class VCMMDConfig(object):
 
     __metaclass__ = Singleton
 
-    def __init__(self):
+    def __init__(self, filename):
         self.logger = logging.getLogger('vcmmd.config')
+        self._filename = filename
         self._data = None
         self._cache = {}
 
-    def load(self, filename):
+    def load(self):
         '''Load config from a file.
 
         The file must be in json format.
         '''
         self._data = None
         self._cache = {}
-        self._filename = filename
 
-        self.logger.info("Loading config from file '%s'", filename)
+        self.logger.info("Loading config from file '%s'", self._filename)
+        self._data = self.read()
+
+    def read(self):
+        '''Read config from a file.
+
+        The file must be in json format.
+        '''
         try:
-            with open(filename, 'r') as f:
-                self._data = json.load(f)
+            with open(self._filename, 'r') as f:
+                return json.load(f)
         except IOError as err:
             self.logger.error('Error reading config file: %s', err)
         except ValueError as err:
             self.logger.error('Error parsing config file: %s', err)
 
     def dump(self, name, val):
-        try:
-            with open(self._filename, 'r') as f:
-                data = json.load(f)
-        except IOError as err:
-            self.logger.error('Error reading config file: %s', err)
-            return
-        except ValueError as err:
-            self.logger.error('Error parsing config file: %s', err)
-            return
+        self._data = self.read()
 
         try:
             _data = data

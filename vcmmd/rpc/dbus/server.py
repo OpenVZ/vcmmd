@@ -171,6 +171,13 @@ class _LoadManagerObject(dbus.service.Object):
             return self.ldmgr.get_current_policy()
         return GetCurrentPolicy(self)
 
+    @dbus.service.method(IFACE, in_signature='', out_signature='s')
+    def GetPolicyFromFile(self):
+        @self._log
+        def GetPolicyFromFile(self):
+            return self.ldmgr.get_policy_from_file()
+        return GetPolicyFromFile(self)
+
     @dbus.service.method(IFACE, in_signature='s', out_signature='i')
     def SwitchPolicy(self, policy_name):
         @self._log

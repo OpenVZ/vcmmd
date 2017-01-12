@@ -393,6 +393,14 @@ class LoadManager(object):
         else:
             return cur
 
+    def get_policy_from_file(self):
+        cfg = self.cfg.read()
+
+        if cfg is None:
+            return ""
+
+        return cfg.get('LoadManager',{}).get('Policy',"")
+
     def get_stats(self, ve_name):
         with self._registered_ves_lock:
             ve = self._registered_ves.get(ve_name)
