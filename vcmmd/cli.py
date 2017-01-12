@@ -263,7 +263,7 @@ def _handle_log_level(args):
 
 
 def _handle_current_policy(args):
-    parser = OptionParser('Usage: %%prog get-current-policy',
+    parser = OptionParser('Usage: %%prog current-policy',
                           description='Print current VCMMD policy.')
 
     (options, args) = parser.parse_args(args)
@@ -362,8 +362,8 @@ def main():
     parser = OptionParser('Usage: %prog <command> <args>...\n'
                           'command := register | activate | update | '
                           'deactivate | unregister | list | set-log-level | '
-                          'get-current-policy | get-stats | '
-                          'get-missing-stats | get-quotas | config | policy-counts',
+                          'current-policy | get-stats | get-missing-stats | '
+                          'get-quotas | config | policy-counts',
                           description='Call a command on the VCMMD service. '
                           'See \'%prog <command> --help\' to read about a '
                           'specific subcommand.',
@@ -384,7 +384,7 @@ def main():
             'unregister': _handle_unregister,
             'list': _handle_list,
             'set-log-level': _handle_log_level,
-            'get-current-policy': _handle_current_policy,
+            'current-policy': _handle_current_policy,
             'set-policy': _handle_switch_policy,
             'config': _handle_get_config,
             'policy-counts': _handle_policy_counts,
