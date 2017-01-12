@@ -126,8 +126,8 @@ class _App(object):
 
         self.logger.info('Started')
 
-        cfg = VCMMDConfig()
-        cfg.load(self.opts.config)
+        cfg = VCMMDConfig(self.opts.config)
+        cfg.load()
         lvl = cfg.get_choice('Logging.Level', choices=LOG_LEVELS)
         if lvl is not None:
             self.logger.setLevel(LOG_LEVELS[lvl])
