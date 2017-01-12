@@ -263,14 +263,21 @@ def _handle_log_level(args):
 
 
 def _handle_current_policy(args):
-    parser = OptionParser('Usage: %%prog current-policy',
+    parser = OptionParser('Usage: %%prog current-policy [--file]',
                           description='Print current VCMMD policy.')
+
+    parser.add_option('-f', '--file', action='store_true', dest='file',
+                      help='read value from config file')
 
     (options, args) = parser.parse_args(args)
     if len(args) > 0:
         parser.error('superfluous arguments')
 
-    print RPCProxy().get_current_policy()
+    if options.file:
+        print RPCProxy().get_policy_from_file()
+    else:
+        print RPCProxy().get_current_policy()
+
 
 def _handle_switch_policy(args):
     parser = OptionParser('Usage: %%prog switch-policy policy-name',
