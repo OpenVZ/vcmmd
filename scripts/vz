@@ -80,37 +80,32 @@ srv.login_local().wait()
 
 proxy = RPCProxy()
 
-# VStorage must be activated first
-vs_service_name = 'vstorage.slice/vstorage-services.slice'
-vs_cgroup_path = '/sys/fs/cgroup/memory/%s'
-vs_config = '/etc/vz/vstorage-limits.conf'
+# Services must be activated first
+cgroup_path = '/sys/fs/cgroup/memory/%s'
+config = '/etc/vz/vstorage-limits.conf'
 
-vs_exc_info = None
-if os.path.isdir(vs_cgroup_path % vs_service_name) and os.path.exists(vs_config):
-    try:
-        with open(vs_config) as f:
-            j = json.loads(f.read())
-        total_mem = psutil.virtual_memory().total
-        kv = {}
-        kv['limit'] = clamp(int(j['VStorage']['Limit']['Share'] * total_mem),
-                            j['VStorage']['Limit']['Min'],
-                            j['VStorage']['Limit']['Max'])
-        kv['guarantee'] = clamp(int(j['VStorage']['Guarantee']['Share'] * total_mem),
-                            j['VStorage']['Guarantee']['Min'],
-                            j['VStorage']['Guarantee']['Max'])
-        kv['swap'] = clamp(int(j['VStorage']['Swap']['Share'] * total_mem),
-                           j['VStorage']['Swap']['Min'],
-                           j['VStorage']['Swap']['Max'])
-    except (KeyError, TypeError, ValueError):
-        vs_exc_info = sys.exc_info()
-    else:
-        try:
-            proxy.register_ve(vs_service_name, VE_TYPE_SERVICE, VEConfig(**kv), 0)
-            proxy.activate_ve(vs_service_name, 0)
-        except VCMMDError as e:
-            if e.errno == VCMMD_ERROR_VE_NAME_ALREADY_IN_USE:
-                pass
-            raise
+svs_exc_info = None
+try:
+    with open(config) as f:
+        j = json.loads(f.read())
+    for service_name, service in j.iteritems():
+            total_mem = psutil.virtual_memory().total
+            kv = {}
+            for param in ['limit', 'guarantee', 'swap']:
+                Param = param.capitalize()
+                try:
+                    kv[param] = clamp(int(service[Param]['Share'] * total_mem),
+                                      int(service[Param].get('Min', 0)),
+                                      int(service[Param].get('Max', -1)))
+                except (KeyError, TypeError, ValueError):
+                    pass
+            if 'Path' not in service and service_name == 'VStorage':
+                service['Path'] = 'vstorage.slice/vstorage-services.slice'
+            service_path = cgroup_path % service['Path']
+            proxy.register_ve(service_path, VE_TYPE_SERVICE, VEConfig(**kv), 0)
+            proxy.activate_ve(service_path, 0)
+except Exception as e:
+    svs_exc_info = sys.exc_info()
 
 for vm in srv.get_vm_list_ex(consts.PVTF_CT | consts.PVTF_VM).wait():
     try:
@@ -172,8 +167,8 @@ for vm in srv.get_vm_list_ex(consts.PVTF_CT | consts.PVTF_VM).wait():
     if state == consts.VMS_RUNNING:
         proxy.activate_ve(uuid, 0)
 
-if vs_exc_info is not None:
-    exc_class, exc, tb = vs_exc_info
-    new_exc_type = type('VStorageConfigException', (Exception,), dict())
-    new_exc = new_exc_type("Failed to parse VStorage config: %r: %s" % (exc_class.__name__, exc))
+if svs_exc_info is not None:
+    exc_class, exc, tb = svs_exc_info
+    new_exc_type = type('ServicesConfigException', (Exception,), dict())
+    new_exc = new_exc_type("Failed to parse services config: %r: %s" % (exc_class.__name__, exc))
     raise new_exc_type, new_exc, tb
