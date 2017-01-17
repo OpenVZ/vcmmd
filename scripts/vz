@@ -83,34 +83,47 @@ proxy = RPCProxy()
 # Services must be activated first
 cgroup_path = '/sys/fs/cgroup/memory/%s'
 config = '/etc/vz/vstorage-limits.conf'
+known_params = {'Limit', 'Guarantee', 'Swap', 'Path'}
 
 svs_exc_info = None
 try:
     with open(config) as f:
         j = json.loads(f.read())
+    to_register = []
     for name, service in j.iteritems():
         #VStorage config may exist without Path for backward compatibility
         if 'Path' not in service and name == 'VStorage':
             service['Path'] = 'vstorage.slice/vstorage-services.slice'
+            print "Assuming that VStorage is located at %s" % service['Path']
         #check that cgroup exists
         service_name = service['Path']
         service_path = cgroup_path % service_name
         if not os.path.isdir(service_path):
+            print "Memory cgroup %s not found" % service_path
             continue
         #read config for limit, guarantee and swap
         total_mem = psutil.virtual_memory().total
         kv = {}
-        for param in ['limit', 'guarantee', 'swap']:
-            Param = param.capitalize()
+        unknown_params = set(service.iterkeys()) - known_params
+        if unknown_params:
+            raise Exception("Unknown fields in %s: %s" % (service_name, unknown_params))
+        for Param in known_params - {'Path'}:
+            param = Param.lower()
             try:
+                unknown_params = (set(service[Param].iterkeys()) -
+                                  {'Share','Min','Max'})
+                if unknown_params:
+                    raise Exception("Unknown fields in %s: %s" % (service_name, unknown_params))
                 kv[param] = clamp(int(service[Param]['Share'] * total_mem),
                                   int(service[Param].get('Min', 0)),
                                   int(service[Param].get('Max', -1)))
             except (KeyError, TypeError, ValueError):
-                pass
-        #register and activate service
-        proxy.register_ve(service_name, VE_TYPE_SERVICE, VEConfig(**kv), 0)
-        proxy.activate_ve(service_name, 0)
+                raise Exception("Error parsing %s.%s" %(service_name, Param))
+        #register and activate service later, if no exception occured
+        to_register.append((service_name,VEConfig(**kv)))
+    for service in to_register:
+        proxy.register_ve(service[0], VE_TYPE_SERVICE, service[1], 0)
+        proxy.activate_ve(service[0], 0)
 except Exception as e:
     svs_exc_info = sys.exc_info()
 
