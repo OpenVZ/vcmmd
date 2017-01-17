@@ -88,22 +88,29 @@ svs_exc_info = None
 try:
     with open(config) as f:
         j = json.loads(f.read())
-    for service_name, service in j.iteritems():
-            total_mem = psutil.virtual_memory().total
-            kv = {}
-            for param in ['limit', 'guarantee', 'swap']:
-                Param = param.capitalize()
-                try:
-                    kv[param] = clamp(int(service[Param]['Share'] * total_mem),
-                                      int(service[Param].get('Min', 0)),
-                                      int(service[Param].get('Max', -1)))
-                except (KeyError, TypeError, ValueError):
-                    pass
-            if 'Path' not in service and service_name == 'VStorage':
-                service['Path'] = 'vstorage.slice/vstorage-services.slice'
-            service_path = cgroup_path % service['Path']
-            proxy.register_ve(service_path, VE_TYPE_SERVICE, VEConfig(**kv), 0)
-            proxy.activate_ve(service_path, 0)
+    for name, service in j.iteritems():
+        #VStorage config may exist without Path for backward compatibility
+        if 'Path' not in service and name == 'VStorage':
+            service['Path'] = 'vstorage.slice/vstorage-services.slice'
+        #check that cgroup exists
+        service_name = service['Path']
+        service_path = cgroup_path % service_name
+        if not os.path.isdir(service_path):
+            continue
+        #read config for limit, guarantee and swap
+        total_mem = psutil.virtual_memory().total
+        kv = {}
+        for param in ['limit', 'guarantee', 'swap']:
+            Param = param.capitalize()
+            try:
+                kv[param] = clamp(int(service[Param]['Share'] * total_mem),
+                                  int(service[Param].get('Min', 0)),
+                                  int(service[Param].get('Max', -1)))
+            except (KeyError, TypeError, ValueError):
+                pass
+        #register and activate service
+        proxy.register_ve(service_name, VE_TYPE_SERVICE, VEConfig(**kv), 0)
+        proxy.activate_ve(service_name, 0)
 except Exception as e:
     svs_exc_info = sys.exc_info()
 
