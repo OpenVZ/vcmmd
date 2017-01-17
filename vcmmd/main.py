@@ -94,16 +94,19 @@ class _App(object):
             with open(os.devnull, 'r') as devnull:
                 p = subprocess.Popen(
                     os.path.join(self.INIT_SCRIPTS_DIR, script),
-                    stdout=devnull, stderr=subprocess.PIPE)
+                    stdout=subprocess.PIPE, stderr=subprocess.PIPE)
             stdout, stderr = p.communicate()
         except OSError as err:
             self.logger.error("Error running init script '%s': %s",
                               script, err)
             return
 
-        if p.returncode != 0:
-            self.logger.error("Script '%s' returned %d, stderr output:\n%s",
-                              script, p.returncode, stderr)
+        if p.returncode or stdout or stderr:
+            self.logger.info("Script '%s' returned %d", script, p.returncode)
+        if stdout:
+            self.logger.info("stdout output:\n%s", stdout)
+        if stderr:
+            self.logger.error("stderr output:\n%s", stderr)
 
     def run_init_scripts(self):
         if not os.path.isdir(self.INIT_SCRIPTS_DIR):
