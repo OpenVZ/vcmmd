@@ -247,21 +247,6 @@ class LoadManager(object):
             if new_req:
                 self._queue_request(new_req)
 
-    def _request(sync=True):
-        def wrap(fn):
-            def wrapped(*args, **kwargs):
-                self = args[0]
-                req = Request(fn, args, kwargs)
-                try:
-                    self._req_queue.put_nowait(req)
-                except Queue.Full:
-                    raise VCMMDError(VCMMD_ERROR_TOO_MANY_REQUESTS)
-                if sync:
-                    return req.wait()
-            return wrapped
-        return wrap
-
-    @_request()
     def _do_shutdown(self):
         def shutdown():
             raise LoadManager.ShutdownException
@@ -279,7 +264,6 @@ class LoadManager(object):
         if mem_min > self._host.ve_mem:
             raise VCMMDError(VCMMD_ERROR_UNABLE_APPLY_VE_GUARANTEE)
 
-    @_request()
     def register_ve(self, ve_name, ve_type, ve_config):
         with self._registered_ves_lock:
             if ve_name in self._registered_ves:
@@ -298,7 +282,6 @@ class LoadManager(object):
 
             self.logger.info('Registered %s (%s)', ve, ve.config)
 
-    @_request()
     def activate_ve(self, ve_name):
         with self._registered_ves_lock:
             ve = self._registered_ves.get(ve_name)
@@ -319,7 +302,6 @@ class LoadManager(object):
         # TODO need only once
         self._host._set_slice_mem('machine', -1, verbose=False)
 
-    @_request()
     def update_ve_config(self, ve_name, ve_config):
         with self._registered_ves_lock:
             ve = self._registered_ves.get(ve_name)
@@ -339,7 +321,6 @@ class LoadManager(object):
 
             self._policy.ve_config_updated(ve)
 
-    @_request()
     def deactivate_ve(self, ve_name):
         with self._registered_ves_lock:
             ve = self._registered_ves.get(ve_name)
@@ -349,7 +330,6 @@ class LoadManager(object):
             ve.deactivate()
             self._policy.ve_deactivated(ve)
 
-    @_request()
     def unregister_ve(self, ve_name):
         with self._registered_ves_lock:
             ve = self._registered_ves.get(ve_name)
