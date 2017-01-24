@@ -24,10 +24,9 @@ from time import sleep
 from select import epoll, EPOLLIN
 import struct
 from abc import ABCMeta, abstractmethod
-from threading import Lock
+from threading import Lock, Thread, Event
 
 from vcmmd.host import Host
-from vcmmd.ldmgr.base import Request
 from vcmmd.config import VCMMDConfig
 from vcmmd.util.misc import print_dict
 from vcmmd.util.cpu_features import get_cpuinfo_features
@@ -64,6 +63,16 @@ class Policy(object):
         self.__ve_data = {}  # Dictionary of all managed VEs to their policy data
         self.__ve_data_lock = Lock()
         self.counts = {}
+        self.stop  = Event()
+
+    @staticmethod
+    def controller(f):
+        def wrapper(self, *args, **kwargs):
+            sleep_timeout = 0
+            while not self.stop.wait(sleep_timeout):
+                sleep_timeout = f(self, *args, **kwargs)
+                assert isinstance(sleep_timeout, int)
+        return wrapper
 
     def get_name(self):
         return self.__class__.__name__
@@ -109,23 +118,26 @@ class Policy(object):
         '''
         ve.set_mem(ve.config.limit, ve.mem_min)
 
-    def sched_req(self):
-        ret = []
+    def load(self):
+        self.controllers_threads = []
         for ctrl in self.controllers:
-            ret.append(ctrl())
+            self.controllers_threads.append(Thread(target=ctrl))
         if self.low_memory_callbacks:
-            ret.append(Request(self.low_memory_watchdog, blocker=True))
-        return ret
+            self.controllers_threads.append(Thread(target=self.low_memory_watchdog))
+
+        for thread in self.controllers_threads:
+            thread.start()
 
     def report(self, j=False):
         return print_dict(self.counts, j)
 
     def shutdown(self):
-        self.__watchdog__run = False
+        self.stop.set()
+        for thread in self.controllers_threads:
+            thread.join()
 
     def low_memory_watchdog(self):
         self.counts['low_mem_events'] = 0
-        self.__watchdog__run = True
         efd = eventfd(0, 0)
         mp = open(self.MEM_PRES_PATH)
         with open(self.EVENT_CONTR_PATH, 'w') as cgc:
@@ -136,7 +148,7 @@ class Policy(object):
 
         self.host.log_info('"Low memory" watchdog started(pressure level=%r).' % self.PRESSURE_LEVEL)
         err = 'shutdown event'
-        while self.__watchdog__run:
+        while not self.stop.wait(1):
             try:
                 events = p.poll(2)
                 for fd,event in events:
@@ -158,7 +170,6 @@ class Policy(object):
         os.close(efd)
         self.host.log_info('"Low memory" watchdog stopped(msg="%s").' % err)
 
-
 class BalloonPolicy(Policy):
     '''Manages balloons in VEs.
     '''
@@ -178,6 +189,7 @@ class BalloonPolicy(Policy):
     def update_balloon_stats(self):
         pass
 
+    @Policy.controller
     def balloon_controller(self):
         '''Set VE memory quotas
 
@@ -193,7 +205,7 @@ class BalloonPolicy(Policy):
             for ve, (target, protection) in ve_quotas.iteritems():
                 ve.set_mem(target=target, protection=protection)
 
-            return Request(self.balloon_controller, timeout=self.balloon_timeout, blocker=True)
+        return self.balloon_timeout
 
     @abstractmethod
     def calculate_balloon_size(self):
@@ -272,6 +284,7 @@ class NumaPolicy(Policy):
                     self.counts['NUMA']['node'][node] += 1
         self.logger.debug(repr(self.__prev_numa_migrations))
 
+    @Policy.controller
     def numa_controller(self):
         '''Reapply_policy VEs between NUMA nodes.
 
@@ -284,7 +297,7 @@ class NumaPolicy(Policy):
             changes = self.get_numa_migrations()
             self.apply_changes(changes)
 
-            return Request(self.numa_controller, timeout=self.numa_timeout, blocker=True)
+        return self.numa_timeout
 
     @abstractmethod
     def get_numa_migrations(self):
@@ -301,8 +314,8 @@ class NumaPolicy(Policy):
             self.update_numa_stats()
 
             changes = self.get_low_memory_param()
-            self.apply_changes(changes)
-            sleep(1)
+            if changes is not None:
+                self.apply_changes(changes)
 
     def get_low_memory_param(self):
         pass
@@ -333,6 +346,7 @@ class KSMPolicy(Policy):
     def update_ksm_stats(self):
         pass
 
+    @Policy.controller
     def ksm_controller(self):
         self.update_ksm_stats()
         params = self.get_ksm_params()
@@ -348,7 +362,7 @@ class KSMPolicy(Policy):
         if params is not None:
             self.host.thptune(params)
 
-        return Request(self.ksm_controller, timeout=self.ksm_timeout, blocker=True)
+        return self.ksm_timeout
 
     @abstractmethod
     def get_ksm_params(self):

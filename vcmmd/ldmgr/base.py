@@ -43,114 +43,6 @@ from vcmmd.ve import VE
 from vcmmd.host import Host
 
 
-class RQueue(object):
-    """Create a queue object with a given maximum size.
-    If maxsize is <= 0, the queue size is infinite.
-
-    Every queue item MUST have timestamp atribute.
-    """
-    def __init__(self, maxsize=0):
-        self._maxsize = maxsize
-        self._reqs = []
-        self._lock = threading.Lock()
-        self._sort = lambda: self._reqs.sort(lambda x, y: int(x.timestamp - y.timestamp))
-        self._not_empty = threading.Condition(self._lock)
-        self._not_full = threading.Condition(self._lock)
-
-    def put(self, item, block=True):
-        """Put an item into the queue.
-        If 'block' is True and 'maxsize' is reached for queue it blocks
-        until the vacant position will be in a queue.
-        If 'block' is false raises the Full exception.
-        """
-        with self._not_full:
-            if self._maxsize > 0 and len(self._reqs) >= self._maxsize:
-                if not block:
-                    raise QueueFull
-                self._not_full.wait()
-            self._reqs.append(item)
-            # Sort items by timestams
-            self._sort()
-            self._not_empty.notify()
-
-    def put_nowait(self, item):
-        """Put an item into the queue without blocking.
-        Only enqueue the item if a free slot is immediately available.
-        Otherwise raise the Full exception.
-        """
-        return self.put(item, False)
-
-    def get(self, block=True):
-        """Remove and return an item from the queue.
-        If 'block' is True and 'timestamp' is not reached for first item
-        in queue it blocks until timestamp or wait a new item added.
-        If 'block' is false raises the Empty exception if no item was available
-        right now.
-        """
-        with self._not_empty:
-            while True:
-                if not len(self._reqs):
-                    if not block:
-                        raise QueueEmpty
-                    self._not_empty.wait()
-                    continue
-                req = self._reqs[0]
-                remaining = max(req.timestamp - time.time(), 0)
-                if not remaining:
-                    break
-                elif not block:
-                    # TODO should we raise an exception in such case?
-                    raise QueueEmpty
-                self._not_empty.wait(remaining)
-            req = self._reqs.pop(0)
-            self._not_full.notify()
-            return req
-
-    def get_nowait(self):
-        """Remove and return an item from the queue without blocking.
-
-        Only get an item if one is immediately available. Otherwise
-        raise the Empty exception.
-        """
-        return self.get(False)
-
-
-class Request(object):
-    '''Common class for all requests to LoadManager
-    '''
-    def __init__(self, fn, args=None, kwargs=None, timeout=0, blocker=False):
-        self.fn = fn
-        self.args = args or ()
-        self.kwargs = kwargs or {}
-        self._ret = None
-        self._err = None
-        self._done = threading.Event()
-        # Time when request should be executed.
-        self.timestamp = timeout + time.time()
-        self._blocker = blocker
-
-    def is_blocker(self):
-        '''
-        If request is blocker it MUST be in Load Manager request queue.
-        '''
-        return self._blocker
-
-    def wait(self):
-        self._done.wait()
-        if self._err:
-            raise self._err
-        return self._ret
-
-    def __call__(self):
-        try:
-            self._ret = self.fn(*self.args, **self.kwargs)
-            return self._ret
-        except VCMMDError as err:
-            self._err = err
-        finally:
-            self._done.set()
-
-
 class LoadManager(object):
 
     FALLBACK_POLICY = 'NoOpPolicy'
@@ -172,18 +64,9 @@ class LoadManager(object):
 
         self._host = Host()
 
-        self.start_workers()
-
         policy_name = self.cfg.get_str('LoadManager.Policy', self.FALLBACK_POLICY)
         policy_name = self._load_alias(policy_name)
         self._load_policy(policy_name)
-
-    def start_workers(self):
-        thn = self.cfg.get_num('LoadManager.ThreadsNum', 5)
-        self._req_queue = RQueue(maxsize=25)
-
-        self._workers = [threading.Thread(target=self._worker_thread_fn) for _ in range(thn)]
-        [w.start() for w in self._workers]
 
     def switch_policy(self, policy_name):
         if self.alias is not None and policy_name not in self.alias:
@@ -196,7 +79,6 @@ class LoadManager(object):
                 if ve.VE_TYPE != VE_TYPE_SERVICE:
                     raise VCMMDError(VCMMD_ERROR_POLICY_SET_ACTIVE_VES)
             self.shutdown()
-            self.start_workers()
             # Load a policy
             self._load_policy(policy_name)
             for ve_name in self._registered_ves:
@@ -226,37 +108,11 @@ class LoadManager(object):
             policy_module = importlib.import_module(
                 'vcmmd.ldmgr.policies.' + policy_name)
         self._policy = getattr(policy_module, policy_name)()
+        self._policy.load()
         self.logger.info("Loaded policy '%s'", policy_name)
-        reqs = self._policy.sched_req()
-        for req in reqs:
-            self._queue_request(req)
-
-    def _queue_request(self, req):
-        try:
-            self._req_queue.put(req, req.is_blocker())
-        except QueueFull:
-            self.logger.error('Too many requests, ignore(%r)', len(self._workers))
-
-    def _worker_thread_fn(self):
-        while True:
-            req = self._req_queue.get()
-            try:
-                new_req = req()
-            except LoadManager.ShutdownException:
-                return
-            if new_req:
-                self._queue_request(new_req)
-
-    def _do_shutdown(self):
-        def shutdown():
-            raise LoadManager.ShutdownException
-        for w in self._workers:
-            self._queue_request(Request(shutdown, blocker=True))
 
     def shutdown(self):
         self._policy.shutdown()
-        self._do_shutdown()
-        [w.join() for w in self._workers]
 
     def _check_guarantees(self, delta):
         mem_min = sum(ve.mem_min for ve in self._registered_ves.itervalues())
