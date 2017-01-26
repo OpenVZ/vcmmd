@@ -217,9 +217,6 @@ class VE(Env):
         if not self.active:
             raise VCMMDError(VCMMD_ERROR_VE_NOT_ACTIVE)
 
-        # We need uptodate rss for inactive VEs - see VE.mem_min
-        self.update_stats()
-
         self.active = False
         self.log_info('Deactivated')
 
@@ -272,7 +269,7 @@ class VE(Env):
         '''
         val = self.config.mem_min + self._overhead
         if not self.active:
-            val = max(val, getattr(self.stats, 'rss', 0))
+            val = max(val, self.get_rss())
         return val
 
     @property
