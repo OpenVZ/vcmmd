@@ -20,11 +20,11 @@
 import logging
 import types
 import os
-from time import sleep
-from select import epoll, EPOLLIN
+from select import poll, POLLIN, error as  poll_error
 import struct
 from abc import ABCMeta, abstractmethod
 from threading import Lock, Thread, Event
+import ctypes
 
 from vcmmd.host import Host
 from vcmmd.config import VCMMDConfig
@@ -33,9 +33,7 @@ from vcmmd.util.cpu_features import get_cpuinfo_features
 from vcmmd.ve_type import VE_TYPE_CT
 
 def eventfd(init_val, flags):
-    from ctypes import cdll
-    import ctypes
-    libc = cdll.LoadLibrary("libc.so.6")
+    libc = ctypes.cdll.LoadLibrary("libc.so.6")
     fd = libc.eventfd(ctypes.c_uint(init_val), ctypes.c_int(flags))
     if fd < 0:
         err = ctypes.get_errno()
@@ -143,30 +141,22 @@ class Policy(object):
         with open(self.EVENT_CONTR_PATH, 'w') as cgc:
             cgc.write("%d %d %s" % (efd, mp.fileno(), self.PRESSURE_LEVEL))
 
-        p = epoll()
-        p.register(efd, EPOLLIN)
+        p = poll()
+        p.register(efd, POLLIN)
 
         self.host.log_info('"Low memory" watchdog started(pressure level=%r).' % self.PRESSURE_LEVEL)
         err = 'shutdown event'
         while not self.stop.wait(1):
             try:
-                events = p.poll(2)
-                for fd,event in events:
-                    if event & EPOLLIN:
-                        # In an eventfd, there are always 8 bytes
-                        ret = os.read(efd, 64/8)
-                        num = struct.unpack('Q', ret)
-                        break
-                else:
+                if not p.poll(1):
                     continue
-            except (ValueError, OSError, IOError) as err:
+            except poll_error as err:
                 break
-            self.host.log_debug('"Low memory" notification received: %d' % num)
+            self.host.log_debug('"Low memory" notification received.')
             for callback in self.low_memory_callbacks:
                 callback()
             self.counts['low_mem_events'] += 1
 
-        p.close()
         os.close(efd)
         self.host.log_info('"Low memory" watchdog stopped(msg="%s").' % err)
 

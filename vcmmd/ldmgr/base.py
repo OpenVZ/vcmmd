@@ -23,10 +23,7 @@ from __future__ import absolute_import
 import os
 import logging
 import threading
-import time
 import importlib
-import psutil
-from Queue import Full as QueueFull, Empty as QueueEmpty
 
 from vcmmd.error import (VCMMDError,
                          VCMMD_ERROR_VE_NAME_ALREADY_IN_USE,
@@ -46,11 +43,6 @@ from vcmmd.host import Host
 class LoadManager(object):
 
     FALLBACK_POLICY = 'NoOpPolicy'
-
-    class ShutdownException(Exception):
-        """Raise when shutdown request is received
-        """
-        pass
 
     def __init__(self):
         self.logger = logging.getLogger('vcmmd.ldmgr')
