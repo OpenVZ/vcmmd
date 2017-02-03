@@ -69,19 +69,19 @@ class VCMMDConfig(object):
         self._data = self.read()
 
         try:
-            _data = data
+            _data = self._data
             key = name.split('.')[-1]
             path = name.split('.')[:-1]
             for k in path:
                 _data = _data[k]
             _data[key] = val
-        except KeyError:
+        except KeyError as err:
             self.logger.error('Error parsing config file: %s', err)
             return
 
         try:
             with open(self._filename, 'w') as f:
-                f.write(json.dumps(data, indent=8))
+                f.write(json.dumps(self._data, indent=8))
         except IOError as err:
             self.logger.error('Error writing config file: %s', err)
 
