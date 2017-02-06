@@ -156,10 +156,10 @@ for vm in srv.get_vm_list_ex(consts.PVTF_CT | consts.PVTF_VM).wait():
     kv['guarantee'] = ram_size * guar_pct / 100
     kv['guarantee_type'] = mem_guarantee[0]
 
-    if swap:
+    if swap is not None:
         kv['swap'] = swap
 
-    if vram:
+    if vram is not None:
         kv['vram'] = vram
 
     try:
