@@ -334,7 +334,10 @@ class LoadManager(object):
                 ve_config.update(guarantee = int(ve_config.limit * self._policy.DEFAULT_VM_AUTO_GUARANTEE))
             self._check_guarantees(ve_config.mem_min - ve.config.mem_min)
 
-            ve.set_config(ve_config)
+            try:
+                ve.set_config(ve_config)
+            except VCMMDError:
+                pass
             ve.effective_limit = min(ve.config.limit, self._host.ve_mem)
 
             self._policy.ve_config_updated(ve)

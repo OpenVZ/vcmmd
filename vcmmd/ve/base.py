@@ -303,6 +303,7 @@ class VE(Env):
         '''Update VE config.
         '''
         _check_ve_config(config)
+        self.config = config
 
         try:
             obj = self._get_obj()
@@ -311,7 +312,6 @@ class VE(Env):
             self.log_err('Failed to set config: %s', err)
             raise VCMMDError(VCMMD_ERROR_VE_OPERATION_FAILED)
 
-        self.config = config
         self.log_info('Config updated: %s', config)
 
     def set_node_list(self, nodes):
@@ -366,7 +366,11 @@ class VE(Env):
 
     @property
     def nr_cpus(self):
-        return self._get_obj().nr_cpus
+        try:
+            return self._get_obj().nr_cpus
+        except Error as err:
+            self.log_err('Failed to get number of vCPUs: %s', err)
+        return -1
 
     def numa_configured(self):
         return self.config.nodelist or self.config.cpulist
