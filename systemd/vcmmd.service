@@ -1,5 +1,5 @@
 [Unit]
-Description=Virtuozzo memory management daemon
+Description=@PRODUCT_NAME_SHORT@ memory management daemon
 
 [Service]
 PIDFile=/var/run/vcmmd.pid
