@@ -1,10 +1,21 @@
 from distutils.core import setup, Extension
+from distutils.command.install import install
+
+import sys
+import brand
+import re
+import os
 
 with open('Makefile.version') as f:
     version = f.read().strip()
+    f.close()
+
+servicefile = 'vcmmd.service'
+systemd_unitdir = '/usr/lib/systemd/system'
+systemd_unit = systemd_unitdir + "/" + servicefile
 
 setup(name='vcmmd',
-      description='Virtuozzo memory management daemon',
+      description='%s memory management daemon' % brand.PRODUCT_NAME_SHORT,
       version=version,
       license='GPLv2',
       packages=['vcmmd',
@@ -21,5 +32,30 @@ setup(name='vcmmd',
       data_files=[('/etc/dbus-1/system.d', ['dbus/com.virtuozzo.vcmmd.conf']),
                   ('/etc/logrotate.d', ['logrotate/vcmmd']),
                   ('/etc/vz', ['vcmmd.conf', 'vstorage-limits.conf']),
-                  ('/etc/vz/vcmmd.d', ['scripts/vz'])],
+                  ('/etc/vz/vcmmd.d', ['scripts/vz']),
+                  (systemd_unitdir, ['systemd/%s' % servicefile])],
       scripts=['bin/vcmmd', 'bin/vcmmdctl'])
+
+if len(sys.argv) < 2 or (len(sys.argv) > 1 and  sys.argv[1] != "install"):
+    sys.exit(0)
+
+def get_tmp_fname(fl):
+    return fl + "_tmp"
+
+if '--root' in sys.argv:
+    try:
+        systemd_unit = sys.argv[sys.argv.index('--root') + 1] + "/" + systemd_unit
+    except:
+        pass
+
+try:
+    with open(systemd_unit, "r") as f:
+        fw = open(get_tmp_fname(systemd_unit), 'w')
+        for line in f.readlines():
+            fw.write(re.sub("@PRODUCT_NAME_SHORT@", brand.PRODUCT_NAME_SHORT, line))
+        f.close()
+        fw.close()
+    os.rename(get_tmp_fname(systemd_unit), systemd_unit)
+except:
+    print "Branding failed"
+    sys.exit(1)
