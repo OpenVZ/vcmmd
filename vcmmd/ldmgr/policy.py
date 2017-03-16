@@ -151,6 +151,8 @@ class Policy(object):
             try:
                 if not p.poll(1):
                     continue
+                # In an eventfd, there are always 8 bytes
+                ret = os.read(efd, 8)
             except poll_error as err:
                 break
             self.host.log_debug('"Low memory" notification received.')
