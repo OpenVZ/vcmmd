@@ -120,6 +120,8 @@ try:
         if not os.path.isdir(service_path):
             print "Memory cgroup %s not found" % service_path
             continue
+        # TODO removeme PSBM-64068
+        os.system("echo 1 > %s/memory.disable_cleancache" % service_path)
         #read config for limit, guarantee and swap
         total_mem = psutil.virtual_memory().total
         kv = {}
