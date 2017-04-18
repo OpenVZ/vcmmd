@@ -155,6 +155,12 @@ class CTImpl(ABSVEImpl):
             raise Error('Cgroup read failed: %s' % err)
         return node_list
 
+    def node_mem_migrate(self, nodes):
+        try:
+            self._memcg.set_node_list(nodes)
+        except IOError as err:
+            raise Error('Cgroup write failed: %s' % err)
+
     def pin_node_mem(self, nodes):
         '''Change list of memory nodes for CT
 
@@ -162,7 +168,6 @@ class CTImpl(ABSVEImpl):
         accordingly
         '''
         try:
-            self._cpusetcg.set_memory_migrate(True)
             self._cpusetcg.set_node_list(nodes)
         except IOError as err:
             raise Error('Cgroup write failed: %s' % err)

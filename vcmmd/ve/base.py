@@ -32,6 +32,7 @@ from vcmmd.util.stats import Stats
 from vcmmd.numa import Numa as AbsNuma
 from vcmmd.env import Env
 from vcmmd.util.threading import update_stats_single
+from vcmmd.ve_type import VE_TYPE_CT
 
 
 class Error(Exception):
@@ -320,7 +321,7 @@ class VE(Env):
         self.pin_node_mem(nodes)
         self.pin_cpu_list(cpus)
 
-    def pin_node_mem(self, nodes):
+    def pin_node_mem(self, nodes, migrate=True):
         '''Change list of memory nodes for VE
 
         This function changes VE affinity for memory and migrates VE's memory
@@ -329,6 +330,8 @@ class VE(Env):
         try:
             obj = self._get_obj()
             obj.pin_node_mem(nodes)
+            if self.VE_TYPE == VE_TYPE_CT and migrate:
+                obj.node_mem_migrate(nodes)
         except Error as err:
             self.log_err('Failed to bind NUMA nodes: %s' % err)
         else:
@@ -350,7 +353,7 @@ class VE(Env):
     def reset_numa_settings(self):
         '''Reset all NUMA-related bindings
         '''
-        self.pin_node_mem(self.numa.nodes_ids)
+        self.pin_node_mem(self.numa.nodes_ids, migrate=False)
         self.pin_cpu_list(sum(self.numa.cpu_list.itervalues(), []))
 
     def numa_enforce_settings(self):
