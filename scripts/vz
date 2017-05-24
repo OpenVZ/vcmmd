@@ -81,7 +81,7 @@ DEFAULT_GUARANTEE = {
     VE_TYPE_VM_WINDOWS: 40,
 }
 
-#Wait for virtuozzo.target, which indicates that VE list can be retrived
+# Wait for virtuozzo.target, which indicates that VE list can be retrived
 # via prlsdkapi.
 cmd = ["systemctl", "is-active", "virtuozzo.target"]
 for wait in xrange(120):
