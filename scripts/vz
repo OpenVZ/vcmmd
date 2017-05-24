@@ -91,12 +91,6 @@ for wait in xrange(120):
         pass
     time.sleep(1)
 
-helper = prlsdkapi.ApiHelper()
-helper.init(consts.PRL_VERSION_7X)
-
-srv = prlsdkapi.Server()
-srv.login_local().wait()
-
 proxy = RPCProxy()
 
 # Services must be activated first
@@ -147,6 +141,12 @@ try:
         proxy.activate_ve(service[0], 0)
 except Exception as e:
     svs_exc_info = sys.exc_info()
+
+helper = prlsdkapi.ApiHelper()
+helper.init(consts.PRL_VERSION_7X)
+
+srv = prlsdkapi.Server()
+srv.login_local().wait()
 
 for vm in srv.get_vm_list_ex(consts.PVTF_CT | consts.PVTF_VM).wait():
     try:
