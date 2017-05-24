@@ -54,6 +54,7 @@ from vcmmd.error import VCMMDError, VCMMD_ERROR_VE_NAME_ALREADY_IN_USE
 from vcmmd.ve.ct import _lookup_cgroup
 from vcmmd.cgroup import MemoryCgroup
 from vcmmd.util.libvirt import virDomainProxy
+from libvirt import libvirtError
 
 PAGE_SIZE = os.sysconf('SC_PAGESIZE')
 INT64_MAX = int(2 ** 63 - 1)
@@ -172,13 +173,23 @@ for vm in srv.get_vm_list_ex(consts.PVTF_CT | consts.PVTF_VM).wait():
         swap = memcg.read_swap_max()
     else:
         uuid = vm.get_uuid()[1:-1]
-        dom = virDomainProxy(uuid)
-        if vm.is_ram_hotplug_enabled():
+
+        try:
+            dom = virDomainProxy(uuid)
+        except libvirtError:
+            dom = None
+
+        if vm.is_ram_hotplug_enabled() or not dom:
             ram_size = vm.get_ram_size() << 20
         else:
             ram_size = dom.maxMemory() << 10
-        video = ET.fromstring(dom.XMLDesc()).findall("./devices/video/model")
-        vram = sum(map(lambda v: int(v.attrib.get('vram',0)), video)) << 10
+
+        if dom:
+            video = ET.fromstring(dom.XMLDesc()).findall("./devices/video/model")
+            vram = sum(map(lambda v: int(v.attrib.get('vram',0)), video)) << 10
+        else:
+            vram = vm.get_video_ram_size() << 20
+
         swap = None
 
     kv['nodelist'] = str(vm.get_node_mask())
