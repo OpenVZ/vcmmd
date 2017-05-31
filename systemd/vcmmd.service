@@ -6,6 +6,7 @@ PIDFile=/var/run/vcmmd.pid
 ExecStart=/usr/sbin/vcmmd
 Restart=on-failure
 LimitCORE=268435456
+OOMScoreAdjust=-500
 
 [Install]
 WantedBy=multi-user.target
