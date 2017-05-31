@@ -80,7 +80,7 @@ try:
     VE_OSTYPE_MAP = {
         consts.PVS_GUEST_TYPE_WINDOWS: VE_TYPE_VM_WINDOWS,
         consts.PVS_GUEST_TYPE_LINUX: VE_TYPE_VM_LINUX,
-   }
+    }
 except ImportError:
     print "Failed to import prlsdkapi"
     is_avail_prlsdkapi = False
