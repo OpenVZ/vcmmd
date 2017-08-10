@@ -215,12 +215,12 @@ class _LoadManagerObject(dbus.service.Object):
                 return (err.errno, [])
         return GetStats(self, ve_name)
 
-    @dbus.service.method(IFACE, in_signature='', out_signature='a(stt)')
-    def GetQuotas(self):
+    @dbus.service.method(IFACE, in_signature='', out_signature='a{st}')
+    def GetFree(self):
         @self._log
-        def GetQuotas(self):
-            return self.ldmgr.get_quotas()
-        return GetQuotas(self)
+        def GetFree(self):
+            return self.ldmgr.get_free()
+        return GetFree(self)
 
 
 class RPCServer(object):

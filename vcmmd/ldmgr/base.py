@@ -240,11 +240,24 @@ class LoadManager(object):
         res = ve.stats.report().iteritems()
         return res
 
-    def get_quotas(self):
+    def get_free(self):
         with self._registered_ves_lock:
-            return [(ve.name, ve.target, ve.protection)
-                    for ve in self._registered_ves.itervalues()
-                    if ve.active and ve.target is not None]
+            qemu_vram_overhead = 0
+            guarantee = 0
+            for ve in self._registered_ves.itervalues():
+                qemu_vram_overhead += ve.mem_overhead
+                guarantee += ve.protection
+        reserved = self._host.host_mem + self._host.sys_mem + self._host.user_mem
+        swap = self._host.get_slice_swap('machine')
+        if swap is None:
+            swap = 0
+        available = max(self._host.total_mem - reserved - qemu_vram_overhead - guarantee, 0)
+        return {'total': self._host.total_mem,
+                'host reserved': reserved,
+                'qemu overhead+vram': qemu_vram_overhead,
+                'guarantee': guarantee,
+                'swap': swap,
+                'available': available}
 
     def get_config(self, j):
         return VCMMDConfig().report(j)

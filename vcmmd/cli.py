@@ -329,7 +329,7 @@ def _handle_get_format_stats(parser, args, prettify):
 
 
 def _handle_get_stats(args):
-    parser = OptionParser('Usage: %%prog get-stats [VE] ...',
+    parser = OptionParser('Usage: %%prog stats [VE] ...',
                           description='Print statistics for the specified VEs '
                           'or for all registered VEs if arguments are omitted.')
     _handle_get_format_stats(parser, args,
@@ -337,7 +337,7 @@ def _handle_get_stats(args):
 
 
 def _handle_get_missing_stats(args):
-    parser = OptionParser('Usage: %%prog get-stats [VE] ...',
+    parser = OptionParser('Usage: %%prog stats [VE] ...',
                           description='Print missing statistics for the '
                           'specified VEs or for all registered VEs if '
                           'arguments are omitted.')
@@ -345,9 +345,9 @@ def _handle_get_missing_stats(args):
                              lambda stats: " ".join(str(s[0]) for s in stats if s[1] == -1))
 
 
-def _handle_get_quotas(args):
-    parser = OptionParser('Usage: %%prog get-quotas',
-                          description='Print current quotas for all VEs.',
+def _handle_free(args):
+    parser = OptionParser('Usage: %%prog free',
+                          description='Print current memory usage.',
                           conflict_handler='resolve')
     _add_memval_config_options(parser)
 
@@ -355,22 +355,20 @@ def _handle_get_quotas(args):
     if len(args) > 0:
         parser.error('superfluous arguments')
 
-    quotas = RPCProxy().get_quotas()
-
-    fmt = '%-36s %13s %13s'
-    print fmt % ('name', 'target', 'protection')
-    for ve_name, target, protection in sorted(quotas):
-        print fmt % (ve_name,
-                     _str_memval(target, options),
-                     _str_memval(protection, options))
+    free = RPCProxy().get_free()
+    head = tuple(map(str, free.keys()))
+    vals = tuple(map(lambda v: _str_memval(v, options), free.values()))
+    fmt = ' '.join(['%-'+str(len(v)+3)+'s' for v in free.keys()])
+    for s in head, vals:
+        print fmt % s
 
 
 def main():
     parser = OptionParser('Usage: %prog <command> <args>...\n'
                           'command := register | activate | update | '
                           'deactivate | unregister | list | set-log-level | '
-                          'current-policy | get-stats | get-missing-stats | '
-                          'get-quotas | config | policy-counts',
+                          'current-policy | stats | '
+                          'free | config | policy-counts',
                           description='Call a command on the VCMMD service. '
                           'See \'%prog <command> --help\' to read about a '
                           'specific subcommand.',
@@ -395,9 +393,9 @@ def main():
             'set-policy': _handle_switch_policy,
             'config': _handle_get_config,
             'policy-counts': _handle_policy_counts,
-            'get-stats': _handle_get_stats,
+            'stats': _handle_get_stats,
             'get-missing-stats': _handle_get_missing_stats,
-            'get-quotas': _handle_get_quotas,
+            'free': _handle_free,
         }[args[0]]
     except KeyError:
         parser.error('invalid command')

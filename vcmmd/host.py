@@ -128,6 +128,15 @@ class Host(Env):
             if verbose:
                 self.log_info('Reserved %s bytes for %s slice', value, name)
 
+    def get_slice_swap(self, name):
+        memcg = MemoryCgroup(name + '.slice')
+        if not memcg.exists():
+            return
+        try:
+            return memcg.read_swap_current()
+        except IOError as err:
+            self.log_err('Failed to get swap usage for %s slice: %s', name, err)
+
     @update_stats_single
     def update_stats(self):
         '''Update host stats.

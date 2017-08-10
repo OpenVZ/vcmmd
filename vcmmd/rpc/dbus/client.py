@@ -91,5 +91,5 @@ class RPCProxy(object):
             raise VCMMDError(err)
         return stats
 
-    def get_quotas(self):
-        return self._iface.GetQuotas()
+    def get_free(self):
+        return self._iface.GetFree()
