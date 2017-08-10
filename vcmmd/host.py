@@ -40,6 +40,7 @@ class HostStats(Stats):
 
     ABSOLUTE_STATS = [
         'memtotal',         # total amount of physical memory on host
+        'swaptotal',        # total swap size on host
         'memfree',          # amount of memory left completely unused by host
         'memavail',         # an estimate of how much memory is available for
                             # starting new applications, without swapping
@@ -154,8 +155,10 @@ class Host(Env):
                 ksm_stats[datum] = -1
                 self.log_err("Failed to update stat: open %s failed: %s" % (name, msg))
         mem = psutil.virtual_memory()
+        swaptotal = psutil.swap_memory().total
 
         stats = {'memtotal': self.total_mem,
+                 'swaptotal': swaptotal,
                  'memfree': mem.free,
                  'memavail': mem.available,
                  'ksm_pg_shared': ksm_stats.get('pages_shared', -1),
@@ -203,9 +206,12 @@ class Host(Env):
                 # Node NUM VARIABLE: VALUE [kB]
                 stats[line[2][:-1]] = int(line[3])
 
+            reclaimable = max(min((stats.get("Inactive(anon)", -1) << 10) / 2,
+                                  self.stats.swaptotal), 0)
+
             memusage = ((stats.get("MemTotal", -1) << 10) -
                         (stats.get("MemFree", -1) << 10) -
-                        ((stats.get("Inactive(anon)", -1) << 10) / 2) -
+                        reclaimable -
                         (stats.get("Inactive(file)", -1) << 10))
 
             memtotal = stats.get("MemTotal", -1) << 10
