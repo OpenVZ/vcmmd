@@ -74,6 +74,7 @@ class NumaStats(object):
 class Numa(object):
 
     NUMA_NODE_SYS_PATH = "/sys/devices/system/node/node%d/"
+    MIN_FREE_PATH = "/proc/sys/vm/min_free_kbytes"
     __inited = False
 
     def __init__(self, env):
@@ -88,6 +89,7 @@ class Numa(object):
             return
         cls.nodes_ids = cls.get_nodes_ids()
         cls.cpu_list = {}
+        cls.zoneinfo = {}
         for n in cls.nodes_ids[:]:
 	    node_dir = cls.NUMA_NODE_SYS_PATH % n
             with open(node_dir + "cpulist") as f:
@@ -96,6 +98,15 @@ class Numa(object):
                     cls.nodes_ids.remove(n)
                     continue
                 cls.cpu_list[n] = cpu_list
+
+        with open(cls.MIN_FREE_PATH) as f:
+            min_free_kbytes = int(f.read())
+        # It's better to read zoneinfo directly,
+        # but for simplification we just calculate it.
+        cls.zoneinfo['min'] = min_free_kbytes / len(cls.nodes_ids)
+        cls.zoneinfo['low'] = cls.zoneinfo['min'] * 5/4
+        cls.zoneinfo['high'] = cls.zoneinfo['min'] * 3/2
+
         cls.__inited = True
 
     @staticmethod
