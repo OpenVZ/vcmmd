@@ -215,9 +215,11 @@ class Host(Env):
                         (stats.get("Inactive(file)", -1) << 10))
 
             memtotal = stats.get("MemTotal", -1) << 10
+            memfree = stats.get("MemFree", -1) << 10
 
             ret[n] = {'memusage': memtotal > 0 and memusage or -1,
                       'memtotal': memtotal > 0 and memtotal or -1,
+                      'memfree': memfree > 0 and memfree or -1,
                      }
         return ret
 

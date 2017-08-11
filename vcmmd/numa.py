@@ -32,6 +32,7 @@ class NumaStats(object):
         ABSOLUTE_STATS = [
             'memtotal',
             'memusage',
+            'memfree',
         ]
 
 
