@@ -246,7 +246,8 @@ class LoadManager(object):
             guarantee = 0
             for ve in self._registered_ves.itervalues():
                 qemu_vram_overhead += ve.mem_overhead
-                guarantee += ve.protection
+                if ve.protection:
+                    guarantee += ve.protection
         reserved = self._host.host_mem + self._host.sys_mem + self._host.user_mem
         swap = self._host.get_slice_swap('machine')
         if swap is None:

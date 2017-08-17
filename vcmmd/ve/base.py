@@ -181,6 +181,8 @@ class VE(Env):
         self.numa = VE.Numa(self)
         self.active = False
         self._overhead = self._impl.mem_overhead(config.limit)
+        self.target = None
+        self.protection = None
 
     def __str__(self):
         return "%s '%s'" % (get_ve_type_name(self.VE_TYPE), self.name)
