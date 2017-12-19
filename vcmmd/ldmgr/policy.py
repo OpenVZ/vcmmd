@@ -22,7 +22,6 @@ import logging
 import types
 import os
 from select import poll, POLLIN, error as  poll_error
-import struct
 from abc import ABCMeta, abstractmethod
 from threading import Lock, Thread, Event
 import ctypes
@@ -62,7 +61,7 @@ class Policy(object):
         self.__ve_data = {}  # Dictionary of all managed VEs to their policy data
         self.__ve_data_lock = Lock()
         self.counts = {}
-        self.stop  = Event()
+        self.stop = Event()
 
     @staticmethod
     def controller(f):
@@ -76,9 +75,14 @@ class Policy(object):
     def get_name(self):
         return self.__class__.__name__
 
+    def get_ves(self):
+        with self.__ve_data_lock:
+            return self.__ve_data.keys()
+
     def get_policy_data(self, t):
         with self.__ve_data_lock:
-            return list(self.__ve_data.get(t, {}).itervalues())
+            return filter(lambda x: x is not None,
+                          (pdata.get(t, None) for pdata in self.__ve_data.itervalues()))
 
     def rm_policy_data(self, t, ve):
         with self.__ve_data_lock:
@@ -87,13 +91,14 @@ class Policy(object):
     def set_policy_data(self, ve, data):
         with self.__ve_data_lock:
             t = type(data)
-            if t not in self.__ve_data:
-                self.__ve_data[t] = {}
-            self.__ve_data[t][ve] = data
+            self.__ve_data[ve][t] = data
 
     def ve_activated(self, ve):
         '''Called right after a VE gets activated.
         '''
+        with self.__ve_data_lock:
+            if ve not in self.__ve_data:
+                self.__ve_data[ve] = {}
         ve.set_mem(ve.config.limit, ve.mem_min)
 
     def ve_deactivated(self, ve):
@@ -170,7 +175,7 @@ class BalloonPolicy(Policy):
         super(BalloonPolicy, self).__init__()
         self.__apply_changes_lock = Lock()
 
-        bc = VCMMDConfig().get_bool("LoadManager.Controllers.Balloon", False)
+        bc = VCMMDConfig().get_bool("LoadManager.Controllers.Balloon", True)
         self.counts['Balloon'] = {}
         if not bc:
             return
@@ -178,7 +183,6 @@ class BalloonPolicy(Policy):
         self.low_memory_callbacks.add(self.balloon_controller)
         self.balloon_timeout = 5
 
-    @abstractmethod
     def update_balloon_stats(self):
         pass
 
@@ -196,21 +200,19 @@ class BalloonPolicy(Policy):
 
             # Apply the quotas.
             for ve, (target, protection) in ve_quotas.iteritems():
-                ve.set_mem(target=target, protection=protection)
+                if ve.target != target or ve.protection != protection:
+                    ve.set_mem(target=target, protection=protection)
 
         return self.balloon_timeout
 
-    @abstractmethod
     def calculate_balloon_size(self):
         '''Calculate VE memory quotas
 
         Returns a mapping VE -> (target, protection), where 'target'
         is the memory consumption that should be set for a VE and 'protection'
         is the amount memory that should be protected from host pressure.
-
-        This function must be overridden in sub-class.
         '''
-        pass
+        return {ve: (ve.config.limit, ve.mem_min) for ve in self.get_ves()}
 
 
 class NumaPolicy(Policy):
