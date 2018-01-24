@@ -20,7 +20,10 @@
 
 from __future__ import absolute_import
 
-from vcmmd.ldmgr.policy import BalloonPolicy, NumaPolicy, KSMPolicy as AbsKsmPolicy
+from vcmmd.ldmgr.policy import (BalloonPolicy,
+                                NumaPolicy,
+                                KSMPolicy as AbsKsmPolicy,
+                                StoragePolicy)
 
 
 class KsmPolicy(AbsKsmPolicy):
@@ -66,7 +69,7 @@ class KsmPolicy(AbsKsmPolicy):
         return params
 
 
-class NoOpPolicy(KsmPolicy, BalloonPolicy):
+class NoOpPolicy(KsmPolicy, BalloonPolicy, StoragePolicy):
     '''No Operation load manager policy.
 
     Set memory quotas to configured limits and let the host kernel do the rest.

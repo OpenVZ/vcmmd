@@ -169,6 +169,9 @@ class MemoryCgroup(Cgroup):
 	# Warning: changes swap size to val - limit_in_bytes
         self._write_file_mem_val('memsw.limit_in_bytes', val)
 
+    def write_cache_limit_in_bytes(self, val):
+        self._write_file_mem_val('cache.limit_in_bytes', val)
+
     def read_mem_stat(self):
         return self._read_file_kv('stat')
 

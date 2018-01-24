@@ -25,12 +25,26 @@ from select import poll, POLLIN, error as  poll_error
 from abc import ABCMeta, abstractmethod
 from threading import Lock, Thread, Event
 import ctypes
+import psutil
+import json
 
 from vcmmd.host import Host
 from vcmmd.config import VCMMDConfig
 from vcmmd.util.misc import print_dict
 from vcmmd.util.cpu_features import get_cpuinfo_features
-from vcmmd.ve_type import VE_TYPE_CT
+from vcmmd.ve_type import VE_TYPE_CT, VE_TYPE_SERVICE
+from vcmmd.ve_config import VEConfig
+from vcmmd.cgroup import MemoryCgroup
+from vcmmd.rpc.dbus.client import RPCProxy
+from vcmmd.error import (VCMMDError,
+                         VCMMD_ERROR_VE_NAME_ALREADY_IN_USE,
+                         VCMMD_ERROR_VE_ALREADY_ACTIVE)
+from vcmmd.util.limits import INT64_MAX
+
+def clamp(v, l, h):
+    if h == -1:
+        h = INT64_MAX
+    return max(l, min(v, h))
 
 def eventfd(init_val, flags):
     libc = ctypes.cdll.LoadLibrary("libc.so.6")
@@ -365,3 +379,100 @@ class KSMPolicy(Policy):
 
     def get_thp_params(self):
         pass
+
+
+class StoragePolicy(Policy):
+    '''Manages cgroup slice parametrs in sysfs
+    '''
+
+    STORAGE_CONFIG = '/etc/vz/vstorage-limits.conf'
+    SELF_NAME = 'VStorage'
+    SLICE_NAME = 'vstorage.slice/vstorage-services.slice'
+
+    def __init__(self):
+        super(StoragePolicy, self).__init__()
+
+        self.controllers.add(self.storage_controller)
+        self.cgroup_timeout = 6
+        self.storage_config = {'Path': self.SLICE_NAME}
+        try:
+            self.storage_config.update(self.__read_config())
+        except Exception as e:
+            self.logger.error("Failed to read vstorage config(): %s" % str(e))
+        self.__service_path = '/sys/fs/cgroup/memory/%s' % self.storage_config['Path']
+        os.system("echo 1 > %s/memory.disable_cleancache" % self.__service_path)
+
+    def __read_config(self):
+        with open(self.STORAGE_CONFIG) as f:
+            j = json.loads(f.read())
+
+        for name, service in j.iteritems():
+            if str(name) == self.SELF_NAME:
+                return service
+        return {}
+
+    def init_storage_ct(self):
+        known_params = {'Limit', 'Guarantee', 'Swap', 'Path'}
+        unknown_params = set(self.storage_config.keys()) - known_params
+        if unknown_params:
+            raise Exception("Unknown fields in %s: %s" % (self.__service_path, unknown_params))
+        kv = {}
+        total_mem = psutil.virtual_memory().total
+        for Param in known_params - {'Path'}:
+            param = Param.lower()
+            try:
+                unknown_params = (set(self.storage_config[Param].iterkeys()) -
+                                  {'Share', 'Min', 'Max'})
+                if unknown_params:
+                    self.logger.error("Unknown fields in %s: %s" % (self.__service_path, unknown_params))
+                    return
+                kv[param] = clamp(int(self.storage_config[Param]['Share'] * total_mem),
+                                  int(self.storage_config[Param].get('Min', 0)),
+                                  int(self.storage_config[Param].get('Max', -1)))
+            except (KeyError, TypeError, ValueError):
+                self.logger.error("Error parsing %s %r %s" %
+                                     (self.SLICE_NAME, self.storage_config, Param))
+                return
+        proxy = RPCProxy()
+        try:
+            proxy.register_ve(self.SLICE_NAME, VE_TYPE_SERVICE, VEConfig(**kv), 0)
+            proxy.activate_ve(self.SLICE_NAME, 0)
+        except VCMMDError as e:
+            if e.errno in (VCMMD_ERROR_VE_NAME_ALREADY_IN_USE, VCMMD_ERROR_VE_ALREADY_ACTIVE):
+                return
+            raise
+
+
+    def get_cgroup_params(self, ves):
+        '''The limit should be set as follows:
+        1. no VMs/CTs - no limit (consider as all RAM for #3), but no limit should be applied
+        2. limit should be not less than 2 GB under any circumstances
+        3. VM/CT started - the limit should be decreased by VM/CT RAM size * 1.1
+        '''
+        if not ves:
+            return {}
+        used_by_ves = int(1.1 * sum(ve.effective_limit for ve in self.get_ves() if ve.VE_TYPE != VE_TYPE_SERVICE))
+        return {"cache.limit_in_bytes": max(2 << 30, self.host.ve_mem - used_by_ves)}
+
+    @Policy.controller
+    def storage_controller(self):
+        if not os.path.isdir(self.__service_path):
+            self.cgroup_timeout = 6
+            return self.cgroup_timeout
+        ves_uuids = [ve.name for ve in self.get_ves()]
+        # TODO
+        #if self.SLICE_NAME not in ves_uuids:
+        #    self.init_storage_ct()
+        params = self.get_cgroup_params(self.get_ves())
+        if params is not None:
+            cache_limit = params.get("cache.limit_in_bytes", -1)
+            self.logger.error("Set cache.limit_in_bytes to %s" % cache_limit)
+            if not os.path.exists(os.path.join(self.__service_path, "memory.cache.limit_in_bytes")):
+                return self.cgroup_timeout
+            try:
+                MemoryCgroup(self.SLICE_NAME).write_cache_limit_in_bytes(cache_limit)
+            except Exception as e:
+                self.cgroup_timeout = 10
+                self.logger.error("Failed to set cache.limit_in_bytes for vstorage: %s" % str(e))
+
+        return self.cgroup_timeout
