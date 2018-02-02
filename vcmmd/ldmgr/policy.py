@@ -393,7 +393,7 @@ class StoragePolicy(Policy):
         super(StoragePolicy, self).__init__()
 
         self.controllers.add(self.storage_controller)
-        self.cgroup_timeout = 6
+        self.cgroup_timeout = 60
         self.storage_config = {'Path': self.SLICE_NAME}
         try:
             self.storage_config.update(self.__read_config())
@@ -457,7 +457,7 @@ class StoragePolicy(Policy):
     @Policy.controller
     def storage_controller(self):
         if not os.path.isdir(self.__service_path):
-            self.cgroup_timeout = 6
+            self.cgroup_timeout = 60
             return self.cgroup_timeout
         ves_uuids = [ve.name for ve in self.get_ves()]
         # TODO
