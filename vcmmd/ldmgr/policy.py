@@ -100,7 +100,7 @@ class Policy(object):
 
     def rm_policy_data(self, t, ve):
         with self.__ve_data_lock:
-            self.__ve_data.get(t, {}).pop(ve, None)
+            self.__ve_data.get(ve, {}).pop(t, None)
 
     def set_policy_data(self, ve, data):
         with self.__ve_data_lock:
