@@ -466,7 +466,7 @@ class StoragePolicy(Policy):
         params = self.get_cgroup_params(self.get_ves())
         if params is not None:
             cache_limit = params.get("cache.limit_in_bytes", -1)
-            self.logger.error("Set cache.limit_in_bytes to %s" % cache_limit)
+            self.logger.debug("Set cache.limit_in_bytes to %s" % cache_limit)
             if not os.path.exists(os.path.join(self.__service_path, "memory.cache.limit_in_bytes")):
                 return self.cgroup_timeout
             try:
