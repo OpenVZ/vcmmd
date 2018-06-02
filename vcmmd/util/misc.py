@@ -19,6 +19,7 @@
 # Schaffhausen, Switzerland.
 from itertools import chain
 import pprint, json
+import psutil
 
 def print_dict(d, j=False):
         if j:
@@ -58,3 +59,24 @@ def parse_range_list(rngs):
     i.e. "1-3,5,4-8,9" -> [1,2,3,4,5,6,7,8,9]
     '''
     return sorted(set(chain(*[parse_range(rng) for rng in rngs.split(',')])))
+
+def get_cs_num():
+    '''
+    get number of vstorage running CS on node process list
+    '''
+    cs_num = 0
+    name = '/usr/bin/csd'
+    for proc in psutil.process_iter():
+        # Workaround for old psutil(1.2.1)
+        if isinstance(proc.cmdline, list):
+            cmd = proc.cmdline
+        else:
+            try:
+                cmd = proc.cmdline()
+            except psutil.NoSuchProcess:
+                raise OSError("No such process: '%s'" % name)
+
+        if not cmd or not cmd[0] == name:
+            continue
+        cs_num += 1
+    return cs_num

@@ -40,6 +40,7 @@ from vcmmd.error import (VCMMDError,
                          VCMMD_ERROR_VE_NAME_ALREADY_IN_USE,
                          VCMMD_ERROR_VE_ALREADY_ACTIVE)
 from vcmmd.util.limits import INT64_MAX
+from vcmmd.util.misc import get_cs_num
 
 def clamp(v, l, h):
     if h == -1:
@@ -391,6 +392,10 @@ class StoragePolicy(Policy):
 
     def __init__(self):
         super(StoragePolicy, self).__init__()
+        default = True
+        kc = VCMMDConfig().get_bool("LoadManager.Controllers.StoragePolicy", default)
+        if not kc:
+            return
 
         self.controllers.add(self.storage_controller)
         self.cgroup_timeout = 60
@@ -452,7 +457,12 @@ class StoragePolicy(Policy):
         if not ves:
             return {}
         used_by_ves = int(1.1 * sum(ve.effective_limit for ve in self.get_ves() if ve.VE_TYPE != VE_TYPE_SERVICE))
-        return {"cache.limit_in_bytes": max(2 << 30, self.host.ve_mem - used_by_ves)}
+        cs_num = 0
+        try:
+            cs_num = get_cs_num()
+        except OSError:
+            self.logger.error("Failed to get number of CS")
+        return {"cache.limit_in_bytes": max((2 * max(1, cs_num)) << 30, self.host.ve_mem - used_by_ves)}
 
     @Policy.controller
     def storage_controller(self):
