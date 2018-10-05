@@ -30,6 +30,10 @@ class KsmPolicy(AbsKsmPolicy):
     ''' VCMMD in conflict with ksmtuned, so this base KSM policy,
         mostly "copycat" ksmtuned
     '''
+    def __init__(self):
+        super(KsmPolicy, self).__init__()
+        self.host.thptune({"enabled": "never"})
+
     def update_ksm_stats(self):
         self.host.update_stats()
         self.host.log_debug('update stats: %s', self.host.stats)
