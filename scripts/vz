@@ -122,6 +122,8 @@ try:
             continue
         # TODO removeme PSBM-64068
         os.system("echo 1 > %s/memory.disable_cleancache" % service_path)
+        # PSBM-89802
+        os.system("echo 0 > %s/memory.swappiness" % service_path)
         #read config for limit, guarantee and swap
         total_mem = psutil.virtual_memory().total
         kv = {}
