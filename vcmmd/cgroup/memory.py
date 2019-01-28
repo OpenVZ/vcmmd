@@ -184,6 +184,18 @@ class MemoryCgroup(Cgroup):
     def write_oom_guarantee(self, val):
         self._write_file_mem_val('oom_guarantee', val)
 
+    def write_swappiness(self, val):
+        self._write_file_int('swappiness', val)
+
+    def write_oom_control(self, val):
+        self._write_file_int('oom_control', val)
+
+    def write_cleancache(self, val):
+        self._write_file_int('disable_cleancache', int(not val))
+
+    def read_cache_limit_in_bytes(self):
+        return self._read_file_int('cache.limit_in_bytes')
+
     @staticmethod
     def set_idle_mem_period(period):
         '''Set idle memory scan period, in seconds.

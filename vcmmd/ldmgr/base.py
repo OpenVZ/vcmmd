@@ -149,6 +149,7 @@ class LoadManager(object):
         # properly.
         # TODO need only once
         self._host._set_slice_mem('machine', -1, verbose=False)
+        self._host._set_slice_mem('vstorage', -1, verbose=False)
 
     def update_ve_config(self, ve_name, ve_config):
         with self._registered_ves_lock:
