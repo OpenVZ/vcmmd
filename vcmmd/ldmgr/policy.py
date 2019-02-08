@@ -392,7 +392,7 @@ class StoragePolicy(Policy):
 
     def __init__(self):
         super(StoragePolicy, self).__init__()
-        default = True
+        default = False
         kc = VCMMDConfig().get_bool("LoadManager.Controllers.StoragePolicy", default)
         if not kc:
             return
