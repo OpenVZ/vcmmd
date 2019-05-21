@@ -23,6 +23,7 @@ from __future__ import absolute_import
 import logging
 import threading
 import time
+import traceback
 
 import dbus
 import dbus.service
@@ -71,6 +72,8 @@ class _LoadManagerObject(dbus.service.Object):
                 self.ldmgr.register_ve(ve_name, ve_type, ve_config)
             except VCMMDError as err:
                 return err.errno
+            except Exception:
+                self.logger.error(traceback.format_exc())
             else:
                 return 0
         return RegisterVE(self, ve_name, ve_type, ve_config, flags)
@@ -84,6 +87,8 @@ class _LoadManagerObject(dbus.service.Object):
                 self.ldmgr.activate_ve(ve_name)
             except VCMMDError as err:
                 return err.errno
+            except Exception:
+                self.logger.error(traceback.format_exc())
             else:
                 return 0
         return ActivateVE(self, ve_name, flags)
@@ -98,6 +103,8 @@ class _LoadManagerObject(dbus.service.Object):
                 self.ldmgr.update_ve_config(ve_name, ve_config)
             except VCMMDError as err:
                 return err.errno
+            except Exception:
+                self.logger.error(traceback.format_exc())
             else:
                 return 0
         return UpdateVE(self, ve_name, ve_config, flags)
@@ -111,6 +118,8 @@ class _LoadManagerObject(dbus.service.Object):
                 self.ldmgr.deactivate_ve(ve_name)
             except VCMMDError as err:
                 return err.errno
+            except Exception:
+                self.logger.error(traceback.format_exc())
             else:
                 return 0
         return DeactivateVE(self, ve_name)
@@ -124,6 +133,8 @@ class _LoadManagerObject(dbus.service.Object):
                 self.ldmgr.unregister_ve(ve_name)
             except VCMMDError as err:
                 return err.errno
+            except Exception:
+                self.logger.error(traceback.format_exc())
             else:
                 return 0
         return UnregisterVE(self, ve_name)
@@ -137,6 +148,8 @@ class _LoadManagerObject(dbus.service.Object):
                 return (0, self.ldmgr.is_ve_active(ve_name))
             except VCMMDError as err:
                 return (err.errno, False)
+            except Exception:
+                self.logger.error(traceback.format_exc())
         return IsVEActive(self, ve_name)
 
     @dbus.service.method(IFACE, in_signature='s', out_signature='ia(qts)')
@@ -148,6 +161,8 @@ class _LoadManagerObject(dbus.service.Object):
                 return (0, self.ldmgr.get_ve_config(ve_name))
             except VCMMDError as err:
                 return (err.errno, [])
+            except Exception:
+                self.logger.error(traceback.format_exc())
         return GetVEConfig(self, ve_name)
 
     @dbus.service.method(IFACE, in_signature='', out_signature='a(siba(qts))')
