@@ -64,7 +64,7 @@ class ABSVEImpl(VEImpl):
     def get_rss(self):
         try:
             return self._memcg.read_mem_current()
-        except IOError as err:
+        except (ValueError, IOError) as err:
             raise Error('Cgroup write failed: %s' % err)
 
     def set_mem_protection(self, value):
