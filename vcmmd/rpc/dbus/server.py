@@ -74,6 +74,7 @@ class _LoadManagerObject(dbus.service.Object):
                 return err.errno
             except Exception:
                 self.logger.error(traceback.format_exc())
+                raise
             else:
                 return 0
         return RegisterVE(self, ve_name, ve_type, ve_config, flags)
@@ -89,6 +90,7 @@ class _LoadManagerObject(dbus.service.Object):
                 return err.errno
             except Exception:
                 self.logger.error(traceback.format_exc())
+                raise
             else:
                 return 0
         return ActivateVE(self, ve_name, flags)
@@ -105,6 +107,7 @@ class _LoadManagerObject(dbus.service.Object):
                 return err.errno
             except Exception:
                 self.logger.error(traceback.format_exc())
+                raise
             else:
                 return 0
         return UpdateVE(self, ve_name, ve_config, flags)
@@ -120,6 +123,7 @@ class _LoadManagerObject(dbus.service.Object):
                 return err.errno
             except Exception:
                 self.logger.error(traceback.format_exc())
+                raise
             else:
                 return 0
         return DeactivateVE(self, ve_name)
@@ -135,6 +139,7 @@ class _LoadManagerObject(dbus.service.Object):
                 return err.errno
             except Exception:
                 self.logger.error(traceback.format_exc())
+                raise
             else:
                 return 0
         return UnregisterVE(self, ve_name)
@@ -150,6 +155,7 @@ class _LoadManagerObject(dbus.service.Object):
                 return (err.errno, False)
             except Exception:
                 self.logger.error(traceback.format_exc())
+                raise
         return IsVEActive(self, ve_name)
 
     @dbus.service.method(IFACE, in_signature='s', out_signature='ia(qts)')
@@ -163,6 +169,7 @@ class _LoadManagerObject(dbus.service.Object):
                 return (err.errno, [])
             except Exception:
                 self.logger.error(traceback.format_exc())
+                raise
         return GetVEConfig(self, ve_name)
 
     @dbus.service.method(IFACE, in_signature='', out_signature='a(siba(qts))')
