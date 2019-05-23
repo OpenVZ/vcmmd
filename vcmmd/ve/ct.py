@@ -65,7 +65,7 @@ class ABSVEImpl(VEImpl):
         try:
             return self._memcg.read_mem_current()
         except (ValueError, IOError) as err:
-            raise Error('Cgroup write failed: %s' % err)
+            raise Error('Cgroup read failed: %s' % err)
 
     def set_mem_protection(self, value):
         # Use memcg/memory.low to protect the CT from host pressure.
