@@ -447,9 +447,12 @@ class StoragePolicy(Policy):
         else:
             self.logger.error("Storage CT is not registered")
 
-        cache_limit = self.get_cache(self.get_ves(), cs_num)
         if not os.path.exists(os.path.join(self.__service_path, "memory.cache.limit_in_bytes")):
             return self.cgroup_timeout
+
+        cache_limit = VCMMDConfig().get_num("LoadManager.Controllers.StorageCacheLimitTotal", None)
+        if cache_limit is None:
+            cache_limit = self.get_cache(self.get_ves(), cs_num)
         try:
             rv = 'cache_limit_in_bytes'
             self._memcgp.write_cache_limit_in_bytes(cache_limit)
