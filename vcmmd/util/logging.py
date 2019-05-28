@@ -1,4 +1,5 @@
 # Copyright (c) 2016-2017, Parallels International GmbH
+# Copyright (c) 2017-2019, Virtuozzo International GmbH, All rights reserved
 #
 # This file is part of OpenVZ. OpenVZ is free software; you can redistribute
 # it and/or modify it under the terms of the GNU General Public License as
@@ -15,7 +16,7 @@
 # Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA
 # 02110-1301, USA.
 #
-# Our contact details: Parallels International GmbH, Vordergasse 59, 8200
+# Our contact details: Virtuozzo International GmbH, Vordergasse 59, 8200
 # Schaffhausen, Switzerland.
 
 # hardcode logging constants to avoid importing the logging module
