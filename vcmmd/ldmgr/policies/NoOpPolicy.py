@@ -19,8 +19,6 @@
 # Our contact details: Virtuozzo International GmbH, Vordergasse 59, 8200
 # Schaffhausen, Switzerland.
 
-from __future__ import absolute_import
-
 from vcmmd.ldmgr.policy import (BalloonPolicy,
                                 NumaPolicy,
                                 KSMPolicy as AbsKsmPolicy,
