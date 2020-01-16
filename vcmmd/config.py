@@ -27,14 +27,12 @@ import copy
 from vcmmd.util.singleton import Singleton
 
 
-class VCMMDConfig:
+class VCMMDConfig(metaclass=Singleton):
     '''VCMMD config loader.
 
     This is a singleton class that provides methods for loading VCMMD
     configuration from a file and getting option values by name.
     '''
-
-    __metaclass__ = Singleton
 
     def __init__(self, filename):
         self.logger = logging.getLogger('vcmmd.config')

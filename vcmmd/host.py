@@ -62,9 +62,7 @@ class HostStats(Stats):
 HostMeta = type("HostMeta", (Singleton, ABCMeta), {})
 
 
-class Host(Env):
-
-    __metaclass__ = HostMeta
+class Host(Env, metaclass=HostMeta):
 
     KSM_CONTROL_PATH = '/sys/kernel/mm/ksm/%s'
     THP_CONTROL_PATH = '/sys/kernel/mm/transparent_hugepage/%s'

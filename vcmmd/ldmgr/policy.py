@@ -53,10 +53,8 @@ def eventfd(init_val, flags):
     return fd
 
 
-class Policy:
+class Policy(metaclass=ABCMeta):
     """Load manager policy interface."""
-
-    __metaclass__ = ABCMeta
 
     MEM_PRES_PATH = '/sys/fs/cgroup/memory/memory.pressure_level'
     EVENT_CONTROL_PATH = '/sys/fs/cgroup/memory/cgroup.event_control'

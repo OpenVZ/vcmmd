@@ -27,14 +27,12 @@ from vcmmd.cgroup import pid_cgroup
 from vcmmd.util.singleton import Singleton
 
 
-class virConnectionProxy:
+class virConnectionProxy(metaclass=Singleton):
     ''' Singleton for handle connection to libvirt.
     An instance of this class will delegate all its method calls to the
     underlying virConnect, (re)establishing connection to libvirt whenever
     necessary.
     '''
-
-    __metaclass__ = Singleton
 
     def __init__(self):
         self.__logger = logging.getLogger('vcmmd.libvirt')
