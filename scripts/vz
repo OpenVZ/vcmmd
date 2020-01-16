@@ -93,7 +93,7 @@ except ImportError:
 # via prlsdkapi.
 target = is_avail_prlsdkapi and "virtuozzo.target" or "vz.target"
 cmd = ["systemctl", "is-active", target]
-for wait in xrange(120):
+for wait in range(120):
     try:
         if subprocess.check_output(cmd) == "active\n":
             break
