@@ -23,7 +23,7 @@ import logging
 from abc import ABCMeta, abstractmethod
 
 
-class Env(object):
+class Env:
     __metaclass__ = ABCMeta
 
     @abstractmethod

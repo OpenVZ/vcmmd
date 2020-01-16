@@ -70,7 +70,7 @@ class VEStats(Stats):
     ]
 
 
-class VEImpl(object):
+class VEImpl:
     '''VE implementation.
 
     This class defines the interface to an underlying VE implementation

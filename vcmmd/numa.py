@@ -27,7 +27,7 @@ from vcmmd.util.misc import parse_range_list
 from vcmmd.util.threading import update_stats_single
 
 
-class NumaStats(object):
+class NumaStats:
 
 
     class MemStats(Stats):
@@ -73,7 +73,7 @@ class NumaStats(object):
         return str(self.report())
 
 
-class Numa(object):
+class Numa:
 
     NUMA_NODE_SYS_PATH = "/sys/devices/system/node/node%d/"
     MIN_FREE_PATH = "/proc/sys/vm/min_free_kbytes"

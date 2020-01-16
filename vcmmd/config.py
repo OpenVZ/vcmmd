@@ -27,7 +27,7 @@ import copy
 from vcmmd.util.singleton import Singleton
 
 
-class VCMMDConfig(object):
+class VCMMDConfig:
     '''VCMMD config loader.
 
     This is a singleton class that provides methods for loading VCMMD

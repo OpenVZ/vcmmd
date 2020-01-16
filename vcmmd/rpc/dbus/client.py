@@ -28,7 +28,7 @@ from vcmmd.ve_config import VEConfig
 from vcmmd.rpc.dbus.common import PATH, BUS_NAME, IFACE
 
 
-class RPCProxy(object):
+class RPCProxy:
 
     def __init__(self):
         bus = dbus.SystemBus()
