@@ -30,9 +30,7 @@ from vcmmd.util.singleton import Singleton
 from vcmmd.util.limits import PAGE_SIZE
 
 
-class _IdleMemScanner:
-
-    __metaclass__ = Singleton
+class _IdleMemScanner(metaclass=Singleton):
 
     class _StopScan(Exception):
         pass

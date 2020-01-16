@@ -23,9 +23,7 @@ import logging
 from abc import ABCMeta, abstractmethod
 
 
-class Env:
-    __metaclass__ = ABCMeta
-
+class Env(metaclass=ABCMeta):
     @abstractmethod
     def update_stats(self):
         pass
