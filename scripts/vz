@@ -110,7 +110,7 @@ try:
     with open(config) as f:
         j = json.loads(f.read())
     to_register = []
-    for name, service in j.iteritems():
+    for name, service in j.items():
         #VStorage config may exist without Path for backward compatibility
         if 'Path' not in service and name == 'VStorage':
             service['Path'] = 'vstorage.slice/vstorage-services.slice'
@@ -128,13 +128,13 @@ try:
         #read config for limit, guarantee and swap
         total_mem = psutil.virtual_memory().total
         kv = {}
-        unknown_params = set(service.iterkeys()) - known_params
+        unknown_params = set(service.keys()) - known_params
         if unknown_params:
             raise Exception("Unknown fields in %s: %s" % (service_name, unknown_params))
         for Param in known_params - {'Path'}:
             param = Param.lower()
             try:
-                unknown_params = (set(service[Param].iterkeys()) -
+                unknown_params = (set(service[Param].keys()) -
                                   {'Share','Min','Max'})
                 if unknown_params:
                     raise Exception("Unknown fields in %s: %s" % (service_name, unknown_params))

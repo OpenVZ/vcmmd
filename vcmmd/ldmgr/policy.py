@@ -96,7 +96,7 @@ class Policy(metaclass=ABCMeta):
     def get_policy_data(self, t):
         with self.__ve_data_lock:
             return filter(lambda x: x is not None,
-                          (pdata.get(t, None) for pdata in self.__ve_data.itervalues()))
+                          (pdata.get(t, None) for pdata in self.__ve_data.values()))
 
     def rm_policy_data(self, t, ve):
         with self.__ve_data_lock:
@@ -213,7 +213,7 @@ class BalloonPolicy(Policy):
             ve_quotas = self.calculate_balloon_size()
 
             # Apply the quotas.
-            for ve, (target, protection) in ve_quotas.iteritems():
+            for ve, (target, protection) in ve_quotas.items():
                 if ve.target != target or ve.protection != protection:
                     ve.set_mem(target=target, protection=protection)
 
@@ -276,7 +276,7 @@ class NumaPolicy(Policy):
     def apply_changes(self, changes):
         if changes is None:
             return
-        for ve, nodes in tuple(changes.iteritems()):
+        for ve, nodes in tuple(changes.items()):
             if not isinstance(nodes, (list, tuple, types.NoneType)):
                 self.logger.error("Invalid nodes list: %r for ve: %s" % (nodes, ve))
                 del changes[ve]
@@ -410,7 +410,7 @@ class StoragePolicy(Policy):
         with open(self.STORAGE_CONFIG) as f:
             j = json.loads(f.read())
 
-        for name, service in j.iteritems():
+        for name, service in j.items():
             if str(name) == self.SELF_NAME:
                 return service
         return {}

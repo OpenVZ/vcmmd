@@ -93,7 +93,7 @@ class VEConfig:
 
     def __init__(self, **kv):
         self._kv = {}
-        for k, v in kv.iteritems():
+        for k, v in kv.items():
             if k not in _VEConfigFields:
                 raise TypeError("unexpected keyword argument '%s'" % k)
             if k not in _VEConfigFields_string:
@@ -130,7 +130,7 @@ class VEConfig:
     def complete(self, config):
         '''Initialize absent fields with values from a given config.
         '''
-        for k, v in config._kv.iteritems():
+        for k, v in config._kv.items():
             if k not in self._kv:
                 self._kv[k] = v
 

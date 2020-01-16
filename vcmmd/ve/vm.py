@@ -90,7 +90,7 @@ class VMImpl(VEImpl):
     def get_rss(self):
         try:
             p = psutil.Process(self.pid)
-            return p.get_memory_info().rss
+            return p.memory_info().rss
         except psutil.Error as err:
             raise Error(str(err))
 
@@ -123,7 +123,7 @@ class VMImpl(VEImpl):
         except libvirtError as err:
             raise Error('Failed to retrieve libvirt domain stats: %s' % err)
 
-        memstats = {k.split('.')[1]: v for k,v in stats.iteritems() if k.startswith('balloon')}
+        memstats = {k.split('.')[1]: v for k,v in stats.items() if k.startswith('balloon')}
         try:
             memcg_stat = self._memcg.read_mem_stat()
         except IOError as err:
