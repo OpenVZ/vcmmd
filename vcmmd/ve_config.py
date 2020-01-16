@@ -138,7 +138,7 @@ class VEConfig:
         '''Convert to an array of (tag, value, string) turples.
         '''
         arr = []
-        for tag, name in zip(xrange(len(_VEConfigFields)), _VEConfigFields):
+        for tag, name in enumerate(_VEConfigFields):
             try:
                 if name in _VEConfigFields_string:
                     val = 0
