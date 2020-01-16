@@ -46,7 +46,7 @@ VCMMD_MEMGUARANTEE_PERCENTS = 1
 VCMMD_EMPTY_MASK = ''
 
 
-class VEConfig(object):
+class VEConfig:
     '''Represents a VE's memory configuration.
 
     guarantee:      VE memory guarantee

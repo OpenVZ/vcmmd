@@ -246,7 +246,7 @@ class _LoadManagerObject(dbus.service.Object):
         return GetFree(self)
 
 
-class RPCServer(object):
+class RPCServer:
 
     def __init__(self, ldmgr):
         gobject.threads_init()

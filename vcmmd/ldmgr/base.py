@@ -41,7 +41,7 @@ from vcmmd.ve import VE
 from vcmmd.host import Host
 
 
-class LoadManager(object):
+class LoadManager:
 
     FALLBACK_POLICY = 'NoOpPolicy'
 

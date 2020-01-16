@@ -24,7 +24,7 @@ from __future__ import absolute_import
 import os.path
 
 
-class Cgroup(object):
+class Cgroup:
 
     _CGROUP_DIR = '/sys/fs/cgroup'
 

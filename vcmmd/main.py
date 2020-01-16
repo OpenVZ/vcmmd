@@ -41,7 +41,7 @@ from vcmmd.util.logging import LOG_LEVELS, LoggerWriter
 from vcmmd.util.threading import setup_thread_excepthook
 
 
-class _App(object):
+class _App:
 
     PID_FILE = '/var/run/vcmmd.pid'
     LOG_FILE = '/var/log/vcmmd.log'

@@ -58,7 +58,7 @@ def eventfd(init_val, flags):
     return fd
 
 
-class Policy(object):
+class Policy:
     '''Load manager policy interface.
     '''
 

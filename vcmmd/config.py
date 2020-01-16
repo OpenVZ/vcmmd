@@ -27,7 +27,7 @@ from vcmmd.util.singleton import Singleton
 from vcmmd.util.misc import print_dict
 
 
-class VCMMDConfig(object):
+class VCMMDConfig:
     '''VCMMD config loader.
 
     This is a singleton class that provides methods for loading VCMMD

@@ -24,7 +24,7 @@ class Singleton(type):
 
     Usage:
 
-    class MySingleton(object):
+    class MySingleton:
         __metaclass__ = Singleton
         ...
     '''

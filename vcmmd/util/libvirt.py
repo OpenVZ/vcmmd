@@ -29,7 +29,7 @@ from vcmmd.cgroup import pid_cgroup
 from vcmmd.util.singleton import Singleton
 
 
-class virConnectionProxy(object):
+class virConnectionProxy:
     ''' Singleton for handle connection to libvirt.
     An instance of this class will delegate all its method calls to the
     underlying virConnect, (re)establishing connection to libvirt whenever
@@ -85,7 +85,7 @@ class virConnectionProxy(object):
         return wrapper
 
 
-class virDomainProxy(object):
+class virDomainProxy:
     '''Proxy to libvirt.virDomain with reconnect support.
 
     An instance of this class will delegate all its method calls to the
