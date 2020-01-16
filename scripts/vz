@@ -86,7 +86,7 @@ try:
         consts.PVS_GUEST_TYPE_LINUX: VE_TYPE_VM_LINUX,
     }
 except ImportError:
-    print "Failed to import prlsdkapi"
+    print("Failed to import prlsdkapi")
     is_avail_prlsdkapi = False
 
 # Wait for virtuozzo.target, which indicates that VE list can be retrived
@@ -118,12 +118,12 @@ try:
         #VStorage config may exist without Path for backward compatibility
         if 'Path' not in service and name == 'VStorage':
             service['Path'] = 'vstorage.slice/vstorage-services.slice'
-            print "Assuming that VStorage is located at %s" % service['Path']
+            print("Assuming that VStorage is located at %s" % service['Path'])
         #check that cgroup exists
         service_name = service['Path']
         service_path = cgroup_path % service_name
         if not os.path.isdir(service_path):
-            print "Memory cgroup %s not found" % service_path
+            print("Memory cgroup %s not found" % service_path)
             continue
         # TODO removeme PSBM-64068
         os.system("echo 1 > %s/memory.disable_cleancache" % service_path)
@@ -249,4 +249,4 @@ if svs_exc_info is not None:
     new_exc = new_exc_type("Failed to parse services config: %r: %s" % (exc_class.__name__, exc))
     raise new_exc_type, new_exc, tb
 else:
-    print "VZ script finished successfully"
+    print("VZ script finished successfully")

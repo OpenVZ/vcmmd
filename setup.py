@@ -58,5 +58,5 @@ try:
         fw.close()
     os.rename(get_tmp_fname(systemd_unit), systemd_unit)
 except:
-    print "Branding failed"
+    print("Branding failed")
     sys.exit(1)
