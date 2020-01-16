@@ -230,17 +230,17 @@ def _handle_list(args):
     ve_list = proxy.get_all_registered_ves()
 
     fmt = '%-36s %6s %6s %{0}s %{0}s %{0}s'.format(11 if options.bytes else 9)
-    print fmt % ('name', 'type', 'active', 'guarantee', 'limit', 'swap')
+    print(fmt % ('name', 'type', 'active', 'guarantee', 'limit', 'swap'))
     for ve_name, ve_type, ve_active, ve_config in sorted(ve_list):
         try:
             ve_type_name = get_ve_type_name(ve_type)
         except KeyError:
             ve_type_name = '?'
-        print fmt % (ve_name, ve_type_name,
+        print(fmt % (ve_name, ve_type_name,
                      'yes' if ve_active else 'no',
                      _str_memval(ve_config.guarantee, options),
                      _str_memval(ve_config.limit, options),
-                     _str_memval(ve_config.swap, options))
+                     _str_memval(ve_config.swap, options)))
 
 
 def _handle_log_level(args):
@@ -275,9 +275,9 @@ def _handle_current_policy(args):
         parser.error('superfluous arguments')
 
     if options.file:
-        print RPCProxy().get_policy_from_file()
+        print(RPCProxy().get_policy_from_file())
     else:
-        print RPCProxy().get_current_policy()
+        print(RPCProxy().get_current_policy())
 
 
 def _handle_switch_policy(args):
@@ -302,7 +302,7 @@ def _handle_policy_counts(args):
     if len(args) > 0:
         parser.error('superfluous arguments')
 
-    print RPCProxy().get_policy_counts(bool(options.j))
+    print(RPCProxy().get_policy_counts(bool(options.j)))
 
 def _handle_get_config(args):
     parser = OptionParser('Usage: %%prog config',
@@ -313,7 +313,7 @@ def _handle_get_config(args):
     if len(args) > 0:
         parser.error('superfluous arguments')
 
-    print RPCProxy().get_config(bool(options.j))
+    print(RPCProxy().get_config(bool(options.j)))
 
 def _handle_get_format_stats(parser, args, prettify):
     (options, args) = parser.parse_args(args)
@@ -324,7 +324,7 @@ def _handle_get_format_stats(parser, args, prettify):
         ve_names = args
     for ve in ve_names:
         try:
-            print ve + ": " + prettify(proxy.get_stats(ve))
+            print(ve + ": " + prettify(proxy.get_stats(ve)))
         except VCMMDError as err:
             _fail(ve + ': VCMMD returned error: %s' % err, fail=False)
 
@@ -361,7 +361,7 @@ def _handle_free(args):
     vals = tuple(map(lambda v: _str_memval(v, options), free.values()))
     fmt = ' '.join(['%-'+str(len(v)+3)+'s' for v in free.keys()])
     for s in head, vals:
-        print fmt % s
+        print(fmt % s)
 
 
 def main():
