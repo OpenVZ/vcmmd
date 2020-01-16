@@ -133,7 +133,7 @@ class VMImpl(VEImpl):
         except libvirtError as err:
             raise Error('Failed to retrieve libvirt domain stats: %s' % err)
 
-        memstats = {k.split('.')[1]: v for k,v in stats.iteritems() if k.startswith('balloon')}
+        memstats = {k.split('.')[1]: v for k,v in stats.items() if k.startswith('balloon')}
         try:
             memcg_stat = self._memcg.read_mem_stat()
         except IOError as err:

@@ -19,6 +19,8 @@
 # Our contact details: Virtuozzo International GmbH, Vordergasse 59, 8200
 # Schaffhausen, Switzerland.
 
+import itertools
+
 from vcmmd.error import (VCMMDError,
                          VCMMD_ERROR_INVALID_VE_NAME,
                          VCMMD_ERROR_INVALID_VE_TYPE,
@@ -360,7 +362,7 @@ class VE(Env):
         '''Reset all NUMA-related bindings
         '''
         self.pin_node_mem(self.numa.nodes_ids, migrate=False)
-        self.pin_cpu_list(sum(self.numa.cpu_list.itervalues(), []))
+        self.pin_cpu_list(itertools.chain(*self.numa.cpu_list.values()))
 
     def numa_enforce_settings(self):
         if self.numa_configured():

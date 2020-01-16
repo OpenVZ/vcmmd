@@ -157,7 +157,7 @@ class Host(Env, metaclass=HostMeta):
         self.stats._update(**stats)
 
     def thptune(self, params):
-        for key, val in params.iteritems():
+        for key, val in params.items():
             try:
                 with open(self.THP_CONTROL_PATH % key, 'w') as f:
                     f.write(str(val))
@@ -165,7 +165,7 @@ class Host(Env, metaclass=HostMeta):
                 self.log_debug("Failed to set %r = %r", self.THP_CONTROL_PATH % key, val)
 
     def ksmtune(self, params):
-        for key, val in params.iteritems():
+        for key, val in params.items():
             try:
                 with open(self.KSM_CONTROL_PATH % key, 'w') as f:
                     f.write(str(val))

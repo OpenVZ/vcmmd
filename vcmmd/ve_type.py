@@ -33,7 +33,7 @@ _TYPE_NAME = {
     VE_TYPE_SERVICE: 'SRVC',
 }
 
-_NAME_TYPE = {v: k for k, v in _TYPE_NAME.iteritems()}
+_NAME_TYPE = {v: k for k, v in _TYPE_NAME.items()}
 
 
 def get_ve_type_name(t):

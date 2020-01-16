@@ -105,7 +105,7 @@ class LoadManager:
         self._policy.shutdown()
 
     def _check_guarantees(self, delta):
-        mem_min = sum(ve.mem_min for ve in self._registered_ves.itervalues())
+        mem_min = sum(ve.mem_min for ve in self._registered_ves.values())
         mem_min += delta
         if mem_min > self._host.ve_mem:
             raise VCMMDError(VCMMD_ERROR_UNABLE_APPLY_VE_GUARANTEE)
@@ -213,7 +213,7 @@ class LoadManager:
     def get_all_registered_ves(self):
         result = []
         with self._registered_ves_lock:
-            for ve in self._registered_ves.itervalues():
+            for ve in self._registered_ves.values():
                 result.append((ve.name, ve.VE_TYPE, ve.active,
                                ve.config.as_array()))
         return result
@@ -239,14 +239,14 @@ class LoadManager:
             ve = self._registered_ves.get(ve_name)
         if ve is None:
             raise VCMMDError(VCMMD_ERROR_VE_NOT_REGISTERED)
-        res = ve.stats.report().iteritems()
+        res = ve.stats.report().items()
         return res
 
     def get_free(self):
         with self._registered_ves_lock:
             qemu_vram_overhead = 0
             guarantee = 0
-            for ve in self._registered_ves.itervalues():
+            for ve in self._registered_ves.values():
                 qemu_vram_overhead += ve.mem_overhead
                 if ve.protection:
                     guarantee += ve.protection

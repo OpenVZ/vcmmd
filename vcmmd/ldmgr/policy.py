@@ -284,7 +284,7 @@ class NumaPolicy(Policy):
     def apply_changes(self, changes):
         if changes is None:
             return
-        for ve, nodes in tuple(changes.iteritems()):
+        for ve, nodes in tuple(changes.items()):
             if not isinstance(nodes, (list, tuple, types.NoneType)):
                 self.logger.error("Invalid nodes list: %r for ve: %s" % (nodes, ve))
                 del changes[ve]
