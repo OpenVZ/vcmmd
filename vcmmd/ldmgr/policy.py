@@ -20,7 +20,6 @@
 # Schaffhausen, Switzerland.
 
 import logging
-import types
 import os
 from select import poll, POLLIN, error as  poll_error
 from abc import ABCMeta, abstractmethod
@@ -286,7 +285,7 @@ class NumaPolicy(Policy):
         if changes is None:
             return
         for ve, nodes in tuple(changes.items()):
-            if not isinstance(nodes, (list, tuple, types.NoneType)):
+            if not isinstance(nodes, (list, tuple, type(None))):
                 self.logger.error("Invalid nodes list: %r for ve: %s" % (nodes, ve))
                 del changes[ve]
                 continue

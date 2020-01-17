@@ -210,7 +210,7 @@ class VCMMDConfig(metaclass=Singleton):
     def get_str(self, name, default=None):
         def checkfn(val):
             t = type(val)
-            if t not in (str, unicode):
+            if t != str:
                 raise TypeError("expected string, got '%s'" % t.__name__)
         return self.get(name, default, checkfn)
 
@@ -225,7 +225,7 @@ class VCMMDConfig(metaclass=Singleton):
                 integer=False, minimum=None, maximum=None):
         def checkfn(val):
             t = type(val)
-            if t not in (int, long, float) or (integer and t == float):
+            if t not in (int, float) or (integer and t == float):
                 raise TypeError("expected %s, got '%s'" %
                                 ('integer' if integer
                                  else 'number', t.__name__))
@@ -238,7 +238,7 @@ class VCMMDConfig(metaclass=Singleton):
     def get_choice(self, name, choices, default=None):
         def checkfn(val):
             t = type(val)
-            if t not in (str, unicode):
+            if t != str:
                 raise TypeError("expected string, got '%s'" % t.__name__)
             if val not in choices:
                 raise ValueError("must be one of %s, got %r" %

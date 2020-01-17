@@ -89,7 +89,7 @@ class _IdleMemScanner(metaclass=Singleton):
         self.__sampling = sampling
 
     def set_period(self, period):
-        if not isinstance(period, (int, long)):
+        if not isinstance(period, int):
             raise TypeError("'period' must be an integer")
         if period < 0:
             raise ValueError("'period' must be >= 0")
