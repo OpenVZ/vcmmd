@@ -95,8 +95,9 @@ class Policy(metaclass=ABCMeta):
 
     def get_policy_data(self, t):
         with self.__ve_data_lock:
-            return filter(lambda x: x is not None,
-                          (pdata.get(t, None) for pdata in self.__ve_data.values()))
+            return [x for x
+                    in (pdata.get(t, None) for pdata in list(self.__ve_data.values()))
+                    if x is not None]
 
     def rm_policy_data(self, t, ve):
         with self.__ve_data_lock:
