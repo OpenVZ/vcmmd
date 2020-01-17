@@ -86,7 +86,7 @@ class Policy(metaclass=ABCMeta):
 
     def get_ves(self):
         with self.__ve_data_lock:
-            return self.__ve_data.keys()
+            return list(self.__ve_data.keys())
 
     def get_policy_data(self, t):
         with self.__ve_data_lock:
