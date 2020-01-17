@@ -46,7 +46,7 @@ class _LoadManagerObject(dbus.service.Object):
         self.request_num = 0
 
     def _log(self, fn):
-        fname = fn.func_name
+        fname = fn.__name__
 
         def wrapped(*args, **kwargs):
             start = time.time()
