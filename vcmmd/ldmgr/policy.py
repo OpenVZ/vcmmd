@@ -91,7 +91,8 @@ class Policy(metaclass=ABCMeta):
 
     def get_policy_data(self, t):
         with self.__ve_data_lock:
-            data = [data.get(t, None) for data in self.__ve_data.values()]
+            data = [
+                data.get(t, None) for data in self.__ve_data.values()]
             return list(filter(None, data))
 
     def rm_policy_data(self, t, ve):
