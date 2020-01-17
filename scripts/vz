@@ -236,6 +236,6 @@ if svs_exc_info is not None:
     exc_class, exc, tb = svs_exc_info
     new_exc_type = type('ServicesConfigException', (Exception,), dict())
     new_exc = new_exc_type("Failed to parse services config: %r: %s" % (exc_class.__name__, exc))
-    raise new_exc_type, new_exc, tb
+    raise new_exc_type(new_exc).with_traceback(tb)
 else:
     print("VZ script finished successfully")

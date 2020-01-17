@@ -148,9 +148,10 @@ class Host(Env, metaclass=HostMeta):
             try:
                 with open(name, 'r') as ksm_stats_file:
                     ksm_stats[datum] = int(ksm_stats_file.read())
-            except IOError, (errno, msg):
+            except IOError as err:
                 ksm_stats[datum] = -1
-                self.log_err("Failed to update stat: open %s failed: %s" % (name, msg))
+                self.log_err("Failed to update stat: open %s failed: %s",
+                             name, err)
         mem = psutil.virtual_memory()
         swaptotal = psutil.swap_memory().total
 
@@ -173,7 +174,7 @@ class Host(Env, metaclass=HostMeta):
             try:
                 with open(self.THP_CONTROL_PATH % key, 'w') as f:
                     f.write(str(val))
-            except IOError, err:
+            except IOError as err:
                 self.log_debug("Failed to set %r = %r", self.THP_CONTROL_PATH % key, val)
 
     def ksmtune(self, params):
@@ -181,7 +182,7 @@ class Host(Env, metaclass=HostMeta):
             try:
                 with open(self.KSM_CONTROL_PATH % key, 'w') as f:
                     f.write(str(val))
-            except IOError, err:
+            except IOError as err:
                 # few options could be not changed until page shared/sharing != 0
                 # need start ksmd for update stats if it's not running.
                 self.log_debug("Failed to set %r = %r", self.KSM_CONTROL_PATH % key, val)
