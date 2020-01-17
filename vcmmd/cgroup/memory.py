@@ -270,4 +270,4 @@ class MemoryCgroup(Cgroup):
         return res
 
     def set_node_list(self, nodes):
-        self._write_file_str('numa_migrate', ",".join(map(lambda x: str(x),nodes)))
+        self._write_file_str('numa_migrate', ','.join(map(str, nodes)))

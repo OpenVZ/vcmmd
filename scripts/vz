@@ -199,7 +199,7 @@ for vm in vm_list:
 
         if dom:
             video = ET.fromstring(dom.XMLDesc()).findall("./devices/video/model")
-            vram = sum(map(lambda v: int(v.attrib.get('vram',0)), video)) << 10
+            vram = sum(int(v.attrib.get('vram', 0)) for v in video) << 10
         else:
             vram = vm.get_video_ram_size() << 20
 
