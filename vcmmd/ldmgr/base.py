@@ -237,7 +237,7 @@ class LoadManager:
             ve = self._registered_ves.get(ve_name)
         if ve is None:
             raise VCMMDError(VCMMD_ERROR_VE_NOT_REGISTERED)
-        res = ve.stats.report().items()
+        res = list(ve.stats.report().items())
         return res
 
     def get_free(self):

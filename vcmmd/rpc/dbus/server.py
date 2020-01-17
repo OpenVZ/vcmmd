@@ -53,7 +53,7 @@ class _LoadManagerObject(dbus.service.Object):
             self.request_num += 1
             request = "Request %d %s" % (self.request_num, fname)
             self.logger.info("%s(%s) started" % (request, ', '.join(
-                    map(str, list(args[1:]) + kwargs.items()))))
+                    map(str, list(args[1:]) + list(kwargs.items())))))
             ret = fn(*args, **kwargs)
             t = time.time() - start
             self.logger.info("%s worked %.2fs" % (request, t))
