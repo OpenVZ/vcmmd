@@ -394,7 +394,7 @@ static PyObject *py_result(PyObject *self, PyObject *args)
 
 	auto result = get_result();
 	for (auto &kv : result) {
-		py_ref key = PyString_FromString(kv.first.c_str());
+		py_ref key = PyUnicode_FromString(kv.first.c_str());
 		if (!key)
 			return PyErr_NoMemory();
 
@@ -459,15 +459,27 @@ static void init_END_PFN()
 		throw error("Failed to parse zoneinfo");
 }
 
+static struct PyModuleDef idlememscan_module_def = {
+	PyModuleDef_HEAD_INIT,
+	"idlememscan",          // m_name
+	NULL,                   // m_doc
+	-1,                     // m_size
+	idlememscan_funcs,      // m_methods
+	NULL,                   // m_reload
+	NULL,                   // m_traverse
+	NULL,                   // m_clear
+	NULL,                   // m_free
+};
+
 PyMODINIT_FUNC
-initidlememscan(void)
+PyInit_idlememscan(void)
 {
 	try {
 		init_END_PFN();
 	} catch (error &e) {
 		e.set_py_err();
-		return;
+		return NULL;
 	}
 
-	Py_InitModule("idlememscan", idlememscan_funcs);
+	return PyModule_Create(&idlememscan_module_def);
 }
