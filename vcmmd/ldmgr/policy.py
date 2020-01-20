@@ -158,7 +158,8 @@ class Policy(metaclass=ABCMeta):
         p = poll()
         p.register(efd, POLLIN)
 
-        self.host.log_info('"Low memory" watchdog started(pressure level=%r).' % self.PRESSURE_LEVEL)
+        self.host.log_info('"Low memory" watchdog started(pressure level=%r).',
+                           self.PRESSURE_LEVEL)
         err = 'shutdown event'
         while not self.stop.wait(1):
             try:
@@ -174,7 +175,7 @@ class Policy(metaclass=ABCMeta):
             self.counts['low_mem_events'] += 1
 
         os.close(efd)
-        self.host.log_info('"Low memory" watchdog stopped(msg="%s").' % err)
+        self.host.log_info('"Low memory" watchdog stopped(msg="%s").', err)
 
     def _update_vulnerabilities_mitigations(self):
         vm_ves = [ve for ve in self.get_ves() if ve.VE_TYPE != VE_TYPE_SERVICE]
@@ -286,7 +287,7 @@ class NumaPolicy(Policy):
             return
         for ve, nodes in tuple(changes.items()):
             if not isinstance(nodes, (list, tuple, type(None))):
-                self.logger.error("Invalid nodes list: %r for ve: %s" % (nodes, ve))
+                self.logger.error("Invalid nodes list: %r for ve: %s", nodes, ve)
                 del changes[ve]
                 continue
             if nodes is not None:
@@ -367,7 +368,7 @@ class KSMPolicy(Policy):
         run = params.get('run', None)
         if run is not None and self.host.stats.ksm_run != run:
             self.counts['KSM']['run'] += 1
-            self.host.log_info("Switch KSM run: %s" % run)
+            self.host.log_info("Switch KSM run: %s", run)
 
         self.host.ksmtune(params)
 
