@@ -159,7 +159,7 @@ class Policy(metaclass=ABCMeta):
         efd = eventfd(0, 0)
         mp = open(self.MEM_PRES_PATH)
         with open(self.EVENT_CONTR_PATH, 'w') as cgc:
-            cgc.write("%d %d %s" % (efd, mp.fileno(), self.PRESSURE_LEVEL))
+            cgc.write("{} {} {}".format(efd, mp.fileno(), self.PRESSURE_LEVEL))
 
         p = poll()
         p.register(efd, POLLIN)
@@ -403,7 +403,7 @@ class StoragePolicy(Policy):
             self.storage_config.update(self.__read_config())
         except Exception as e:
             self.logger.error("Failed to read vstorage config(): %s" % str(e))
-        self.__service_path = '/sys/fs/cgroup/memory/%s' % self.storage_config['Path']
+        self.__service_path = '/sys/fs/cgroup/memory/{}'.format(self.storage_config['Path'])
         self._memcgp = MemoryCgroup(self.SLICE_NAME)
 
     def __read_config(self):

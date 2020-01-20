@@ -186,7 +186,7 @@ class VE(Env):
         self.protection = None
 
     def __str__(self):
-        return "%s '%s'" % (get_ve_type_name(self.VE_TYPE), self.name)
+        return "{} '{}'".format(get_ve_type_name(self.VE_TYPE), self.name)
 
     @property
     def VE_TYPE(self):
@@ -288,10 +288,10 @@ class VE(Env):
             obj = self._get_obj()
             if target is not None:
                 obj.set_mem_target(target)
-                msg = 'target:%d ' % target
+                msg = 'target:{} '.format(target)
             if protection is not None:
                 obj.set_mem_protection(protection)
-                msg += 'protection:%d' % protection
+                msg += 'protection:{}'.format(protection)
         except Error as err:
             self.log_err('Failed to tune allocation: %s', err)
         else:

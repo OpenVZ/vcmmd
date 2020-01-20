@@ -140,14 +140,14 @@ class VCMMDConfig(metaclass=Singleton):
         def checkfn(val):
             t = type(val)
             if t != str:
-                raise TypeError("expected string, got '%s'" % t.__name__)
+                raise TypeError("expected string, got '{}'".format(t.__name__))
         return self.get(name, default, checkfn)
 
     def get_bool(self, name, default=None):
         def checkfn(val):
             t = type(val)
             if t != bool:
-                raise TypeError("expected boolean, got '%s'" % t.__name__)
+                raise TypeError("expected boolean, got '{}'".format(t.__name__))
         return self.get(name, default, checkfn)
 
     def get_num(self, name, default=None,
@@ -155,23 +155,23 @@ class VCMMDConfig(metaclass=Singleton):
         def checkfn(val):
             t = type(val)
             if t not in (int, float) or (integer and t == float):
-                raise TypeError("expected %s, got '%s'" %
-                                ('integer' if integer
-                                 else 'number', t.__name__))
+                raise TypeError("expected {}, got "
+                                "'{}'".format('integer' if integer else 'number',
+                                              t.__name__))
             if minimum is not None and val < minimum:
-                raise ValueError("must be >= %s, got %s" % (minimum, val))
+                raise ValueError("must be >= {}, got {}".format(minimum, val))
             if maximum is not None and val > maximum:
-                raise ValueError("must be <= %s, got %s" % (maximum, val))
+                raise ValueError("must be <= {}, got {}".format(maximum, val))
         return self.get(name, default, checkfn)
 
     def get_choice(self, name, choices, default=None):
         def checkfn(val):
             t = type(val)
             if t != str:
-                raise TypeError("expected string, got '%s'" % t.__name__)
+                raise TypeError("expected string, got '{}'".format(t.__name__))
             if val not in choices:
-                raise ValueError("must be one of %s, got %r" %
-                                 (tuple(choices), str(val)))
+                raise ValueError("must be one of {}, got "
+                                 "{}".format(tuple(choices), str(val)))
         return self.get(name, default, checkfn)
 
     def report(self, j=False):

@@ -95,7 +95,7 @@ class VEConfig:
         self._kv = {}
         for k, v in kv.items():
             if k not in _VEConfigFields:
-                raise TypeError("unexpected keyword argument '%s'" % k)
+                raise TypeError("unexpected keyword argument '{}'".format(k))
             if k not in _VEConfigFields_string:
                 self._kv[str(k)] = int(v)
             else:
@@ -111,7 +111,7 @@ class VEConfig:
             raise AttributeError
 
     def __str__(self):
-        return ' '.join('%s:%s' % (k, self._kv[k])
+        return ' '.join('{}:{}'.format(k, self._kv[k])
                         for k in _VEConfigFields if k in self._kv)
 
     @property

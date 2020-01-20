@@ -121,7 +121,7 @@ def lookup_qemu_machine_pid(name):
             try:
                 cmd = proc.cmdline()
             except psutil.NoSuchProcess:
-                raise OSError("No such process: '%s'" % name)
+                raise OSError("No such process: '{}'".format(name))
 
         if not cmd or not cmd[0].endswith('qemu-kvm'):
             continue
@@ -140,7 +140,7 @@ def lookup_qemu_machine_pid(name):
     if len(pids) == 1:
         return pids[0]
 
-    raise OSError("No such process: '%s'" % name)
+    raise OSError("No such process: '{}'".format(name))
 
 
 def lookup_qemu_machine_cgroup(name):
