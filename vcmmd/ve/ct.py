@@ -48,7 +48,7 @@ def _lookup_cgroup(klass, name):
     if cg.exists():
         return cg
 
-    raise Error("cgroup not found: '%s'" % cg.abs_path)
+    raise Error("cgroup not found: '{}'".format(cg.abs_path))
 
 
 class ABSVEImpl(VEImpl):
@@ -64,14 +64,14 @@ class ABSVEImpl(VEImpl):
         try:
             return self._memcg.read_mem_current()
         except (ValueError, IOError) as err:
-            raise Error('Cgroup read failed: %s' % err)
+            raise Error('Cgroup read failed: {}'.format(err))
 
     def set_mem_protection(self, value):
         # Use memcg/memory.low to protect the CT from host pressure.
         try:
             self._memcg.write_mem_low(value)
         except IOError as err:
-            raise Error('Cgroup write failed: %s' % err)
+            raise Error('Cgroup write failed: {}'.format(err))
 
     def set_mem_target(self, value):
         # Decreasing memory.high might take long as it implies memory reclaim,
@@ -90,7 +90,7 @@ class ABSVEImpl(VEImpl):
             self._memcg.write_oom_guarantee(config.guarantee)
             self._memcg.write_mem_config(config.limit, config.swap)
         except IOError as err:
-            raise Error('Cgroup write failed: %s' % err)
+            raise Error('Cgroup write failed: {}'.format(err))
 
         self.mem_limit = min(self.mem_limit, config.limit)
 
@@ -110,7 +110,7 @@ class CTImpl(ABSVEImpl):
             io_serviced = self._blkcg.get_io_serviced()
             io_service_bytes = self._blkcg.get_io_service_bytes()
         except IOError as err:
-            raise Error('Cgroup read failed: %s' % err)
+            raise Error('Cgroup read failed: {}'.format(err))
 
         memtotal = max(self.mem_limit, current)
         memfree = memtotal - current
@@ -149,14 +149,14 @@ class CTImpl(ABSVEImpl):
         try:
             node_list = self._cpusetcg.get_node_list()
         except IOError as err:
-            raise Error('Cgroup read failed: %s' % err)
+            raise Error('Cgroup read failed: {}'.format(err))
         return node_list
 
     def node_mem_migrate(self, nodes):
         try:
             self._memcg.set_node_list(nodes)
         except IOError as err:
-            raise Error('Cgroup write failed: %s' % err)
+            raise Error('Cgroup write failed: {}'.format(err))
 
     def pin_node_mem(self, nodes):
         '''Change list of memory nodes for CT
@@ -167,7 +167,7 @@ class CTImpl(ABSVEImpl):
         try:
             self._cpusetcg.set_node_list(nodes)
         except IOError as err:
-            raise Error('Cgroup write failed: %s' % err)
+            raise Error('Cgroup write failed: {}'.format(err))
 
     def pin_cpu_list(self, cpus):
         '''Change list of CPUs for CT
@@ -177,7 +177,7 @@ class CTImpl(ABSVEImpl):
         try:
             self._cpusetcg.set_cpu_list(cpus)
         except IOError as err:
-            raise Error('Cgroup write failed: %s' % err)
+            raise Error('Cgroup write failed: {}'.format(err))
 
 
 

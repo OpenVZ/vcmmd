@@ -82,8 +82,8 @@ def _ve_config_from_options(options):
 
 
 def _handle_register(args):
-    parser = OptionParser('Usage: %prog register {%s} <VE name> [options]' %
-                          '|'.join(get_all_ve_type_names()),
+    parser = OptionParser('Usage: %prog register {{{}}} <VE name> '
+                          '[options]'.format('|'.join(get_all_ve_type_names())),
                           description='Register a VE with the VCMMD service.',
                           option_class=OptionWithMemsize)
     _add_ve_config_options(parser)
@@ -192,7 +192,7 @@ def _str_memval(val, opts):
             divisor = giga_base
         else:  # kB by default
             divisor = kilo_base
-        val = val / divisor
+        val = val // divisor
         return str(val)
     else:
         if val >= giga_base:
@@ -208,7 +208,7 @@ def _str_memval(val, opts):
             divisor = 1
             suffix = 'B'
         val = float(val) / divisor
-        return '%.{0}f%s'.format(1 if val < 10 else 0) % (val, suffix)
+        return '{{:.{0}f}}{1}'.format(1 if val < 10 else 0, suffix).format(val)
 
 
 def _handle_list(args):
@@ -234,11 +234,11 @@ def _handle_list(args):
             ve_type_name = get_ve_type_name(ve_type)
         except KeyError:
             ve_type_name = '?'
-        print(fmt % (ve_name, ve_type_name,
-                     'yes' if ve_active else 'no',
-                     _str_memval(ve_config.guarantee, options),
-                     _str_memval(ve_config.limit, options),
-                     _str_memval(ve_config.swap, options)))
+        print(fmt.format(ve_name, ve_type_name,
+                         'yes' if ve_active else 'no',
+                         _str_memval(ve_config.guarantee, options),
+                         _str_memval(ve_config.limit, options),
+                         _str_memval(ve_config.swap, options)))
 
 
 def _handle_log_level(args):
@@ -323,7 +323,7 @@ def _handle_get_format_stats(parser, args, prettify):
         try:
             print(ve + ": " + prettify(proxy.get_stats(ve)))
         except VCMMDError as err:
-            _fail(ve + ': VCMMD returned error: %s' % err, fail=False)
+            _fail(ve + ': VCMMD returned error: {}'.format(err), fail=False)
 
 
 def _handle_get_stats(args):
@@ -354,11 +354,11 @@ def _handle_free(args):
         parser.error('superfluous arguments')
 
     free = RPCProxy().get_free()
-    head = tuple(map(str, free.keys()))
-    vals = tuple([_str_memval(v, options) for v in free.values()])
-    fmt = ' '.join(['%-'+str(len(v)+3)+'s' for v in free.keys()])
+    head = map(str, free.keys())
+    vals = [_str_memval(v, options) for v in free.values()]
+    fmt = ' '.join(['{:'+str(len(v)+3)+'}' for v in free.keys()])
     for s in head, vals:
-        print(fmt % s)
+        print(fmt.format(*s))
 
 
 def main():
@@ -401,9 +401,9 @@ def main():
     try:
         handler(args[1:])
     except VCMMDError as err:
-        _fail('VCMMD returned error: %s' % err)
+        _fail('VCMMD returned error: {}'.format(err))
     except DBusException as err:
-        _fail('Failed to connect to VCMMD: %s' % err)
+        _fail('Failed to connect to VCMMD: {}'.format(err))
 
 
 if __name__ == "__main__":

@@ -15,7 +15,7 @@ systemd_unitdir = '/usr/lib/systemd/system'
 systemd_unit = systemd_unitdir + "/" + servicefile
 
 setup(name='vcmmd',
-      description='%s memory management daemon' % brand.PRODUCT_NAME_SHORT,
+      description='{} memory management daemon'.format(brand.PRODUCT_NAME_SHORT),
       version=version,
       license='GPLv2',
       packages=['vcmmd',
@@ -34,14 +34,16 @@ setup(name='vcmmd',
                   ('/etc/vz', ['vcmmd.conf', 'vstorage-limits.conf']),
                   ('/etc/vz/vcmmd.d', ['scripts/vz']),
                   ('/usr/lib/tmpfiles.d/', ['vcmmd-tmpfiles.conf']),
-                  (systemd_unitdir, ['systemd/%s' % servicefile])],
+                  (systemd_unitdir, ['systemd/{}'.format(servicefile)])],
       scripts=['bin/vcmmd', 'bin/vcmmdctl'])
 
 if len(sys.argv) < 2 or (len(sys.argv) > 1 and  sys.argv[1] != "install"):
     sys.exit(0)
 
+
 def get_tmp_fname(fl):
     return fl + "_tmp"
+
 
 if '--root' in sys.argv:
     try:

@@ -153,7 +153,7 @@ class Policy(metaclass=ABCMeta):
         efd = eventfd(0, 0)
         mp = open(self.MEM_PRES_PATH)
         with open(self.EVENT_CONTROL_PATH, 'w') as cgc:
-            cgc.write('%d %d %s' % (efd, mp.fileno(), self.PRESSURE_LEVEL))
+            cgc.write(f"{efd} {mp.fileno()} {self.PRESSURE_LEVEL}")
 
         p = poll()
         p.register(efd, POLLIN)

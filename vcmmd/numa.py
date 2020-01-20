@@ -75,7 +75,7 @@ class NumaStats:
 
 class Numa:
 
-    NUMA_NODE_SYS_PATH = "/sys/devices/system/node/node%d/"
+    NUMA_NODE_SYS_PATH = "/sys/devices/system/node/node{}/"
     MIN_FREE_PATH = "/proc/sys/vm/min_free_kbytes"
     __inited = False
 
@@ -93,7 +93,7 @@ class Numa:
         cls.cpu_list = {}
         cls.zoneinfo = {}
         for n in cls.nodes_ids[:]:
-	    node_dir = cls.NUMA_NODE_SYS_PATH % n
+            node_dir = cls.NUMA_NODE_SYS_PATH.format(n)
             with open(node_dir + "cpulist") as f:
                 cpu_list = parse_range_list(f.read())
                 if not cpu_list:

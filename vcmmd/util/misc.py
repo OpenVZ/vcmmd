@@ -45,7 +45,7 @@ def parse_range(rng):
         return []
     parts = rng.split('-')
     if len(parts) > 2:
-        raise ValueError("Bad range: '%s'" % (rng,))
+        raise ValueError("Bad range: '{}'".format(rng))
     parts = [int(i) for i in parts]
     start = parts[0]
     end = start if len(parts) == 1 else parts[1]

@@ -32,9 +32,9 @@ import json
 
 
 def _excepthook(exc_type, exc_value, exc_traceback):
-    sys.stderr.write('Line %d: %s.%s: %s' % (exc_traceback.tb_lineno,
-                                             exc_type.__module__,
-                                             exc_type.__name__, exc_value))
+    sys.stderr.write('Line {}: {}.{}: {}'.format(exc_traceback.tb_lineno,
+                                                 exc_type.__module__,
+                                                 exc_type.__name__, exc_value))
     sys.exit(1)
 
 # Setup excepthook to avoid core dump generation on failure.
@@ -107,7 +107,7 @@ cfg = VCMMDConfig('/etc/vz/vcmmd.conf')
 cfg.load()
 
 # Services must be activated first
-cgroup_path = '/sys/fs/cgroup/memory/%s'
+cgroup_path = '/sys/fs/cgroup/memory/{}'
 known_params = {'Limit', 'Guarantee', 'Swap', 'Path'}
 
 total_mem = psutil.virtual_memory().total
@@ -118,34 +118,37 @@ try:
         #VStorage config may exist without Path for backward compatibility
         if 'Path' not in service and name == 'VStorage':
             service['Path'] = 'vstorage.slice/vstorage-services.slice'
-            print("Assuming that VStorage is located at %s" % service['Path'])
+            print("Assuming that VStorage is located at {}".format(service['Path']))
         #check that cgroup exists
         service_name = service['Path']
-        service_path = cgroup_path % service_name
+        service_path = cgroup_path.format(service_name)
         if not os.path.isdir(service_path):
-            print("Memory cgroup %s not found" % service_path)
+            print("Memory cgroup {} not found".format(service_path))
             continue
         # TODO removeme PSBM-64068
-        os.system("echo 1 > %s/memory.disable_cleancache" % service_path)
+        os.system("echo 1 > {}/memory.disable_cleancache".format(service_path))
         # PSBM-89802
-        os.system("echo 0 > %s/memory.swappiness" % service_path)
+        os.system("echo 0 > {}/memory.swappiness".format(service_path))
         #read config for limit, guarantee and swap
         kv = {}
         unknown_params = set(service.keys()) - known_params
         if unknown_params:
-            raise Exception("Unknown fields in %s: %s" % (service_name, unknown_params))
+            raise Exception("Unknown fields in {}: {}".format(service_name,
+                                                              unknown_params))
         for Param in known_params - {'Path'}:
             param = Param.lower()
             try:
                 unknown_params = (set(service[Param].keys()) -
                                   {'Share','Min','Max'})
                 if unknown_params:
-                    raise Exception("Unknown fields in %s: %s" % (service_name, unknown_params))
+                    raise Exception("Unknown fields in {}: {}".format(service_name,
+                                                                      unknown_params))
                 kv[param] = clamp(int(service[Param]['Share'] * total_mem),
                                   int(service[Param].get('Min', 0)),
                                   int(service[Param].get('Max', -1)))
             except (KeyError, TypeError, ValueError):
-                raise Exception("Error parsing %s.%s" % (service_name, Param))
+                raise Exception("Error parsing {}.{}".format(service_name,
+                                                             Param))
         #register and activate service later, if no exception occured
         to_register.append((service_name, VEConfig(**kv)))
     for service in to_register:
@@ -246,7 +249,7 @@ for vm in vm_list:
 if svs_exc_info is not None:
     exc_class, exc, tb = svs_exc_info
     new_exc_type = type('ServicesConfigException', (Exception,), dict())
-    new_exc = new_exc_type("Failed to parse services config: %r: %s" % (exc_class.__name__, exc))
+    new_exc = new_exc_type("Failed to parse services config: {!r}: {}".format(exc_class.__name__, exc))
     raise new_exc_type(new_exc).with_traceback(tb)
 else:
     print("VZ script finished successfully")
