@@ -164,7 +164,8 @@ class Policy(metaclass=ABCMeta):
         p = poll()
         p.register(efd, POLLIN)
 
-        self.host.log_info('"Low memory" watchdog started(pressure level=%r).' % self.PRESSURE_LEVEL)
+        self.host.log_info('"Low memory" watchdog started(pressure level=%r).',
+                           self.PRESSURE_LEVEL)
         err = 'shutdown event'
         while not self.stop.wait(1):
             try:
@@ -180,7 +181,7 @@ class Policy(metaclass=ABCMeta):
             self.counts['low_mem_events'] += 1
 
         os.close(efd)
-        self.host.log_info('"Low memory" watchdog stopped(msg="%s").' % err)
+        self.host.log_info('"Low memory" watchdog stopped(msg="%s").', err)
 
 class BalloonPolicy(Policy):
     '''Manages balloons in VEs.
@@ -278,7 +279,7 @@ class NumaPolicy(Policy):
             return
         for ve, nodes in tuple(changes.items()):
             if not isinstance(nodes, (list, tuple, type(None))):
-                self.logger.error("Invalid nodes list: %r for ve: %s" % (nodes, ve))
+                self.logger.error("Invalid nodes list: %r for ve: %s", nodes, ve)
                 del changes[ve]
                 continue
             if nodes is not None:
@@ -363,7 +364,7 @@ class KSMPolicy(Policy):
         run = params.get('run', None)
         if run is not None and self.host.stats.ksm_run != run:
             self.counts['KSM']['run'] += 1
-            self.host.log_info("Switch KSM run: %s" % run)
+            self.host.log_info("Switch KSM run: %s", run)
 
         self.host.ksmtune(params)
 
@@ -402,7 +403,7 @@ class StoragePolicy(Policy):
         try:
             self.storage_config.update(self.__read_config())
         except Exception as e:
-            self.logger.error("Failed to read vstorage config(): %s" % str(e))
+            self.logger.error("Failed to read vstorage config(): %s", str(e))
         self.__service_path = '/sys/fs/cgroup/memory/{}'.format(self.storage_config['Path'])
         self._memcgp = MemoryCgroup(self.SLICE_NAME)
 
@@ -434,7 +435,7 @@ class StoragePolicy(Policy):
         cs_num = 0
         try:
             cs_num = get_cs_num()
-            self.logger.info("CS number: %d" % cs_num)
+            self.logger.info("CS number: %d", cs_num)
         except OSError:
             self.logger.error("Failed to get number of CS")
 
@@ -455,7 +456,7 @@ class StoragePolicy(Policy):
         try:
             rv = 'cache_limit_in_bytes'
             self._memcgp.write_cache_limit_in_bytes(cache_limit)
-            self.logger.debug("Set cache.limit_in_bytes to %s" % cache_limit)
+            self.logger.debug("Set cache.limit_in_bytes to %s", cache_limit)
             rv = 'cleancache'
             self._memcgp.write_cleancache(False)
             rv = 'swappiness'
@@ -464,6 +465,6 @@ class StoragePolicy(Policy):
             self._memcgp.write_oom_control(1)
         except Exception as e:
             self.cgroup_timeout = 10
-            self.logger.error("Failed to set %r for vstorage: %s" % (rv, str(e)))
+            self.logger.error("Failed to set %r for vstorage: %s", rv, str(e))
 
         return self.cgroup_timeout

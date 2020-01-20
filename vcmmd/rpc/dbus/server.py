@@ -52,11 +52,12 @@ class _LoadManagerObject(dbus.service.Object):
             start = time.time()
             self.request_num += 1
             request = "Request {} {}".format(self.request_num, fname)
-            self.logger.info("%s(%s) started" % (request, ', '.join(
-                    map(str, list(args[1:]) + list(kwargs.items())))))
+            self.logger.info("%s(%s) started", request,
+                             ', '.join(map(str, list(args[1:]) + \
+                                           list(kwargs.items()))))
             ret = fn(*args, **kwargs)
             t = time.time() - start
-            self.logger.info("%s worked %.2fs" % (request, t))
+            self.logger.info("%s worked %.2fs", request, t)
             return ret
         return wrapped
 
