@@ -27,7 +27,7 @@ import traceback
 import dbus
 import dbus.service
 import dbus.mainloop.glib
-import gobject
+from gi.repository import GObject as gobject
 
 from vcmmd.error import VCMMDError
 from vcmmd.ve_config import VEConfig
@@ -248,7 +248,6 @@ class _LoadManagerObject(dbus.service.Object):
 class RPCServer:
 
     def __init__(self, ldmgr):
-        gobject.threads_init()
         dbus.mainloop.glib.threads_init()
         dbus.mainloop.glib.DBusGMainLoop(set_as_default=True)
 
