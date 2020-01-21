@@ -154,7 +154,7 @@ class MemoryCgroup(Cgroup):
         return self._read_file_int('limit_in_bytes')
 
     def write_limit_in_bytes(self, val):
-	# Warning: also changes swap size to memsw.limit_in_bytes - val
+        # Warning: also changes swap size to memsw.limit_in_bytes - val
         self._write_file_mem_val('limit_in_bytes', val)
 
     def read_swap_max(self):
@@ -163,7 +163,7 @@ class MemoryCgroup(Cgroup):
         return max(memsw - mem, 0)
 
     def write_memsw_limit_in_bytes(self, val):
-	# Warning: changes swap size to val - limit_in_bytes
+        # Warning: changes swap size to val - limit_in_bytes
         self._write_file_mem_val('memsw.limit_in_bytes', val)
 
     def write_cache_limit_in_bytes(self, val):
