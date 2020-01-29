@@ -194,7 +194,7 @@ class Host(Env, metaclass=HostMeta):
                 # Node NUM VARIABLE: VALUE [kB]
                 stats[line[2][:-1]] = int(line[3])
 
-            reclaimable = max(min((stats.get("Inactive(anon)", -1) << 10) / 2,
+            reclaimable = max(min((stats.get("Inactive(anon)", -1) << 10) // 2,
                                   self.stats.swaptotal), 0)
 
             memusage = ((stats.get("MemTotal", -1) << 10) -

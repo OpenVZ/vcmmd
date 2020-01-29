@@ -105,9 +105,9 @@ class Numa:
             min_free_kbytes = int(f.read())
         # It's better to read zoneinfo directly,
         # but for simplification we just calculate it.
-        cls.zoneinfo['min'] = (min_free_kbytes << 10) / len(cls.nodes_ids)
-        cls.zoneinfo['low'] = cls.zoneinfo['min'] * 5/4
-        cls.zoneinfo['high'] = cls.zoneinfo['min'] * 3/2
+        cls.zoneinfo['min'] = (min_free_kbytes << 10) // len(cls.nodes_ids)
+        cls.zoneinfo['low'] = cls.zoneinfo['min'] * 5//4
+        cls.zoneinfo['high'] = cls.zoneinfo['min'] * 3//2
 
         cls.__inited = True
 
