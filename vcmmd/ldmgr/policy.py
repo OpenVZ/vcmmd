@@ -418,7 +418,7 @@ class StoragePolicy(Policy):
 
     def get_cache(self, ves, cs_num):
         # max cache size VSTOR-18486
-        max_cache_size = max(int(2*self.host.ve_mem/3), self.host.ve_mem - (32 << 30))
+        max_cache_size = max(int(2*self.host.ve_mem//3), self.host.ve_mem - (32 << 30))
         if not ves:
             return max_cache_size
         return (512 * max(2, cs_num)) << 20

@@ -109,7 +109,7 @@ class VMImpl(VEImpl):
     def mem_overhead(config_limit):
         # we assume, that for one guest page need at least 8b overhead
         # in qemu process
-        guest_mem_overhead = 8 * config_limit / PAGE_SIZE
+        guest_mem_overhead = 8 * config_limit // PAGE_SIZE
         config_overhead =  VCMMDConfig().get_num('VE.VM.MemOverhead', default=(64 << 20),
                                                  integer=True, minimum=0)
         return config_overhead + guest_mem_overhead
