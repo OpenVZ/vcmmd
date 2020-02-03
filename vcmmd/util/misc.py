@@ -47,13 +47,13 @@ def parse_range(rng):
         return []
     parts = rng.split('-')
     if len(parts) > 2:
-        raise ValueError("Bad range: '%s'" % (rng,))
+        raise ValueError("Bad range: '{}'".format(rng))
     parts = [int(i) for i in parts]
     start = parts[0]
     end = start if len(parts) == 1 else parts[1]
     if start > end:
         end, start = start, end
-    return range(start, end + 1)
+    return list(range(start, end + 1))
 
 def parse_range_list(rngs):
     '''Function produces list of integers which fall in commaseparated range description
@@ -75,7 +75,7 @@ def get_cs_num():
             try:
                 cmd = proc.cmdline()
             except psutil.NoSuchProcess:
-                raise OSError("No such process: '%s'" % name)
+                raise OSError("No such process: '{}'".format(name))
 
         if not cmd or not cmd[0] == name:
             continue

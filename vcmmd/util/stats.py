@@ -19,12 +19,10 @@
 # Our contact details: Virtuozzo International GmbH, Vordergasse 59, 8200
 # Schaffhausen, Switzerland.
 
-from __future__ import absolute_import
-
 import time
 
 
-class Stats(object):
+class Stats:
 
     ABSOLUTE_STATS = []
 

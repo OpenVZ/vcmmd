@@ -19,8 +19,6 @@
 # Our contact details: Virtuozzo International GmbH, Vordergasse 59, 8200
 # Schaffhausen, Switzerland.
 
-from __future__ import absolute_import
-
 from vcmmd.cgroup.base import Cgroup
 
 
@@ -31,7 +29,7 @@ class BlkIOCgroup(Cgroup):
     def _get_io_stats(self, filename, keys):
         result = {k: 0 for k in keys}
         kv = self._read_file_kv(filename)
-        for k, v in kv.iteritems():
+        for k, v in kv.items():
             try:
                 result[k.split()[-1]] += v
             except KeyError:

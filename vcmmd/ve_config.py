@@ -19,8 +19,6 @@
 # Our contact details: Virtuozzo International GmbH, Vordergasse 59, 8200
 # Schaffhausen, Switzerland.
 
-from __future__ import absolute_import
-
 from vcmmd.util.limits import UINT64_MAX
 from vcmmd.util.misc import parse_range_list
 
@@ -46,7 +44,7 @@ VCMMD_MEMGUARANTEE_PERCENTS = 1
 VCMMD_EMPTY_MASK = ''
 
 
-class VEConfig(object):
+class VEConfig:
     '''Represents a VE's memory configuration.
 
     guarantee:      VE memory guarantee
@@ -95,9 +93,9 @@ class VEConfig(object):
 
     def __init__(self, **kv):
         self._kv = {}
-        for k, v in kv.iteritems():
+        for k, v in kv.items():
             if k not in _VEConfigFields:
-                raise TypeError("unexpected keyword argument '%s'" % k)
+                raise TypeError("unexpected keyword argument '{}'".format(k))
             if k not in _VEConfigFields_string:
                 self._kv[str(k)] = int(v)
             else:
@@ -113,7 +111,7 @@ class VEConfig(object):
             raise AttributeError
 
     def __str__(self):
-        return ' '.join('%s:%s' % (k, self._kv[k])
+        return ' '.join('{}:{}'.format(k, self._kv[k])
                         for k in _VEConfigFields if k in self._kv)
 
     @property
@@ -132,7 +130,7 @@ class VEConfig(object):
     def complete(self, config):
         '''Initialize absent fields with values from a given config.
         '''
-        for k, v in config._kv.iteritems():
+        for k, v in config._kv.items():
             if k not in self._kv:
                 self._kv[k] = v
 
@@ -140,7 +138,7 @@ class VEConfig(object):
         '''Convert to an array of (tag, value, string) turples.
         '''
         arr = []
-        for tag, name in zip(xrange(len(_VEConfigFields)), _VEConfigFields):
+        for tag, name in enumerate(_VEConfigFields):
             try:
                 if name in _VEConfigFields_string:
                     val = 0

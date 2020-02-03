@@ -19,8 +19,6 @@
 # Our contact details: Virtuozzo International GmbH, Vordergasse 59, 8200
 # Schaffhausen, Switzerland.
 
-from __future__ import absolute_import
-
 import sys
 import os
 import os.path
@@ -41,7 +39,7 @@ from vcmmd.util.logging import LOG_LEVELS, LoggerWriter
 from vcmmd.util.threading import setup_thread_excepthook
 
 
-class _App(object):
+class _App:
 
     PID_FILE = '/var/run/vcmmd.pid'
     LOG_FILE = '/var/log/vcmmd.log'

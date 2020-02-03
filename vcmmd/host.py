@@ -19,8 +19,6 @@
 # Our contact details: Virtuozzo International GmbH, Vordergasse 59, 8200
 # Schaffhausen, Switzerland.
 
-from __future__ import absolute_import
-
 import psutil
 import re
 import socket
@@ -64,12 +62,10 @@ class HostStats(Stats):
 HostMeta = type("HostMeta", (Singleton, ABCMeta), {})
 
 
-class Host(Env):
+class Host(Env, metaclass=HostMeta):
 
-    __metaclass__ = HostMeta
-
-    KSM_CONTROL_PATH = '/sys/kernel/mm/ksm/%s'
-    THP_CONTROL_PATH = '/sys/kernel/mm/transparent_hugepage/%s'
+    KSM_CONTROL_PATH = '/sys/kernel/mm/ksm/{}'
+    THP_CONTROL_PATH = '/sys/kernel/mm/transparent_hugepage/{}'
 
 
     class Numa(AbsNuma):
@@ -106,11 +102,11 @@ class Host(Env):
 
     def _mem_size_from_config(self, name, mem_total, default):
         cfg = VCMMDConfig()
-        share = cfg.get_num('Host.%s.Share' % name,
+        share = cfg.get_num('Host.{}.Share'.format(name),
                             default=default[0], minimum=0.0, maximum=1.0)
-        min_ = cfg.get_num('Host.%s.Min' % name,
+        min_ = cfg.get_num('Host.{}.Min'.format(name),
                            default=default[1], integer=True, minimum=0)
-        max_ = cfg.get_num('Host.%s.Max' % name,
+        max_ = cfg.get_num('Host.{}.Max'.format(name),
                            default=default[2], integer=True, minimum=0)
         return clamp(int(mem_total * share), min_, max_)
 
@@ -148,13 +144,14 @@ class Host(Env):
 
         ksm_stats = {}
         for datum in sysfs_keys:
-            name = self.KSM_CONTROL_PATH % datum
+            name = self.KSM_CONTROL_PATH.format(datum)
             try:
                 with open(name, 'r') as ksm_stats_file:
                     ksm_stats[datum] = int(ksm_stats_file.read())
-            except IOError, (errno, msg):
+            except IOError as err:
                 ksm_stats[datum] = -1
-                self.log_err("Failed to update stat: open %s failed: %s" % (name, msg))
+                self.log_err("Failed to update stat: open %s failed: %s",
+                             name, err)
         mem = psutil.virtual_memory()
         swaptotal = psutil.swap_memory().total
 
@@ -173,27 +170,29 @@ class Host(Env):
         self.stats._update(**stats)
 
     def thptune(self, params):
-        for key, val in params.iteritems():
+        for key, val in params.items():
             try:
-                with open(self.THP_CONTROL_PATH % key, 'w') as f:
+                with open(self.THP_CONTROL_PATH.format(key), 'w') as f:
                     f.write(str(val))
-            except IOError, err:
-                self.log_debug("Failed to set %r = %r", self.THP_CONTROL_PATH % key, val)
+            except IOError as err:
+                self.log_debug("Failed to set %r = %r",
+                               self.THP_CONTROL_PATH.format(key), val)
 
     def ksmtune(self, params):
-        for key, val in params.iteritems():
+        for key, val in params.items():
             try:
-                with open(self.KSM_CONTROL_PATH % key, 'w') as f:
+                with open(self.KSM_CONTROL_PATH.format(key), 'w') as f:
                     f.write(str(val))
-            except IOError, err:
+            except IOError as err:
                 # few options could be not changed until page shared/sharing != 0
                 # need start ksmd for update stats if it's not running.
-                self.log_debug("Failed to set %r = %r", self.KSM_CONTROL_PATH % key, val)
+                self.log_debug("Failed to set %r = %r",
+                               self.KSM_CONTROL_PATH.format(key), val)
 
     def get_numa_stats(self):
         ret = {}
         for n in self.numa.nodes_ids:
-            node_dir = self.numa.NUMA_NODE_SYS_PATH % n
+            node_dir = self.numa.NUMA_NODE_SYS_PATH.format(n)
             stats = {}
             try:
                 with open(node_dir + "meminfo") as f:
@@ -207,7 +206,7 @@ class Host(Env):
                 # Node NUM VARIABLE: VALUE [kB]
                 stats[line[2][:-1]] = int(line[3])
 
-            reclaimable = max(min((stats.get("Inactive(anon)", -1) << 10) / 2,
+            reclaimable = max(min((stats.get("Inactive(anon)", -1) << 10) // 2,
                                   self.stats.swaptotal), 0)
 
             memusage = ((stats.get("MemTotal", -1) << 10) -

@@ -19,8 +19,6 @@
 # Our contact details: Virtuozzo International GmbH, Vordergasse 59, 8200
 # Schaffhausen, Switzerland.
 
-from __future__ import absolute_import
-
 import dbus
 
 from vcmmd.error import VCMMDError
@@ -28,7 +26,7 @@ from vcmmd.ve_config import VEConfig
 from vcmmd.rpc.dbus.common import PATH, BUS_NAME, IFACE
 
 
-class RPCProxy(object):
+class RPCProxy:
 
     def __init__(self):
         bus = dbus.SystemBus()

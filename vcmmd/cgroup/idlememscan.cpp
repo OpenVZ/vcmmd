@@ -136,8 +136,7 @@ static unordered_map<long, idle_mem_stat> cg_idle_mem_stat;
 // /proc/kpageflags, /proc/kpagecgroup, /sys/kernel/mm/page_idle/bitmap
 static fstream f_flags, f_cg, f_idle;
 
-static void do_open(const char *path, ios_base::openmode mode,
-		    fstream &f) throw(error)
+static void do_open(const char *path, ios_base::openmode mode, fstream &f)
 {
 	// disable stream buffering - we know better how to do it
 	f.rdbuf()->pubsetbuf(0, 0);
@@ -148,7 +147,7 @@ static void do_open(const char *path, ios_base::openmode mode,
 }
 
 static void throw_rw_error(const char *path, bool write,
-			   long off, long sz) throw(error)
+			   long off, long sz)
 {
 	ostringstream ss;
 	ss << (write ? "Write" : "Read") << " '" << path << "' " <<
@@ -157,7 +156,7 @@ static void throw_rw_error(const char *path, bool write,
 }
 
 static void do_read(fstream &f, long pos, int n, const char *path,
-		     uint64_t *buf) throw(error)
+		     uint64_t *buf)
 {
 	f.seekg(pos * 8);
 	if (!f.read(reinterpret_cast<char *>(buf), n * 8))
@@ -166,7 +165,7 @@ static void do_read(fstream &f, long pos, int n, const char *path,
 }
 
 static void do_write(fstream &f, long pos, int n, const char *path,
-		     const uint64_t *buf) throw(error)
+		     const uint64_t *buf)
 {
 	f.seekg(pos * 8);
 	if (!f.write(reinterpret_cast<const char *>(buf), n * 8))
@@ -189,7 +188,7 @@ static void open_files()
 }
 
 // Marks pages in range [start_pfn, end_pfn) idle.
-static void set_idle_pages(long start_pfn, long end_pfn) throw(error)
+static void set_idle_pages(long start_pfn, long end_pfn)
 {
 	// idle page bitmap requires pfn to be aligned by 64
 	long start_pfn2 = start_pfn & ~63UL;
@@ -220,7 +219,7 @@ static inline long __next_pfn(long pfn, long buf_index)
 
 // Counts idle pages in range [start_pfn, end_pfn).
 // Returns map: cg ino -> idle_mem_stat.
-static void count_idle_pages(long start_pfn, long end_pfn) throw(error)
+static void count_idle_pages(long start_pfn, long end_pfn)
 {
 	uint64_t buf_flags[BATCH_SIZE],
 		 buf_cg[BATCH_SIZE],
@@ -395,7 +394,7 @@ static PyObject *py_result(PyObject *self, PyObject *args)
 
 	auto result = get_result();
 	for (auto &kv : result) {
-		py_ref key = PyString_FromString(kv.first.c_str());
+		py_ref key = PyUnicode_FromString(kv.first.c_str());
 		if (!key)
 			return PyErr_NoMemory();
 
@@ -460,15 +459,27 @@ static void init_END_PFN()
 		throw error("Failed to parse zoneinfo");
 }
 
+static struct PyModuleDef idlememscan_module_def = {
+	PyModuleDef_HEAD_INIT,
+	"idlememscan",          // m_name
+	NULL,                   // m_doc
+	-1,                     // m_size
+	idlememscan_funcs,      // m_methods
+	NULL,                   // m_reload
+	NULL,                   // m_traverse
+	NULL,                   // m_clear
+	NULL,                   // m_free
+};
+
 PyMODINIT_FUNC
-initidlememscan(void)
+PyInit_idlememscan(void)
 {
 	try {
 		init_END_PFN();
 	} catch (error &e) {
 		e.set_py_err();
-		return;
+		return NULL;
 	}
 
-	Py_InitModule("idlememscan", idlememscan_funcs);
+	return PyModule_Create(&idlememscan_module_def);
 }

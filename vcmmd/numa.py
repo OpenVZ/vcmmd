@@ -26,7 +26,7 @@ from vcmmd.util.misc import parse_range_list
 from vcmmd.util.threading import update_stats_single
 
 
-class NumaStats(object):
+class NumaStats:
 
 
     class MemStats(Stats):
@@ -72,9 +72,9 @@ class NumaStats(object):
         return str(self.report())
 
 
-class Numa(object):
+class Numa:
 
-    NUMA_NODE_SYS_PATH = "/sys/devices/system/node/node%d/"
+    NUMA_NODE_SYS_PATH = "/sys/devices/system/node/node{}/"
     MIN_FREE_PATH = "/proc/sys/vm/min_free_kbytes"
     __inited = False
 
@@ -92,7 +92,7 @@ class Numa(object):
         cls.cpu_list = {}
         cls.zoneinfo = {}
         for n in cls.nodes_ids[:]:
-	    node_dir = cls.NUMA_NODE_SYS_PATH % n
+            node_dir = cls.NUMA_NODE_SYS_PATH.format(n)
             with open(node_dir + "cpulist") as f:
                 cpu_list = parse_range_list(f.read())
                 if not cpu_list:
@@ -104,9 +104,9 @@ class Numa(object):
             min_free_kbytes = int(f.read())
         # It's better to read zoneinfo directly,
         # but for simplification we just calculate it.
-        cls.zoneinfo['min'] = (min_free_kbytes << 10) / len(cls.nodes_ids)
-        cls.zoneinfo['low'] = cls.zoneinfo['min'] * 5/4
-        cls.zoneinfo['high'] = cls.zoneinfo['min'] * 3/2
+        cls.zoneinfo['min'] = (min_free_kbytes << 10) // len(cls.nodes_ids)
+        cls.zoneinfo['low'] = cls.zoneinfo['min'] * 5//4
+        cls.zoneinfo['high'] = cls.zoneinfo['min'] * 3//2
 
         cls.__inited = True
 

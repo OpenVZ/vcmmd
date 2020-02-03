@@ -19,12 +19,10 @@
 # Our contact details: Virtuozzo International GmbH, Vordergasse 59, 8200
 # Schaffhausen, Switzerland.
 
-from __future__ import absolute_import
-
 import os.path
 
 
-class Cgroup(object):
+class Cgroup:
 
     _CGROUP_DIR = '/sys/fs/cgroup'
 
@@ -34,10 +32,10 @@ class Cgroup(object):
         path = path.strip('/')
         self.path = '/' + path
         self.abs_path = '/'.join([self._CGROUP_DIR, self.CONTROLLER, path])
-        self._file_fmt = '/'.join([self.abs_path, '%s.%%s' % self.CONTROLLER])
+        self._file_fmt = '/'.join([self.abs_path, '{}.{{}}'.format(self.CONTROLLER)])
 
     def _file_path(self, name):
-        return self._file_fmt % name
+        return self._file_fmt.format(name)
 
     def exists(self):
         return os.path.isdir(self.abs_path)
@@ -72,7 +70,7 @@ def pid_cgroup(pid):
     the cgroup which 'pid' is attached to.
     '''
     cgroup = {}
-    with open('/proc/%d/cgroup' % pid) as f:
+    with open('/proc/{}/cgroup'.format(pid)) as f:
         for l in f.read().splitlines():
             _, subsys, path = l.split(':')
             subsys = subsys.split(',')

@@ -19,8 +19,6 @@
 # Our contact details: Virtuozzo International GmbH, Vordergasse 59, 8200
 # Schaffhausen, Switzerland.
 
-from __future__ import absolute_import
-
 import logging
 import psutil
 import libvirt
@@ -29,14 +27,12 @@ from vcmmd.cgroup import pid_cgroup
 from vcmmd.util.singleton import Singleton
 
 
-class virConnectionProxy(object):
+class virConnectionProxy(metaclass=Singleton):
     ''' Singleton for handle connection to libvirt.
     An instance of this class will delegate all its method calls to the
     underlying virConnect, (re)establishing connection to libvirt whenever
     necessary.
     '''
-
-    __metaclass__ = Singleton
 
     def __init__(self):
         self.__logger = logging.getLogger('vcmmd.libvirt')
@@ -85,7 +81,7 @@ class virConnectionProxy(object):
         return wrapper
 
 
-class virDomainProxy(object):
+class virDomainProxy:
     '''Proxy to libvirt.virDomain with reconnect support.
 
     An instance of this class will delegate all its method calls to the
@@ -125,7 +121,7 @@ def lookup_qemu_machine_pid(name):
             try:
                 cmd = proc.cmdline()
             except psutil.NoSuchProcess:
-                raise OSError("No such process: '%s'" % name)
+                raise OSError("No such process: '{}'".format(name))
 
         if not cmd or not cmd[0].endswith('qemu-kvm'):
             continue
@@ -144,7 +140,7 @@ def lookup_qemu_machine_pid(name):
     if len(pids) == 1:
         return pids[0]
 
-    raise OSError("No such process: '%s'" % name)
+    raise OSError("No such process: '{}'".format(name))
 
 
 def lookup_qemu_machine_cgroup(name):

@@ -19,8 +19,6 @@
 # Our contact details: Virtuozzo International GmbH, Vordergasse 59, 8200
 # Schaffhausen, Switzerland.
 
-from __future__ import absolute_import
-
 import copy
 import optparse
 
@@ -49,8 +47,8 @@ class OptionWithMemsize(optparse.Option):
                     # Pass and try other suffixes; not useful now, but may be
                     # useful later if we ever allow B vs. GB vs. GiB.
                     pass
-        raise optparse.OptionValueError("option %s: invalid memsize value: %r"
-                                        % (opt, value))
+        raise optparse.OptionValueError("option {}: invalid memsize value: "
+                                        "{}".format(opt, value))
 
     TYPES = optparse.Option.TYPES + ('memsize',)
     TYPE_CHECKER = copy.copy(optparse.Option.TYPE_CHECKER)

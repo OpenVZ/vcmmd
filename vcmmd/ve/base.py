@@ -19,7 +19,7 @@
 # Our contact details: Virtuozzo International GmbH, Vordergasse 59, 8200
 # Schaffhausen, Switzerland.
 
-from __future__ import absolute_import
+import itertools
 
 from vcmmd.error import (VCMMDError,
                          VCMMD_ERROR_INVALID_VE_NAME,
@@ -67,7 +67,7 @@ class VEStats(Stats):
     ]
 
 
-class VEImpl(object):
+class VEImpl:
     '''VE implementation.
 
     This class defines the interface to an underlying VE implementation
@@ -186,7 +186,7 @@ class VE(Env):
         self.protection = None
 
     def __str__(self):
-        return "%s '%s'" % (get_ve_type_name(self.VE_TYPE), self.name)
+        return "{} '{}'".format(get_ve_type_name(self.VE_TYPE), self.name)
 
     @property
     def VE_TYPE(self):
@@ -288,15 +288,15 @@ class VE(Env):
             obj = self._get_obj()
             if target is not None:
                 obj.set_mem_target(target)
-                msg = 'target:%d ' % target
+                msg = 'target:{} '.format(target)
             if protection is not None:
                 obj.set_mem_protection(protection)
-                msg += 'protection:%d' % protection
+                msg += 'protection:{}'.format(protection)
         except Error as err:
             self.log_err('Failed to tune allocation: %s', err)
         else:
             if msg:
-                self.log_debug('set_mem: %s' % msg)
+                self.log_debug('set_mem: %s', msg)
             self.target = target
             self.protection = protection
 
@@ -336,9 +336,9 @@ class VE(Env):
             if self.VE_TYPE == VE_TYPE_CT and migrate:
                 obj.node_mem_migrate(nodes)
         except Error as err:
-            self.log_err('Failed to bind NUMA nodes: %s' % err)
+            self.log_err('Failed to bind NUMA nodes: %s', err)
         else:
-            self.log_debug('pin_node_mem: %s' % (nodes,))
+            self.log_debug('pin_node_mem: %s', nodes)
 
     def pin_cpu_list(self, cpus):
         '''Change list of CPUs for VE
@@ -349,15 +349,15 @@ class VE(Env):
             obj = self._get_obj()
             obj.pin_cpu_list(cpus)
         except Error as err:
-            self.log_err('Failed to bind CPU list: %s' % err)
+            self.log_err('Failed to bind CPU list: %s', err)
         else:
-            self.log_debug('pin_cpu_list: %s' % (cpus,))
+            self.log_debug('pin_cpu_list: %s', cpus)
 
     def reset_numa_settings(self):
         '''Reset all NUMA-related bindings
         '''
         self.pin_node_mem(self.numa.nodes_ids, migrate=False)
-        self.pin_cpu_list(sum(self.numa.cpu_list.itervalues(), []))
+        self.pin_cpu_list(itertools.chain(*self.numa.cpu_list.values()))
 
     def numa_enforce_settings(self):
         if self.numa_configured():

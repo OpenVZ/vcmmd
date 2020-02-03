@@ -19,8 +19,6 @@
 # Our contact details: Virtuozzo International GmbH, Vordergasse 59, 8200
 # Schaffhausen, Switzerland.
 
-from __future__ import absolute_import
-
 from vcmmd.ldmgr.policy import (BalloonPolicy,
                                 NumaPolicy,
                                 KSMPolicy as AbsKsmPolicy,
@@ -49,7 +47,7 @@ class KsmPolicy(AbsKsmPolicy):
         need_stats = (self.host.stats.memtotal, self.host.stats.memfree,
                       self.host.stats.memavail, self.host.stats.ksm_pages_to_scan)
 
-        if filter(lambda x: x < 0, need_stats):
+        if any(x < 0 for x in need_stats):
             return params
 
         if self.host.stats.memfree > ksm_threshold * self.host.stats.memtotal:

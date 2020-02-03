@@ -19,8 +19,6 @@
 # Our contact details: Virtuozzo International GmbH, Vordergasse 59, 8200
 # Schaffhausen, Switzerland.
 
-from __future__ import absolute_import
-
 import logging
 import threading
 import time
@@ -29,7 +27,7 @@ import traceback
 import dbus
 import dbus.service
 import dbus.mainloop.glib
-import gobject
+from gi.repository import GObject as gobject
 
 from vcmmd.error import VCMMDError
 from vcmmd.ve_config import VEConfig
@@ -48,17 +46,18 @@ class _LoadManagerObject(dbus.service.Object):
         self.request_num = 0
 
     def _log(self, fn):
-        fname = fn.func_name
+        fname = fn.__name__
 
         def wrapped(*args, **kwargs):
             start = time.time()
             self.request_num += 1
-            request = "Request %d %s" % (self.request_num, fname)
-            self.logger.info("%s(%s) started" % (request, ', '.join(
-                    map(str, list(args[1:]) + kwargs.items()))))
+            request = "Request {} {}".format(self.request_num, fname)
+            self.logger.info("%s(%s) started", request,
+                             ', '.join(map(str, list(args[1:]) + \
+                                           list(kwargs.items()))))
             ret = fn(*args, **kwargs)
             t = time.time() - start
-            self.logger.info("%s worked %.2fs" % (request, t))
+            self.logger.info("%s worked %.2fs", request, t)
             return ret
         return wrapped
 
@@ -246,10 +245,9 @@ class _LoadManagerObject(dbus.service.Object):
         return GetFree(self)
 
 
-class RPCServer(object):
+class RPCServer:
 
     def __init__(self, ldmgr):
-        gobject.threads_init()
         dbus.mainloop.glib.threads_init()
         dbus.mainloop.glib.DBusGMainLoop(set_as_default=True)
 
