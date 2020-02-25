@@ -91,7 +91,7 @@ class VMImpl(VEImpl):
     def get_rss(self):
         try:
             p = psutil.Process(self.pid)
-            return p.get_memory_info().rss
+            return p.memory_info().rss
         except psutil.Error as err:
             raise Error(str(err))
 

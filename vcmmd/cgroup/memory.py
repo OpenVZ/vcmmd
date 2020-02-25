@@ -158,7 +158,7 @@ class MemoryCgroup(Cgroup):
         return self._read_file_int('limit_in_bytes')
 
     def write_limit_in_bytes(self, val):
-	# Warning: also changes swap size to memsw.limit_in_bytes - val
+        # Warning: also changes swap size to memsw.limit_in_bytes - val
         self._write_file_mem_val('limit_in_bytes', val)
 
     def read_swap_max(self):
@@ -167,7 +167,7 @@ class MemoryCgroup(Cgroup):
         return max(memsw - mem, 0)
 
     def write_memsw_limit_in_bytes(self, val):
-	# Warning: changes swap size to val - limit_in_bytes
+        # Warning: changes swap size to val - limit_in_bytes
         self._write_file_mem_val('memsw.limit_in_bytes', val)
 
     def write_cache_limit_in_bytes(self, val):
@@ -175,12 +175,6 @@ class MemoryCgroup(Cgroup):
 
     def read_mem_stat(self):
         return self._read_file_kv('stat')
-
-    def write_tcp_mem_limit(self, val):
-        self._write_file_mem_val('kmem.tcp.limit_in_bytes', val)
-
-    def write_udp_mem_limit(self, val):
-        self._write_file_mem_val('kmem.udp.limit_in_bytes', val)
 
     def write_oom_guarantee(self, val):
         self._write_file_mem_val('oom_guarantee', val)
@@ -270,4 +264,4 @@ class MemoryCgroup(Cgroup):
         return res
 
     def set_node_list(self, nodes):
-        self._write_file_str('numa_migrate', ",".join(map(lambda x: str(x),nodes)))
+        self._write_file_str('numa_migrate', ','.join(map(str, nodes)))

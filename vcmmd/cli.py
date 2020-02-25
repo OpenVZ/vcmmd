@@ -358,7 +358,7 @@ def _handle_free(args):
 
     free = RPCProxy().get_free()
     head = tuple(map(str, free.keys()))
-    vals = tuple(map(lambda v: _str_memval(v, options), free.values()))
+    vals = tuple([_str_memval(v, options) for v in free.values()])
     fmt = ' '.join(['%-'+str(len(v)+3)+'s' for v in free.keys()])
     for s in head, vals:
         print fmt % s
