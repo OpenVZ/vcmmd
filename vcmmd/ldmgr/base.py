@@ -250,13 +250,11 @@ class LoadManager(object):
                 qemu_vram_overhead += ve.mem_overhead
                 if ve.protection:
                     guarantee += ve.protection
-        reserved = self._host.host_mem + self._host.sys_mem + self._host.user_mem
         swap = self._host.get_slice_swap('machine')
         if swap is None:
             swap = 0
-        available = max(self._host.total_mem - reserved - qemu_vram_overhead - guarantee, 0)
+        available = max(self._host.total_mem - qemu_vram_overhead - guarantee, 0)
         return {'total': self._host.total_mem,
-                'host reserved': reserved,
                 'qemu overhead+vram': qemu_vram_overhead,
                 'guarantee': guarantee,
                 'swap': swap,
