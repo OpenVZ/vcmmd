@@ -81,20 +81,8 @@ class Host(Env):
         self.hostname = socket.gethostname()
         super(Host, self).__init__("vcmmd.host")
         self.stats = HostStats()
-        # Reserve memory for the system
-        total_mem = psutil.virtual_memory().total
-        self.total_mem = total_mem
-        self.host_mem = self._mem_size_from_config('HostMem', total_mem,
-                                                   (0.04, 320 << 20, 512 << 20))
-        self.sys_mem = self._mem_size_from_config('SysMem', total_mem,
-                                                  (0.04, 320 << 20, 512 << 20))
-        oom_guarantee = max(self.sys_mem * 2, 700 << 20)
-        self._set_slice_mem('system', self.sys_mem, oom_guarantee)
-        self.user_mem = self._mem_size_from_config('UserMem', total_mem,
-                                                   (0.02, 32 << 20, 128 << 20))
-        self._set_slice_mem('user', self.user_mem)
-        # Calculate size of memory available for VEs
-        self.ve_mem = self.total_mem - self.host_mem - self.user_mem - self.sys_mem
+        self.total_mem = psutil.virtual_memory().total
+        self.ve_mem = self.total_mem
         self.log_info('%d bytes available for VEs', self.ve_mem)
         if self.ve_mem < 0:
             self.log_err('Not enough memory to run VEs!')
