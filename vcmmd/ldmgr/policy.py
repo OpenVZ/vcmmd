@@ -339,14 +339,10 @@ class KSMPolicy(Policy):
         super(KSMPolicy, self).__init__()
         nested_v = 'hypervisor' in get_cpuinfo_features()
         default = not nested_v
-
-        kc = VCMMDConfig().get_bool("LoadManager.Controllers.KSM", default)
-
-        if not kc:
-            if nested_v:
-                self.host.thptune({"khugepaged/defrag": "0"})
-                self.host.thptune({"enabled": "never", "defrag": "never"})
-                self.logger.info("Running in hypervisor, no need for ksm")
+        if not VCMMDConfig().get_bool("LoadManager.Controllers.KSM", default):
+            return
+        if nested_v:
+            self.logger.info("Running in hypervisor, no need for ksm")
             return
 
         self.controllers.add(self.ksm_controller)
