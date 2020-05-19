@@ -56,6 +56,7 @@ from libvirt import libvirtError
 
 PAGE_SIZE = os.sysconf('SC_PAGESIZE')
 INT64_MAX = int(2 ** 63 - 1)
+USER_SLICE_CACHE_LIMIT = psutil.virtual_memory().total / 10
 
 def clamp(v, l, h):
     if h == -1:
@@ -163,12 +164,16 @@ try:
                                   int(service[Param].get('Min', 0)),
                                   int(service[Param].get('Max', -1)))
             except (KeyError, TypeError, ValueError):
-                raise Exception("Error parsing %s.%s" %(service_name, Param))
+                raise Exception("Error parsing %s.%s" % (service_name, Param))
         #register and activate service later, if no exception occured
-        to_register.append((service_name,VEConfig(**kv)))
+        to_register.append((service_name, VEConfig(**kv)))
     for service in to_register:
         proxy.register_ve(service[0], VE_TYPE_SERVICE, service[1], 0)
         proxy.activate_ve(service[0], 0)
+    cache_limit_path = os.path.join(
+        cgroup_path % 'user.slice', 'memory.cache.limit_in_bytes')
+    with open(cache_limit_path, 'w') as fp:
+        fp.write(str(USER_SLICE_CACHE_LIMIT))
 except Exception as e:
     svs_exc_info = sys.exc_info()
 
