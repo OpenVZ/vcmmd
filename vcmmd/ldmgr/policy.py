@@ -26,27 +26,23 @@ from select import poll, POLLIN, error as  poll_error
 from abc import ABCMeta, abstractmethod
 from threading import Lock, Thread, Event
 import ctypes
-import psutil
 import json
 
 from vcmmd.host import Host
 from vcmmd.config import VCMMDConfig
 from vcmmd.util.misc import print_dict
 from vcmmd.util.cpu_features import get_cpuinfo_features
-from vcmmd.ve_type import VE_TYPE_CT, VE_TYPE_SERVICE
-from vcmmd.ve_config import VEConfig
+from vcmmd.ve_type import VE_TYPE_CT
 from vcmmd.cgroup import MemoryCgroup
-from vcmmd.rpc.dbus.client import RPCProxy
-from vcmmd.error import (VCMMDError,
-                         VCMMD_ERROR_VE_NAME_ALREADY_IN_USE,
-                         VCMMD_ERROR_VE_ALREADY_ACTIVE)
 from vcmmd.util.limits import INT64_MAX
 from vcmmd.util.misc import get_cs_num
+
 
 def clamp(v, l, h):
     if h == -1:
         h = INT64_MAX
     return max(l, min(v, h))
+
 
 def eventfd(init_val, flags):
     libc = ctypes.cdll.LoadLibrary("libc.so.6")
@@ -183,6 +179,7 @@ class Policy(object):
 
         os.close(efd)
         self.host.log_info('"Low memory" watchdog stopped(msg="%s").' % err)
+
 
 class BalloonPolicy(Policy):
     '''Manages balloons in VEs.
@@ -380,8 +377,7 @@ class KSMPolicy(Policy):
 
 
 class StoragePolicy(Policy):
-    '''Manages cgroup slice parametrs in sysfs
-    '''
+    """Manages cgroup slice parameters."""
 
     STORAGE_CONFIG = '/etc/vz/vstorage-limits.conf'
     SELF_NAME = 'VStorage'
@@ -389,79 +385,55 @@ class StoragePolicy(Policy):
 
     def __init__(self):
         super(StoragePolicy, self).__init__()
-        default = True
-        kc = VCMMDConfig().get_bool("LoadManager.Controllers.StoragePolicy", default)
-        if not kc:
+        if not VCMMDConfig().get_bool("LoadManager.Controllers.StoragePolicy", True):
             return
-
-        self.controllers.add(self.storage_controller)
-        self.cgroup_timeout = 60
+        self.controllers.add(self._storage_controller)
         self.storage_config = {'Path': self.SLICE_NAME}
         try:
-            self.storage_config.update(self.__read_config())
+            self.storage_config.update(self._read_config())
         except Exception as e:
-            self.logger.error("Failed to read vstorage config(): %s" % str(e))
-        self.__service_path = '/sys/fs/cgroup/memory/%s' % self.storage_config['Path']
+            self.logger.error("Failed to read vstorage config(): %s" % e)
+        self._service_path = os.path.join('/sys/fs/cgroup/memory', self.storage_config['Path'])
         self._memcgp = MemoryCgroup(self.SLICE_NAME)
 
-    def __read_config(self):
+    def _read_config(self):
         with open(self.STORAGE_CONFIG) as f:
-            j = json.loads(f.read())
+            return json.load(f).get(self.SELF_NAME, {})
 
-        for name, service in j.iteritems():
-            if str(name) == self.SELF_NAME:
-                return service
-        return {}
-
-    def get_cache(self, ves, cs_num):
-        # max cache size VSTOR-18486
-        max_cache_size = max(int(2*self.host.ve_mem/3), self.host.ve_mem - (32 << 30))
+    def _get_cache_size(self, ves, cs_num):
+        # VSTOR-18486
+        max_cache_size = max(int(2 * self.host.ve_mem/3), self.host.ve_mem - (32 << 30))
         if not ves:
             return max_cache_size
         return (512 * max(2, cs_num)) << 20
 
-    def get_guarantee(self, cs_num):
-        return (512 * cs_num) << 20
-
     @Policy.controller
-    def storage_controller(self):
-        self.cgroup_timeout = 60
-        if not os.path.isdir(self.__service_path):
-            return self.cgroup_timeout
-
-        cs_num = 0
-        try:
-            cs_num = get_cs_num()
-            self.logger.info("CS number: %d" % cs_num)
-        except OSError:
-            self.logger.error("Failed to get number of CS")
-
-        for ve in self.get_ves():
-            if ve.name == self.SLICE_NAME:
-                ve.config.update(guarantee = self.get_guarantee(cs_num))
-                self.ve_config_updated(ve)
-                break
-        else:
-            self.logger.error("Storage CT is not registered")
-
-        if not os.path.exists(os.path.join(self.__service_path, "memory.cache.limit_in_bytes")):
-            return self.cgroup_timeout
-
-        cache_limit = VCMMDConfig().get_num("LoadManager.Controllers.StorageCacheLimitTotal", None)
+    def _storage_controller(self):
+        controller_timeout = 60
+        if not os.path.isdir(self._service_path):
+            return controller_timeout
+        if not any(ve.name == self.SLICE_NAME for ve in self.get_ves()):
+            self.logger.error('Storage CT is not registered')
+            return controller_timeout
+        cache_limit = VCMMDConfig().get_num('LoadManager.Controllers.StorageCacheLimitTotal', None)
         if cache_limit is None:
-            cache_limit = self.get_cache(self.get_ves(), cs_num)
-        try:
-            rv = 'cache_limit_in_bytes'
-            self._memcgp.write_cache_limit_in_bytes(cache_limit)
-            self.logger.debug("Set cache.limit_in_bytes to %s" % cache_limit)
-            rv = 'cleancache'
-            self._memcgp.write_cleancache(False)
-            rv = 'swappiness'
-            self._memcgp.write_swappiness(0)
-            rv = 'oom_control'
-            self._memcgp.write_oom_control(1)
-        except Exception as e:
-            self.cgroup_timeout = 10
-            self.logger.error("Failed to set %r for vstorage: %s" % (rv, str(e)))
+            cache_limit = self._get_cache_size(self.get_ves(), get_cs_num())
+        if not self._update_cgroup(cache_limit):
+            controller_timeout = 10
+        return controller_timeout
 
-        return self.cgroup_timeout
+    def _update_cgroup(self, cache_limit):
+        update_cgroup_files = [
+            (self._memcgp.write_cache_limit_in_bytes, cache_limit, 'cache_limit_in_bytes'),
+            (self._memcgp.write_cleancache, False, 'cleancache'),
+            (self._memcgp.write_swappiness, 0, 'swappiness'),
+            (self._memcgp.write_oom_control, 1, 'oom_control'),
+        ]
+        self.logger.debug('Set cache.limit_in_bytes to %s' % cache_limit)
+        for fn, value, name in update_cgroup_files:
+            try:
+                fn(value)
+            except Exception as e:
+                self.logger.error('Failed to set %r for vstorage: %s' % (name, e))
+                return False
+        return True

@@ -62,21 +62,11 @@ def parse_range_list(rngs):
     return sorted(set(chain(*[parse_range(rng) for rng in rngs.split(',')])))
 
 def get_cs_num():
-    '''
-    get number of vstorage running CS on node process list
-    '''
+    """Get number of running vstorage CSes on the node."""
     cs_num = 0
     name = '/usr/bin/csd'
-    for proc in psutil.process_iter():
-        # Workaround for old psutil(1.2.1)
-        if isinstance(proc.cmdline, list):
-            cmd = proc.cmdline
-        else:
-            try:
-                cmd = proc.cmdline()
-            except psutil.NoSuchProcess:
-                raise OSError("No such process: '%s'" % name)
-
+    for process in psutil.process_iter():
+        cmd = process.cmdline()
         if not cmd or not cmd[0] == name:
             continue
         cs_num += 1
