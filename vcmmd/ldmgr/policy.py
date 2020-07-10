@@ -55,25 +55,25 @@ def eventfd(init_val, flags):
 
 
 class Policy(object):
-    '''Load manager policy interface.
-    '''
+    """Load manager policy interface."""
 
     __metaclass__ = ABCMeta
 
     MEM_PRES_PATH = '/sys/fs/cgroup/memory/memory.pressure_level'
-    EVENT_CONTR_PATH = '/sys/fs/cgroup/memory/cgroup.event_control'
+    EVENT_CONTROL_PATH = '/sys/fs/cgroup/memory/cgroup.event_control'
     PRESSURE_LEVEL = 'medium'
     DEFAULT_VM_AUTO_GUARANTEE = 0.4
 
     def __init__(self):
         self.logger = logging.getLogger('vcmmd.ldmgr.policy')
-        self.host = Host() # Singleton object with host related data
+        self.host = Host()  # Singleton object with host related data
         self.controllers = set()
         self.low_memory_callbacks = set()
         self.__ve_data = {}  # Dictionary of all managed VEs to their policy data
         self.__ve_data_lock = Lock()
         self.counts = {}
         self.stop = Event()
+        self.controllers_threads = []
 
     @staticmethod
     def controller(f):
@@ -93,8 +93,8 @@ class Policy(object):
 
     def get_policy_data(self, t):
         with self.__ve_data_lock:
-            return filter(lambda x: x is not None,
-                          (pdata.get(t, None) for pdata in self.__ve_data.itervalues()))
+            data = [data.get(t, None) for data in self.__ve_data.values()]
+            return list(filter(None, data))
 
     def rm_policy_data(self, t, ve):
         with self.__ve_data_lock:
@@ -105,37 +105,33 @@ class Policy(object):
             t = type(data)
             self.__ve_data[ve][t] = data
 
+    def ve_registered(self, ve):
+        """Called before a VE gets activated."""
+        if ve.VE_TYPE == VE_TYPE_CT:
+            ve.set_mem(ve.config.limit, ve.mem_min)
+
     def ve_activated(self, ve):
-        '''Called right after a VE gets activated.
-        '''
+        """Called right after a VE gets registered."""
         with self.__ve_data_lock:
             if ve not in self.__ve_data:
                 self.__ve_data[ve] = {}
         ve.set_mem(ve.config.limit, ve.mem_min)
 
     def ve_deactivated(self, ve):
-        '''Called right after a VE gets deactivated.
-        '''
-        pass
-
-    def ve_registered(self, ve):
-        '''Called right after a VE gets activated.
-        '''
-        if ve.VE_TYPE == VE_TYPE_CT:
-            ve.set_mem(ve.config.limit, ve.mem_min)
+        """Called before a VE gets unregistered."""
+        with self.__ve_data_lock:
+            if ve in self.__ve_data:
+                del self.__ve_data[ve]
 
     def ve_unregistered(self, ve):
-        '''Called right after a VE gets deactivated.
-        '''
+        """Called right after a VE gets deactivated."""
         pass
 
     def ve_config_updated(self, ve):
-        '''Called right after a VE's configuration update.
-        '''
+        """Called right after a VE's configuration update."""
         ve.set_mem(ve.config.limit, ve.mem_min)
 
     def load(self):
-        self.controllers_threads = []
         for ctrl in self.controllers:
             self.controllers_threads.append(Thread(target=ctrl))
         if self.low_memory_callbacks:
@@ -156,8 +152,8 @@ class Policy(object):
         self.counts['low_mem_events'] = 0
         efd = eventfd(0, 0)
         mp = open(self.MEM_PRES_PATH)
-        with open(self.EVENT_CONTR_PATH, 'w') as cgc:
-            cgc.write("%d %d %s" % (efd, mp.fileno(), self.PRESSURE_LEVEL))
+        with open(self.EVENT_CONTROL_PATH, 'w') as cgc:
+            cgc.write('%d %d %s' % (efd, mp.fileno(), self.PRESSURE_LEVEL))
 
         p = poll()
         p.register(efd, POLLIN)
@@ -169,7 +165,7 @@ class Policy(object):
                 if not p.poll(1):
                     continue
                 # In an eventfd, there are always 8 bytes
-                ret = os.read(efd, 8)
+                _ = os.read(efd, 8)
             except poll_error as err:
                 break
             self.host.log_debug('"Low memory" notification received.')
@@ -212,7 +208,7 @@ class BalloonPolicy(Policy):
             ve_quotas = self.calculate_balloon_size()
 
             # Apply the quotas.
-            for ve, (target, protection) in ve_quotas.iteritems():
+            for ve, (target, protection) in ve_quotas.items():
                 if ve.target != target or ve.protection != protection:
                     ve.set_mem(target=target, protection=protection)
 
@@ -385,14 +381,14 @@ class StoragePolicy(Policy):
 
     def __init__(self):
         super(StoragePolicy, self).__init__()
-        if not VCMMDConfig().get_bool("LoadManager.Controllers.StoragePolicy", True):
+        if not VCMMDConfig().get_bool('LoadManager.Controllers.StoragePolicy', True):
             return
         self.controllers.add(self._storage_controller)
         self.storage_config = {'Path': self.SLICE_NAME}
         try:
             self.storage_config.update(self._read_config())
         except Exception as e:
-            self.logger.error("Failed to read vstorage config(): %s" % e)
+            self.logger.error('Failed to read vstorage config(): %s' % e)
         self._service_path = os.path.join('/sys/fs/cgroup/memory', self.storage_config['Path'])
         self._memcgp = MemoryCgroup(self.SLICE_NAME)
 
