@@ -32,7 +32,7 @@ from vcmmd.host import Host
 from vcmmd.config import VCMMDConfig
 from vcmmd.util.misc import print_dict
 from vcmmd.util.cpu_features import get_cpuinfo_features
-from vcmmd.ve_type import VE_TYPE_CT
+from vcmmd.ve_type import VE_TYPE_CT, VE_TYPE_SERVICE
 from vcmmd.cgroup import MemoryCgroup
 from vcmmd.util.limits import INT64_MAX
 from vcmmd.util.misc import get_cs_num
@@ -396,12 +396,13 @@ class StoragePolicy(Policy):
         with open(self.STORAGE_CONFIG) as f:
             return json.load(f).get(self.SELF_NAME, {})
 
-    def _get_cache_size(self, ves, cs_num):
-        # VSTOR-18486
-        max_cache_size = max(int(2 * self.host.ve_mem/3), self.host.ve_mem - (32 << 30))
-        if not ves:
-            return max_cache_size
-        return (512 * max(2, cs_num)) << 20
+    def _get_cache_size(self):
+        max_cache_size = max(int(2 * self.host.ve_mem / 3), self.host.ve_mem - (32 << 30))
+        all_ves = self.get_ves()
+        service_ves = [ve for ve in all_ves if ve.VE_TYPE == VE_TYPE_SERVICE]
+        if len(all_ves) - len(service_ves) > 0:
+            max_cache_size = (512 * max(2, get_cs_num())) << 20
+        return max_cache_size
 
     @Policy.controller
     def _storage_controller(self):
@@ -409,11 +410,11 @@ class StoragePolicy(Policy):
         if not os.path.isdir(self._service_path):
             return controller_timeout
         if not any(ve.name == self.SLICE_NAME for ve in self.get_ves()):
-            self.logger.error('Storage CT is not registered')
+            self.logger.info('Storage is not registered')
             return controller_timeout
         cache_limit = VCMMDConfig().get_num('LoadManager.Controllers.StorageCacheLimitTotal', None)
         if cache_limit is None:
-            cache_limit = self._get_cache_size(self.get_ves(), get_cs_num())
+            cache_limit = self._get_cache_size()
         if not self._update_cgroup(cache_limit):
             controller_timeout = 10
         return controller_timeout
