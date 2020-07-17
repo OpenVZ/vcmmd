@@ -33,6 +33,7 @@ setup(name='vcmmd',
                   ('/etc/logrotate.d', ['logrotate/vcmmd']),
                   ('/etc/vz', ['vcmmd.conf', 'vstorage-limits.conf']),
                   ('/etc/vz/vcmmd.d', ['scripts/vz']),
+                  ('/etc/libvirt/hooks/qemu.d/', ['scripts/vcmmd_hook']),
                   (systemd_unitdir, ['systemd/%s' % servicefile])],
       scripts=['bin/vcmmd', 'bin/vcmmdctl'])
 
