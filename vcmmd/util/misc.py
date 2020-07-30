@@ -40,6 +40,7 @@ def clamp(v, l, h):
 def sorted_by_val(d):
     return sorted(d, key=lambda k: d[k])
 
+
 def parse_range(rng):
     '''Function produces list of integers which fall in range described in input string
     i.e. "1-9" -> [1,2,3,4,5,6,7,8,9] or "1" -> [1]
@@ -56,18 +57,23 @@ def parse_range(rng):
         end, start = start, end
     return range(start, end + 1)
 
+
 def parse_range_list(rngs):
     '''Function produces list of integers which fall in commaseparated range description
     i.e. "1-3,5,4-8,9" -> [1,2,3,4,5,6,7,8,9]
     '''
     return sorted(set(chain(*[parse_range(rng) for rng in rngs.split(',')])))
 
+
 def get_cs_num():
     """Get number of running vstorage CSes on the node."""
     cs_num = 0
     name = '/usr/bin/csd'
     for process in psutil.process_iter():
-        cmd = process.cmdline()
+        try:
+            cmd = process.cmdline()
+        except psutil.Error:
+            continue
         if not cmd or not cmd[0] == name:
             continue
         cs_num += 1
