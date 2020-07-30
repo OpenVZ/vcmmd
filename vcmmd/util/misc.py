@@ -20,14 +20,16 @@
 # Schaffhausen, Switzerland.
 
 from itertools import chain
-import pprint, json
+import json
+import pprint
 import psutil
 
+
 def print_dict(d, j=False):
-        if j:
-            return json.dumps(d, sort_keys=True,
-                              indent=4, separators=(',', ': '))
-        return pprint.pformat(d)
+    if j:
+        return json.dumps(d, sort_keys=True, indent=4)
+    return pprint.pformat(d)
+
 
 def roundup(v, t):
     return v if (v % t) == 0 else v + t - (v % t)
@@ -37,14 +39,8 @@ def clamp(v, l, h):
     return max(l, min(v, h))
 
 
-def sorted_by_val(d):
-    return sorted(d, key=lambda k: d[k])
-
-
 def parse_range(rng):
-    '''Function produces list of integers which fall in range described in input string
-    i.e. "1-9" -> [1,2,3,4,5,6,7,8,9] or "1" -> [1]
-    '''
+    """Produce list of integers which fall in range described in input string."""
     if not rng or rng.isspace():
         return []
     parts = rng.split('-')
@@ -55,13 +51,11 @@ def parse_range(rng):
     end = start if len(parts) == 1 else parts[1]
     if start > end:
         end, start = start, end
-    return range(start, end + 1)
+    return [i for i in range(start, end + 1)]
 
 
 def parse_range_list(rngs):
-    '''Function produces list of integers which fall in commaseparated range description
-    i.e. "1-3,5,4-8,9" -> [1,2,3,4,5,6,7,8,9]
-    '''
+    """Produce list of integers which fall in comma separated range description."""
     return sorted(set(chain(*[parse_range(rng) for rng in rngs.split(',')])))
 
 
@@ -72,9 +66,7 @@ def get_cs_num():
     for process in psutil.process_iter():
         try:
             cmd = process.cmdline()
-        except psutil.Error:
-            continue
-        if not cmd or not cmd[0] == name:
-            continue
-        cs_num += 1
+            cs_num += cmd and cmd[0] == name
+        except psutil.NoSuchProcess:
+            pass
     return cs_num
