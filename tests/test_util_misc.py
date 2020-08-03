@@ -15,18 +15,6 @@ def test_print_dict(as_json, expected_result):
     assert vcmmd.util.misc.print_dict(input_dict, j=as_json) == expected_result
 
 
-def test_print_dict():
-    d = {'1': 3, 31: False}
-    expected_json = '{\n    "31": false, \n    "1": 3\n}'
-    expected_dict = "{31: False, '1': 3}"
-
-    rv_json = vcmmd.util.misc.print_dict(d, j=True)
-    rv_dict = vcmmd.util.misc.print_dict(d)
-
-    assert rv_json == expected_json
-    assert rv_dict == expected_dict
-
-
 @pytest.mark.parametrize('input,expected_result', [
     ('1-9', [1, 2, 3, 4, 5, 6, 7, 8, 9]),
     ('0-1', [0, 1]),
@@ -82,6 +70,19 @@ def test_get_cs_num_psutil_raises_exception(mock_process_iter):
     pr1 = mock.MagicMock()
     pr2 = mock.MagicMock()
     pr1.cmdline = mock.MagicMock(return_value=['ls'], side_effect=psutil.NoSuchProcess(1, msg='fake_error'))
+    pr2.cmdline = mock.MagicMock(return_value=['/usr/bin/csd'])
+    mock_process_iter.return_value = [pr1, pr2]
+
+    cs_num = vcmmd.util.misc.get_cs_num()
+
+    assert cs_num == 1
+
+
+@mock.patch('psutil.process_iter')
+def test_get_cs_num_psutil_no_cmdline(mock_process_iter):
+    pr1 = mock.MagicMock()
+    pr2 = mock.MagicMock()
+    pr1.cmdline = mock.MagicMock(return_value=[])
     pr2.cmdline = mock.MagicMock(return_value=['/usr/bin/csd'])
     mock_process_iter.return_value = [pr1, pr2]
 
