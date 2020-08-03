@@ -66,7 +66,8 @@ def get_cs_num():
     for process in psutil.process_iter():
         try:
             cmd = process.cmdline()
-            cs_num += cmd and cmd[0] == name
+            if cmd and cmd[0] == name:
+                cs_num += 1
         except psutil.NoSuchProcess:
             pass
     return cs_num
