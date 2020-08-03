@@ -34,7 +34,6 @@ from vcmmd.rpc.dbus.client import RPCProxy
 from vcmmd.util.limits import INT64_MAX
 from vcmmd.util.optparse import OptionWithMemsize
 from vcmmd.util.logging import LOG_LEVELS
-from vcmmd.util.misc import sorted_by_val
 
 
 def _fail(msg, fail=True):
