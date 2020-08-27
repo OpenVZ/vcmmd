@@ -21,7 +21,6 @@
 
 from __future__ import absolute_import
 
-import os
 import logging
 import threading
 import importlib
@@ -30,11 +29,10 @@ from vcmmd.error import (VCMMDError,
                          VCMMD_ERROR_VE_NAME_ALREADY_IN_USE,
                          VCMMD_ERROR_VE_NOT_REGISTERED,
                          VCMMD_ERROR_UNABLE_APPLY_VE_GUARANTEE,
-                         VCMMD_ERROR_TOO_MANY_REQUESTS,
                          VCMMD_ERROR_VE_NOT_ACTIVE,
                          VCMMD_ERROR_POLICY_SET_ACTIVE_VES,
                          VCMMD_ERROR_POLICY_SET_INVALID_NAME)
-from vcmmd.ve_config import VEConfig, DefaultVEConfig, VCMMD_MEMGUARANTEE_AUTO
+from vcmmd.ve_config import DefaultVEConfig, VCMMD_MEMGUARANTEE_AUTO
 from vcmmd.ve_type import VE_TYPE_CT, VE_TYPE_SERVICE
 from vcmmd.config import VCMMDConfig
 from vcmmd.ve import VE

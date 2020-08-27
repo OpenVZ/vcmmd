@@ -28,10 +28,10 @@ from threading import Lock, Thread, Event
 import ctypes
 import json
 
+import vcmmd.util.cpu
 from vcmmd.host import Host
 from vcmmd.config import VCMMDConfig
 from vcmmd.util.misc import print_dict
-from vcmmd.util.cpu_features import get_cpuinfo_features
 from vcmmd.ve_type import VE_TYPE_CT, VE_TYPE_SERVICE
 from vcmmd.cgroup import MemoryCgroup
 from vcmmd.util.limits import INT64_MAX
@@ -330,7 +330,7 @@ class KSMPolicy(Policy):
     '''
     def __init__(self):
         super(KSMPolicy, self).__init__()
-        nested_v = 'hypervisor' in get_cpuinfo_features()
+        nested_v = 'hypervisor' in vcmmd.util.cpu.get_features()
         default = not nested_v
         if not VCMMDConfig().get_bool("LoadManager.Controllers.KSM", default):
             return
@@ -404,6 +404,14 @@ class StoragePolicy(Policy):
             max_cache_size = (512 * max(2, get_cs_num())) << 20
         return max_cache_size
 
+    def _update_vulnerabilities_mitigations(self):
+        vm_ves = [ve for ve in self.get_ves() if ve.VE_TYPE != VE_TYPE_SERVICE]
+        mitigations_enabled = vcmmd.util.cpu.is_vln_mitigations_enabled()
+        if not vm_ves and mitigations_enabled:
+            vcmmd.util.cpu.disable_vln_mitigations()
+        elif vm_ves and not mitigations_enabled:
+            vcmmd.util.cpu.enable_mitigations()
+
     @Policy.controller
     def _storage_controller(self):
         controller_timeout = 60
@@ -415,6 +423,7 @@ class StoragePolicy(Policy):
         cache_limit = VCMMDConfig().get_num('LoadManager.Controllers.StorageCacheLimitTotal', None)
         if cache_limit is None:
             cache_limit = self._get_cache_size()
+        self._update_vulnerabilities_mitigations()
         if not self._update_cgroup(cache_limit):
             controller_timeout = 10
         return controller_timeout
