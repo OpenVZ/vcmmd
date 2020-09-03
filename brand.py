@@ -1,1 +1,1 @@
-PRODUCT_NAME_SHORT="Virtuozzo"
+PRODUCT_NAME_SHORT="Virtuozzo Hybrid Server"
