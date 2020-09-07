@@ -20,9 +20,8 @@
 # Schaffhausen, Switzerland.
 
 from __future__ import absolute_import
-import time
+from multiprocessing.pool import ThreadPool
 
-import logging
 from libvirt import libvirtError
 from libvirt import (VIR_DOMAIN_STATS_BLOCK as STATS_BLOCK,
                      VIR_DOMAIN_STATS_BALLOON as STATS_BALLOON,
@@ -44,6 +43,9 @@ from libvirt import (VIR_DOMAIN_AFFECT_CURRENT as AFFECT_CURRENT,
                      VIR_DOMAIN_AFFECT_LIVE as AFFECT_LIVE,
                      VIR_DOMAIN_AFFECT_CONFIG as AFFECT_CONFIG)
 import psutil
+
+
+_thread_pool = ThreadPool(3)
 
 
 class VMImpl(VEImpl):
@@ -172,7 +174,7 @@ class VMImpl(VEImpl):
         # Update current allocation size by inflating/deflating balloon.
         try:
             # libvirt wants kB
-            self._libvirt_domain.setMemory(value >> 10)
+            _thread_pool.apply_async(self._libvirt_domain.setMemory, (value >> 10,))
         except libvirtError as err:
             raise Error('Failed to set libvirt domain memory size: %s' % err)
 
