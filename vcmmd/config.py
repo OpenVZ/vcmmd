@@ -19,9 +19,10 @@
 # Our contact details: Virtuozzo International GmbH, Vordergasse 59, 8200
 # Schaffhausen, Switzerland.
 
+import collections
 import json
 import logging
-import pprint
+import os
 
 from vcmmd.util.singleton import Singleton
 from vcmmd.util.misc import print_dict
@@ -53,6 +54,15 @@ class VCMMDConfig(object):
         self.logger.info("Loading config from file '%s'", self._filename)
         self._data = self.read()
 
+    def _get_legacy_storage_limits(self):
+        if os.path.isfile('/etc/vz/vstorage-limits.conf'):
+            try:
+                with open('/etc/vz/vstorage-limits.conf') as f:
+                    return json.load(f)
+            except (IOError, ValueError) as err:
+                self.logger.error('Error reading vstorage-limits.conf: %s', err)
+        return {}
+
     def read(self):
         '''Read config from a file.
 
@@ -60,11 +70,19 @@ class VCMMDConfig(object):
         '''
         try:
             with open(self._filename, 'r') as f:
-                return json.load(f)
+                data = json.load(f)
         except IOError as err:
             self.logger.error('Error reading config file: %s', err)
+            return None
         except ValueError as err:
             self.logger.error('Error parsing config file: %s', err)
+            return None
+        limits_config = self._update(
+            self._get_default_limits_config(), self._get_legacy_storage_limits())
+        if 'Limits' in data:
+            limits_config = self._update(limits_config, self._data['Limits'])
+        data['Limits'] = limits_config
+        return data
 
     def dump(self, name, val):
         self._data = self.read()
@@ -87,6 +105,41 @@ class VCMMDConfig(object):
             self.logger.error('Error writing config file: %s', err)
 
         self._cache[name] = val
+
+    @classmethod
+    def _update(cls, d, u):
+        for k, v in u.iteritems():
+            if isinstance(v, collections.Mapping):
+                d[k] = cls._update(d.get(k, {}), v)
+            else:
+                d[k] = v
+        return d
+
+    @staticmethod
+    def _get_default_limits_config():
+        def _expand(min, max, share):
+            return {"Min": min, "Max": max, "Share": share}
+
+        return {
+            "System": {
+                "Path": "system.slice",
+                "Limit": _expand(0, -1, 1),
+                "Guarantee": _expand(320 << 20, 700 << 20, 0.04),
+                "Swap": _expand(0, 0, 0),
+            },
+            "User": {
+                "Path": "user.slice",
+                "Limit": _expand(0, -1, 1),
+                "Guarantee": _expand(32 << 20, 128 << 20, 0.02),
+                "Swap": _expand(0, 0, 0),
+            },
+            "VStorage": {
+                "Path": "vstorage.slice/vstorage-services.slice",
+                "Limit": _expand(0, -1, 0.7),
+                "Guarantee": _expand(0, 0, 0.25),
+                "Swap": _expand(0, 0, 0),
+            },
+        }
 
     def _get(self, name):
         d = self._data
@@ -118,6 +171,7 @@ class VCMMDConfig(object):
         '''
         # First, check if we've already fetched the requested value. If this is
         # the case, bypass any checks and return the cached value.
+        # TODO: replace caching with @lru_cache after upgrading to Py3
         try:
             return self._cache[name]
         except KeyError:

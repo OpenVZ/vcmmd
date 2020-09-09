@@ -375,26 +375,16 @@ class KSMPolicy(Policy):
 class StoragePolicy(Policy):
     """Manages cgroup slice parameters."""
 
-    STORAGE_CONFIG = '/etc/vz/vstorage-limits.conf'
     SELF_NAME = 'VStorage'
-    SLICE_NAME = 'vstorage.slice/vstorage-services.slice'
 
     def __init__(self):
         super(StoragePolicy, self).__init__()
         if not VCMMDConfig().get_bool('LoadManager.Controllers.StoragePolicy', True):
             return
         self.controllers.add(self._storage_controller)
-        self.storage_config = {'Path': self.SLICE_NAME}
-        try:
-            self.storage_config.update(self._read_config())
-        except Exception as e:
-            self.logger.error('Failed to read vstorage config(): %s' % e)
+        self.storage_config = VCMMDConfig().get('Limits', default={}).get(self.SELF_NAME, {})
         self._service_path = os.path.join('/sys/fs/cgroup/memory', self.storage_config['Path'])
-        self._memcgp = MemoryCgroup(self.SLICE_NAME)
-
-    def _read_config(self):
-        with open(self.STORAGE_CONFIG) as f:
-            return json.load(f).get(self.SELF_NAME, {})
+        self._memcgp = MemoryCgroup(self.storage_config['Path'])
 
     def _get_cache_size(self):
         max_cache_size = max(int(2 * self.host.ve_mem / 3), self.host.ve_mem - (32 << 30))
@@ -417,7 +407,7 @@ class StoragePolicy(Policy):
         controller_timeout = 60
         if not os.path.isdir(self._service_path):
             return controller_timeout
-        if not any(ve.name == self.SLICE_NAME for ve in self.get_ves()):
+        if not any(ve.name == self.storage_config['Path'] for ve in self.get_ves()):
             self.logger.info('Storage is not registered')
             return controller_timeout
         cache_limit = VCMMDConfig().get_num('LoadManager.Controllers.StorageCacheLimitTotal', None)

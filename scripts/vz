@@ -52,6 +52,7 @@ from vcmmd.error import VCMMDError, VCMMD_ERROR_VE_NAME_ALREADY_IN_USE
 from vcmmd.ve.ct import _lookup_cgroup
 from vcmmd.cgroup import MemoryCgroup
 from vcmmd.util.libvirt import virDomainProxy
+from vcmmd.config import VCMMDConfig
 from libvirt import libvirtError
 
 PAGE_SIZE = os.sysconf('SC_PAGESIZE')
@@ -69,26 +70,6 @@ DEFAULT_GUARANTEE = {
     VE_TYPE_VM_LINUX: 40,
     VE_TYPE_VM_WINDOWS: 40,
 }
-
-def _get_default_config():
-
-    def _expand(min, max, share):
-        return {"Min": min, "Max": max, "Share": share}
-
-    return {
-        "System": {
-            "Path": "system.slice",
-            "Limit": _expand(0, -1, 1),
-            "Guarantee": _expand(320 << 20, 700 << 20, 0.04),
-            "Swap": _expand(0, 0, 0),
-        },
-        "User": {
-            "Path": "user.slice",
-            "Limit": _expand(0, -1, 1),
-            "Guarantee": _expand(32 << 20, 128 << 20, 0.02),
-            "Swap": _expand(0, 0, 0),
-        }
-    }
 
 is_avail_prlsdkapi = True
 try:
@@ -121,18 +102,17 @@ for wait in xrange(120):
 
 proxy = RPCProxy()
 
+cfg = VCMMDConfig('/etc/vz/vcmmd.conf')
+cfg.load()
+
 # Services must be activated first
 cgroup_path = '/sys/fs/cgroup/memory/%s'
-config_filename = '/etc/vz/vstorage-limits.conf'
 known_params = {'Limit', 'Guarantee', 'Swap', 'Path'}
 
 svs_exc_info = None
 try:
-    config = _get_default_config()
-    with open(config_filename) as f:
-        config.update(json.loads(f.read()))
     to_register = []
-    for name, service in config.iteritems():
+    for name, service in cfg.get('Limits', default={}).iteritems():
         #VStorage config may exist without Path for backward compatibility
         if 'Path' not in service and name == 'VStorage':
             service['Path'] = 'vstorage.slice/vstorage-services.slice'
