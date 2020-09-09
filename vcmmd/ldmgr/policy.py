@@ -410,7 +410,7 @@ class StoragePolicy(Policy):
         if not vm_ves and mitigations_enabled:
             vcmmd.util.cpu.disable_vln_mitigations()
         elif vm_ves and not mitigations_enabled:
-            vcmmd.util.cpu.enable_mitigations()
+            vcmmd.util.cpu.enable_vln_mitigations()
 
     @Policy.controller
     def _storage_controller(self):
