@@ -397,7 +397,7 @@ class StoragePolicy(Policy):
     def _update_vulnerabilities_mitigations(self):
         vm_ves = [ve for ve in self.get_ves() if ve.VE_TYPE != VE_TYPE_SERVICE]
         mitigations_enabled = vcmmd.util.cpu.is_vln_mitigations_enabled()
-        if not vm_ves and mitigations_enabled:
+        if not vm_ves and mitigations_enabled and VCMMDConfig().get_bool('EnableMitigationsManagement', True):
             vcmmd.util.cpu.disable_vln_mitigations()
         elif vm_ves and not mitigations_enabled:
             vcmmd.util.cpu.enable_vln_mitigations()
