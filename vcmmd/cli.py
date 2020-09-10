@@ -228,7 +228,8 @@ def _handle_list(args):
     proxy = RPCProxy()
     ve_list = proxy.get_all_registered_ves()
 
-    fmt = '%-36s %6s %6s %{0}s %{0}s %{0}s'.format(11 if options.bytes else 9)
+    name_len = max(len(ve[0]) for ve in ve_list)
+    fmt = '%-{0}s %6s %6s %{1}s %{1}s %{1}s'.format(name_len, 11 if options.bytes else 9)
     print fmt % ('name', 'type', 'active', 'guarantee', 'limit', 'swap')
     for ve_name, ve_type, ve_active, ve_config in sorted(ve_list):
         try:
