@@ -33,7 +33,8 @@ from vcmmd.error import (VCMMDError,
                          VCMMD_ERROR_POLICY_SET_ACTIVE_VES,
                          VCMMD_ERROR_POLICY_SET_INVALID_NAME)
 from vcmmd.ve_config import DefaultVEConfig, VCMMD_MEMGUARANTEE_AUTO
-from vcmmd.ve_type import VE_TYPE_CT, VE_TYPE_SERVICE
+from vcmmd.ve_type import (VE_TYPE_CT, VE_TYPE_VM, VE_TYPE_VM_LINUX,
+                           VE_TYPE_VM_WINDOWS, VE_TYPE_SERVICE)
 from vcmmd.config import VCMMDConfig
 from vcmmd.ve import VE
 from vcmmd.host import Host
@@ -157,6 +158,9 @@ class LoadManager(object):
                 raise VCMMDError(VCMMD_ERROR_VE_NOT_REGISTERED)
             if not ve.active:
                 raise VCMMDError(VCMMD_ERROR_VE_NOT_ACTIVE)
+
+            if ve.VE_TYPE in (VE_TYPE_VM, VE_TYPE_VM_LINUX, VE_TYPE_VM_LINUX):
+                ve._get_obj()._update_cgroups()
 
             ve_config.complete(ve.config)
             if ve.VE_TYPE not in (VE_TYPE_CT, VE_TYPE_SERVICE) and \

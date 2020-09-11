@@ -59,6 +59,19 @@ class VMImpl(VEImpl):
         except libvirtError as err:
             raise Error('Failed to lookup libvirt domain: %s' % err)
 
+        self.pid = -1
+        self._update_cgroups()
+
+    def _update_cgroups(self):
+        try:
+            pid = lookup_qemu_machine_pid(self._libvirt_domain.name())
+        except EnvironmentError as err:
+            raise Error('Failed to lookup machine pid: %s' % err)
+
+        if self.pid == pid:
+            return
+        self.pid = pid
+
         # libvirt places every virtual machine in its own cgroup
         try:
             cgroup = lookup_qemu_machine_cgroup(self._libvirt_domain.name())
@@ -84,11 +97,6 @@ class VMImpl(VEImpl):
 
         for vcpu in range(max_vcpus):
             self._vcpucg[vcpu] = CpuSetCgroup(vcpu_path % vcpu)
-
-        try:
-            self.pid = lookup_qemu_machine_pid(self._libvirt_domain.name())
-        except EnvironmentError as err:
-            raise Error('Failed to lookup machine pid: %s' % err)
 
     def get_rss(self):
         try:
