@@ -385,6 +385,7 @@ class StoragePolicy(Policy):
         self.storage_config = VCMMDConfig().get('Limits', default={}).get(self.SELF_NAME, {})
         self._service_path = os.path.join('/sys/fs/cgroup/memory', self.storage_config['Path'])
         self._memcgp = MemoryCgroup(self.storage_config['Path'])
+        self._update_vulnerabilities_mitigations()
 
     def _get_cache_size(self):
         max_cache_size = max(int(2 * self.host.ve_mem / 3), self.host.ve_mem - (32 << 30))
@@ -397,10 +398,15 @@ class StoragePolicy(Policy):
     def _update_vulnerabilities_mitigations(self):
         vm_ves = [ve for ve in self.get_ves() if ve.VE_TYPE != VE_TYPE_SERVICE]
         mitigations_enabled = vcmmd.util.cpu.is_vln_mitigations_enabled()
-        if not vm_ves and mitigations_enabled and VCMMDConfig().get_bool('EnableMitigationsManagement', True):
-            vcmmd.util.cpu.disable_vln_mitigations()
-        elif vm_ves and not mitigations_enabled:
+        management_enabled = VCMMDConfig().get_bool('EnableMitigationsManagement', True)
+        if not management_enabled and not mitigations_enabled:
             vcmmd.util.cpu.enable_vln_mitigations()
+            return
+        if management_enabled:
+            if not vm_ves and mitigations_enabled:
+                vcmmd.util.cpu.disable_vln_mitigations()
+            elif vm_ves and not mitigations_enabled:
+                vcmmd.util.cpu.enable_vln_mitigations()
 
     @Policy.controller
     def _storage_controller(self):
