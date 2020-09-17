@@ -33,6 +33,7 @@ setup(name='vcmmd',
                   ('/etc/logrotate.d', ['logrotate/vcmmd']),
                   ('/etc/vz', ['vcmmd.conf', 'vstorage-limits.conf']),
                   ('/etc/vz/vcmmd.d', ['scripts/vz']),
+                  ('/usr/lib/tmpfiles.d/', ['vcmmd-tmpfiles.conf']),
                   (systemd_unitdir, ['systemd/%s' % servicefile])],
       scripts=['bin/vcmmd', 'bin/vcmmdctl'])
 
