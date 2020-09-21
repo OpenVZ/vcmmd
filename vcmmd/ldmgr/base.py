@@ -159,7 +159,7 @@ class LoadManager(object):
             if not ve.active:
                 raise VCMMDError(VCMMD_ERROR_VE_NOT_ACTIVE)
 
-            if ve.VE_TYPE in (VE_TYPE_VM, VE_TYPE_VM_LINUX, VE_TYPE_VM_LINUX):
+            if ve.VE_TYPE in (VE_TYPE_VM, VE_TYPE_VM_LINUX, VE_TYPE_VM_WINDOWS):
                 ve._get_obj()._update_cgroups()
 
             ve_config.complete(ve.config)
