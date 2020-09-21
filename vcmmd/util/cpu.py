@@ -53,7 +53,9 @@ def get_vln_mitigations():
     mitigations = {}
     for vln in _VLN_LIST:
         with open(_vln_mit_path(vln)) as fp:
-            mitigations[vln] = int(fp.read())
+            mit = int(fp.read())
+            if mit:
+                mitigations[vln] = mit
     return mitigations
 
 
@@ -77,7 +79,7 @@ def disable_vln_mitigations():
     if not os.path.isfile(_VLN_STORE_FILEPATH):
         with open(_VLN_STORE_FILEPATH, 'w') as fp:
             json.dump(mitigations, fp)
-    for vln, mitigation in mitigations.items():
+    for vln in mitigations.keys():
         _set_vln_mitigation(vln, 0)
 
 
