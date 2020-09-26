@@ -238,8 +238,7 @@ for vm in vm_list:
             continue
         raise
 
-    if state == consts.VMS_RUNNING:
-        proxy.activate_ve(uuid, 0)
+    proxy.activate_ve(uuid, 0)
 
 if svs_exc_info is not None:
     exc_class, exc, tb = svs_exc_info
