@@ -74,6 +74,7 @@ class Policy(object):
         self.counts = {}
         self.stop = Event()
         self.controllers_threads = []
+        self._update_vulnerabilities_mitigations()
 
     @staticmethod
     def controller(f):
@@ -116,12 +117,14 @@ class Policy(object):
             if ve not in self.__ve_data:
                 self.__ve_data[ve] = {}
         ve.set_mem(ve.config.limit, ve.mem_min)
+        self._update_vulnerabilities_mitigations()
 
     def ve_deactivated(self, ve):
         """Called before a VE gets unregistered."""
         with self.__ve_data_lock:
             if ve in self.__ve_data:
                 del self.__ve_data[ve]
+        self._update_vulnerabilities_mitigations()
 
     def ve_unregistered(self, ve):
         """Called right after a VE gets deactivated."""
@@ -175,6 +178,19 @@ class Policy(object):
 
         os.close(efd)
         self.host.log_info('"Low memory" watchdog stopped(msg="%s").' % err)
+
+    def _update_vulnerabilities_mitigations(self):
+        vm_ves = [ve for ve in self.get_ves() if ve.VE_TYPE != VE_TYPE_SERVICE]
+        mitigations_enabled = vcmmd.util.cpu.is_vln_mitigations_enabled()
+        management_enabled = VCMMDConfig().get_bool('EnableMitigationsManagement', True)
+        if not management_enabled and not mitigations_enabled:
+            vcmmd.util.cpu.enable_vln_mitigations()
+            return
+        if management_enabled:
+            if not vm_ves and mitigations_enabled:
+                vcmmd.util.cpu.disable_vln_mitigations()
+            elif vm_ves and not mitigations_enabled:
+                vcmmd.util.cpu.enable_vln_mitigations()
 
 
 class BalloonPolicy(Policy):
@@ -385,7 +401,6 @@ class StoragePolicy(Policy):
         self.storage_config = VCMMDConfig().get('Limits', default={}).get(self.SELF_NAME, {})
         self._service_path = os.path.join('/sys/fs/cgroup/memory', self.storage_config['Path'])
         self._memcgp = MemoryCgroup(self.storage_config['Path'])
-        self._update_vulnerabilities_mitigations()
 
     def _get_cache_size(self):
         max_cache_size = max(int(2 * self.host.ve_mem / 3), self.host.ve_mem - (32 << 30))
@@ -394,19 +409,6 @@ class StoragePolicy(Policy):
         if len(all_ves) - len(service_ves) > 0:
             max_cache_size = (512 * max(2, get_cs_num())) << 20
         return max_cache_size
-
-    def _update_vulnerabilities_mitigations(self):
-        vm_ves = [ve for ve in self.get_ves() if ve.VE_TYPE != VE_TYPE_SERVICE]
-        mitigations_enabled = vcmmd.util.cpu.is_vln_mitigations_enabled()
-        management_enabled = VCMMDConfig().get_bool('EnableMitigationsManagement', True)
-        if not management_enabled and not mitigations_enabled:
-            vcmmd.util.cpu.enable_vln_mitigations()
-            return
-        if management_enabled:
-            if not vm_ves and mitigations_enabled:
-                vcmmd.util.cpu.disable_vln_mitigations()
-            elif vm_ves and not mitigations_enabled:
-                vcmmd.util.cpu.enable_vln_mitigations()
 
     @Policy.controller
     def _storage_controller(self):
@@ -419,7 +421,6 @@ class StoragePolicy(Policy):
         cache_limit = VCMMDConfig().get_num('LoadManager.Controllers.StorageCacheLimitTotal', None)
         if cache_limit is None:
             cache_limit = self._get_cache_size()
-        self._update_vulnerabilities_mitigations()
         if not self._update_cgroup(cache_limit):
             controller_timeout = 10
         return controller_timeout
