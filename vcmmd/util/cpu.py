@@ -89,5 +89,6 @@ def enable_vln_mitigations():
         with open(_VLN_STORE_FILEPATH) as fp:
             mitigations = json.load(fp)
         for vln, mitigation in mitigations.items():
-            _set_vln_mitigation(vln, mitigation)
+            if mitigation:
+                _set_vln_mitigation(vln, mitigation)
         os.remove(_VLN_STORE_FILEPATH)
