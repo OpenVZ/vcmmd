@@ -77,10 +77,10 @@ class VCMMDConfig(object):
         except ValueError as err:
             self.logger.error('Error parsing config file: %s', err)
             return None
-        limits_config = self._update(
-            self._get_default_limits_config(), self._get_legacy_storage_limits())
+        limits_config = self._get_default_limits_config()
         if 'Limits' in data:
-            limits_config = self._update(limits_config, self._data['Limits'])
+            limits_config = self._update(limits_config, data['Limits'])
+        limits_config = self._update(limits_config, self._get_legacy_storage_limits())
         data['Limits'] = limits_config
         return data
 
