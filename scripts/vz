@@ -110,6 +110,7 @@ cfg.load()
 cgroup_path = '/sys/fs/cgroup/memory/%s'
 known_params = {'Limit', 'Guarantee', 'Swap', 'Path'}
 
+total_mem = psutil.virtual_memory().total
 svs_exc_info = None
 try:
     to_register = []
@@ -129,7 +130,6 @@ try:
         # PSBM-89802
         os.system("echo 0 > %s/memory.swappiness" % service_path)
         #read config for limit, guarantee and swap
-        total_mem = psutil.virtual_memory().total
         kv = {}
         unknown_params = set(service.iterkeys()) - known_params
         if unknown_params:
@@ -151,9 +151,12 @@ try:
     for service in to_register:
         proxy.register_ve(service[0], VE_TYPE_SERVICE, service[1], 0)
         proxy.activate_ve(service[0], 0)
-    user_slice_cache_limit = psutil.virtual_memory().total
     if cfg.get_bool('EnableUserCacheLimits', True):
-        user_slice_cache_limit = min(user_slice_cache_limit / 10, 10 * (1 << 30))
+        user_slice_cache_limit = cfg.get_num('LoadManager.UserCacheLimitTotal', None)
+        if user_slice_cache_limit is None:
+            user_slice_cache_limit = min(total_mem // 10, 10 * (1 << 30))
+    else:
+        user_slice_cache_limit = total_mem
     cache_limit_path = os.path.join(cgroup_path % 'user.slice', 'memory.cache.limit_in_bytes')
     with open(cache_limit_path, 'w') as fp:
         fp.write(str(user_slice_cache_limit))
