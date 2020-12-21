@@ -220,12 +220,12 @@ class _LoadManagerObject(dbus.service.Object):
             return self.ldmgr.get_config(full_config)
         return GetConfig(self, full_config)
 
-    @dbus.service.method(IFACE, in_signature='b', out_signature='s')
-    def GetPolicyCounts(self, j):
+    @dbus.service.method(IFACE, in_signature='', out_signature='s')
+    def GetPolicyCounts(self):
         @self._log
-        def GetPolicyCounts(self, j):
-            return self.ldmgr.get_policy_counts(j)
-        return GetPolicyCounts(self, j)
+        def GetPolicyCounts(self):
+            return self.ldmgr.get_policy_counts()
+        return GetPolicyCounts(self)
 
     @dbus.service.method(IFACE, in_signature='', out_signature='ia(sx)')
     def GetStats(self, ve_name):

@@ -80,11 +80,11 @@ class RPCProxy(object):
         if err:
             raise VCMMDError(err)
 
-    def get_config(self, j):
-        return self._iface.GetConfig(j)
+    def get_config(self, full_config):
+        return self._iface.GetConfig(full_config)
 
-    def get_policy_counts(self, j):
-        return self._iface.GetPolicyCounts(j)
+    def get_policy_counts(self):
+        return self._iface.GetPolicyCounts()
 
     def get_stats(self, ve):
         err, stats = self._iface.GetStats(ve)
