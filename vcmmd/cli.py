@@ -84,7 +84,7 @@ def _ve_config_from_options(options):
 
 
 def _handle_register(args):
-    parser = OptionParser('Usage: %%prog register {%s} <VE name> [options]' %
+    parser = OptionParser('Usage: %prog register {%s} <VE name> [options]' %
                           '|'.join(get_all_ve_type_names()),
                           description='Register a VE with the VCMMD service.',
                           option_class=OptionWithMemsize)
@@ -244,7 +244,7 @@ def _handle_list(args):
 
 
 def _handle_log_level(args):
-    parser = OptionParser('Usage: %%prog set-log-level {%s}' %
+    parser = OptionParser('Usage: %prog set-log-level {%s}' %
                           '|'.join(sorted(LOG_LEVELS, key=lambda x:x[1])),
                           description='Set VCMMD logging level.')
 
@@ -264,7 +264,7 @@ def _handle_log_level(args):
 
 
 def _handle_current_policy(args):
-    parser = OptionParser('Usage: %%prog current-policy [--file]',
+    parser = OptionParser('Usage: %prog current-policy [--file]',
                           description='Print current VCMMD policy.')
 
     parser.add_option('-f', '--file', action='store_true', dest='file',
@@ -281,7 +281,7 @@ def _handle_current_policy(args):
 
 
 def _handle_switch_policy(args):
-    parser = OptionParser('Usage: %%prog switch-policy policy-name',
+    parser = OptionParser('Usage: %prog switch-policy policy-name',
                           description='Switch current VCMMD policy.')
 
     (options, args) = parser.parse_args(args)
@@ -295,7 +295,7 @@ def _handle_switch_policy(args):
 
 
 def _handle_policy_counts(args):
-    parser = OptionParser('Usage: %%prog policy-count',
+    parser = OptionParser('Usage: %prog policy-count',
                           description='Print policy counts.')
     _, args = parser.parse_args(args)
     if len(args) > 0:
@@ -304,7 +304,7 @@ def _handle_policy_counts(args):
 
 
 def _handle_get_config(args):
-    parser = OptionParser('Usage: %%prog config',
+    parser = OptionParser('Usage: %prog config',
                           description='Print current VCMMD config.')
     parser.add_option('-f', action='store_true',
                       help='print full configuration with default values')
@@ -329,7 +329,7 @@ def _handle_get_format_stats(parser, args, prettify):
 
 
 def _handle_get_stats(args):
-    parser = OptionParser('Usage: %%prog stats [VE] ...',
+    parser = OptionParser('Usage: %prog stats [VE] ...',
                           description='Print statistics for the specified VEs '
                           'or for all registered VEs if arguments are omitted.')
     _handle_get_format_stats(parser, args,
@@ -337,7 +337,7 @@ def _handle_get_stats(args):
 
 
 def _handle_get_missing_stats(args):
-    parser = OptionParser('Usage: %%prog stats [VE] ...',
+    parser = OptionParser('Usage: %prog stats [VE] ...',
                           description='Print missing statistics for the '
                           'specified VEs or for all registered VEs if '
                           'arguments are omitted.')
@@ -346,7 +346,7 @@ def _handle_get_missing_stats(args):
 
 
 def _handle_free(args):
-    parser = OptionParser('Usage: %%prog free',
+    parser = OptionParser('Usage: %prog free',
                           description='Print current memory usage.',
                           conflict_handler='resolve')
     _add_memval_config_options(parser)
