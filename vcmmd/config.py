@@ -19,13 +19,12 @@
 # Our contact details: Virtuozzo International GmbH, Vordergasse 59, 8200
 # Schaffhausen, Switzerland.
 
-import collections
 import json
 import logging
 import os
+import copy
 
 from vcmmd.util.singleton import Singleton
-from vcmmd.util.misc import print_dict
 
 
 class VCMMDConfig(object):
@@ -107,13 +106,31 @@ class VCMMDConfig(object):
         self._cache[name] = val
 
     @classmethod
-    def _update(cls, d, u):
-        for k, v in u.iteritems():
-            if isinstance(v, collections.Mapping):
-                d[k] = cls._update(d.get(k, {}), v)
+    def _update(cls, a_dict, b_dict):
+        """
+        Update a_dict with b_dict values hierarchically.
+        """
+        for k, v in b_dict.items():
+            if isinstance(v, dict):
+                a_dict[k] = cls._update(a_dict.get(k, {}), v)
             else:
-                d[k] = v
-        return d
+                a_dict[k] = v
+        return a_dict
+
+    @classmethod
+    def _exclude(cls, a_dict, b_dict):
+        """
+        Remove from a_dict items storing under the same hierarchy in b_dict and having the same value.
+        """
+        for k, v in a_dict.items():
+            if k in b_dict:
+                if isinstance(b_dict[k], dict) and isinstance(a_dict[k], dict):
+                    cls._exclude(a_dict[k], b_dict[k])
+                    if not a_dict[k]:
+                        del a_dict[k]
+                else:
+                    if v == b_dict[k]:
+                        del a_dict[k]
 
     @staticmethod
     def _get_default_limits_config():
@@ -230,7 +247,7 @@ class VCMMDConfig(object):
                                  (tuple(choices), str(val)))
         return self.get(name, default, checkfn)
 
-    def report(self, j=False):
+    def _make_config(self):
         cfg_dict = {}
         for name in self._cache:
             x = cfg_dict
@@ -242,5 +259,13 @@ class VCMMDConfig(object):
                     x[section] = {}
                 x = x[section]
             x[key] = self._cache[name]
+        return cfg_dict
 
-        return print_dict(cfg_dict, j)
+    def report(self, full_config=False):
+        config = copy.deepcopy(self._make_config())
+        if not full_config and 'Limits' in config:
+            default_limits = self._get_default_limits_config()
+            self._exclude(config['Limits'], default_limits)
+            if not config['Limits']:
+                del config['Limits']
+        return json.dumps(config)
