@@ -21,6 +21,7 @@
 
 from __future__ import absolute_import
 
+import json
 import sys
 from optparse import OptionParser
 from dbus import DBusException
@@ -304,16 +305,19 @@ def _handle_policy_counts(args):
 
     print RPCProxy().get_policy_counts(bool(options.j))
 
+
 def _handle_get_config(args):
     parser = OptionParser('Usage: %%prog config',
                           description='Print current VCMMD config.')
-    _add_json_format_option(parser)
-
-    (options, args) = parser.parse_args(args)
+    parser.add_option('-f', action='store_true',
+                      help='print full configuration with default values')
+    options, args = parser.parse_args(args)
     if len(args) > 0:
         parser.error('superfluous arguments')
 
-    print RPCProxy().get_config(bool(options.j))
+    config = RPCProxy().get_config(bool(options.f))
+    print(json.dumps(json.loads(config), sort_keys=True, indent=4))
+
 
 def _handle_get_format_stats(parser, args, prettify):
     (options, args) = parser.parse_args(args)

@@ -262,8 +262,8 @@ class LoadManager(object):
                 'swap': swap,
                 'available': available}
 
-    def get_config(self, j):
-        return VCMMDConfig().report(j)
+    def get_config(self, full_config=False):
+        return VCMMDConfig().report(full_config)
 
     def get_policy_counts(self, j):
         return self._policy.report(j)
