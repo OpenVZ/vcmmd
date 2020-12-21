@@ -40,8 +40,12 @@ from vcmmd.util.logging import LOG_LEVELS
 def _fail(msg, fail=True):
     sys.stderr.write(msg)
     sys.stderr.write('\n')
-    if(fail):
+    if fail:
         sys.exit(1)
+
+
+def _print_json(json_string):
+    print(json.dumps(json.loads(json_string), sort_keys=True, indent=4))
 
 
 def _add_ve_config_options(parser):
@@ -66,11 +70,6 @@ def _add_memval_config_options(parser):
                       help='show human-readable output')
     parser.add_option('--si', action='store_true',
                       help='use powers of 1000 not 1024')
-
-
-def _add_json_format_option(parser):
-    parser.add_option('-j', action='store_true',
-                      help='json format output')
 
 
 def _ve_config_from_options(options):
@@ -294,16 +293,14 @@ def _handle_switch_policy(args):
 
     RPCProxy().switch_policy(args[0])
 
+
 def _handle_policy_counts(args):
     parser = OptionParser('Usage: %%prog policy-count',
                           description='Print policy counts.')
-    _add_json_format_option(parser)
-
-    (options, args) = parser.parse_args(args)
+    _, args = parser.parse_args(args)
     if len(args) > 0:
         parser.error('superfluous arguments')
-
-    print RPCProxy().get_policy_counts(bool(options.j))
+    _print_json(RPCProxy().get_policy_counts())
 
 
 def _handle_get_config(args):
@@ -314,9 +311,7 @@ def _handle_get_config(args):
     options, args = parser.parse_args(args)
     if len(args) > 0:
         parser.error('superfluous arguments')
-
-    config = RPCProxy().get_config(bool(options.f))
-    print(json.dumps(json.loads(config), sort_keys=True, indent=4))
+    _print_json(RPCProxy().get_config(bool(options.f)))
 
 
 def _handle_get_format_stats(parser, args, prettify):
@@ -411,6 +406,7 @@ def main():
         _fail('VCMMD returned error: %s' % err)
     except DBusException as err:
         _fail('Failed to connect to VCMMD: %s' % err)
+
 
 if __name__ == "__main__":
     main()

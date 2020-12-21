@@ -265,5 +265,5 @@ class LoadManager(object):
     def get_config(self, full_config=False):
         return VCMMDConfig().report(full_config)
 
-    def get_policy_counts(self, j):
-        return self._policy.report(j)
+    def get_policy_counts(self):
+        return self._policy.report()

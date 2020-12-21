@@ -31,7 +31,6 @@ import json
 import vcmmd.util.cpu
 from vcmmd.host import Host
 from vcmmd.config import VCMMDConfig
-from vcmmd.util.misc import print_dict
 from vcmmd.ve_type import VE_TYPE_CT, VE_TYPE_SERVICE
 from vcmmd.cgroup import MemoryCgroup
 from vcmmd.util.limits import INT64_MAX
@@ -143,8 +142,8 @@ class Policy(object):
         for thread in self.controllers_threads:
             thread.start()
 
-    def report(self, j=False):
-        return print_dict(self.counts, j)
+    def report(self):
+        return json.dumps(self.counts)
 
     def shutdown(self):
         self.stop.set()
