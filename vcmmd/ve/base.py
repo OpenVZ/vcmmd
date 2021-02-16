@@ -28,12 +28,15 @@ from vcmmd.error import (VCMMDError,
                          VCMMD_ERROR_VE_ALREADY_ACTIVE,
                          VCMMD_ERROR_VE_NOT_ACTIVE,
                          VCMMD_ERROR_VE_OPERATION_FAILED)
-from vcmmd.ve_type import get_ve_type_name
 from vcmmd.util.stats import Stats
 from vcmmd.numa import Numa as AbsNuma
 from vcmmd.env import Env
 from vcmmd.util.threading import update_stats_single
-from vcmmd.ve_type import VE_TYPE_CT
+from vcmmd.ve_type import (get_ve_type_name,
+                           VE_TYPE_CT,
+                           VE_TYPE_VM_LINUX,
+                           VE_TYPE_VM_WINDOWS,
+                           VE_TYPE_VM)
 
 
 class Error(Exception):
@@ -286,7 +289,9 @@ class VE(Env):
         msg = ''
         try:
             obj = self._get_obj()
-            if target is not None:
+            vm_types = (VE_TYPE_VM_LINUX, VE_TYPE_VM_WINDOWS, VE_TYPE_VM)
+            # Don't set target memory for VM's because libvirt manages it
+            if target and obj.VE_TYPE not in vm_types:
                 obj.set_mem_target(target)
                 msg = 'target:%d ' % target
             if protection is not None:
