@@ -26,11 +26,11 @@ from vcmmd.ldmgr.policy import (BalloonPolicy,
                                 KSMPolicy as AbsKsmPolicy,
                                 StoragePolicy)
 
-
 class KsmPolicy(AbsKsmPolicy):
-    ''' VCMMD in conflict with ksmtuned, so this base KSM policy,
-        mostly "copycat" ksmtuned
-    '''
+    """
+    VCMMD in conflict with ksmtuned, so this base KSM policy,
+    mostly "copycat" ksmtuned.
+    """
     def update_ksm_stats(self):
         self.host.update_stats()
         self.host.log_debug('update stats: %s', self.host.stats)
@@ -70,11 +70,12 @@ class KsmPolicy(AbsKsmPolicy):
         return params
 
 
-class NoOpPolicy(KsmPolicy, BalloonPolicy, StoragePolicy):
-    '''No Operation load manager policy.
+class Density(KsmPolicy, BalloonPolicy, StoragePolicy):
+    """
+    Density load manager policy.
 
     Set memory quotas to configured limits and let the host kernel do the rest.
     This will only work satisfactory if the host kernel can reclaim memory from
     VEs effectively and is smart enough to detect a VE's working set by itself.
-    '''
+    """
     pass
