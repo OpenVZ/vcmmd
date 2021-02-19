@@ -42,7 +42,7 @@ from vcmmd.host import Host
 
 class LoadManager(object):
 
-    FALLBACK_POLICY = 'NoOpPolicy'
+    FALLBACK_POLICY = 'Density'
 
     def __init__(self):
         self.logger = logging.getLogger('vcmmd.ldmgr')
