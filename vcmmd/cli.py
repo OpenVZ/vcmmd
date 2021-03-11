@@ -226,19 +226,19 @@ def _handle_list(args):
     proxy = RPCProxy()
     ve_list = proxy.get_all_registered_ves()
 
-    name_len = max(len(ve[0]) for ve in ve_list)
-    fmt = '%-{0}s %6s %6s %{1}s %{1}s %{1}s'.format(name_len, 11 if options.bytes else 9)
+    max_name_len = max(len(ve[0]) for ve in ve_list) if ve_list else 12
+    fmt = '%-{0}s %6s %6s %{1}s %{1}s %{1}s'.format(max_name_len, 11 if options.bytes else 9)
     print(fmt % ('name', 'type', 'active', 'guarantee', 'limit', 'swap'))
     for ve_name, ve_type, ve_active, ve_config in sorted(ve_list):
         try:
             ve_type_name = get_ve_type_name(ve_type)
         except KeyError:
             ve_type_name = '?'
-        print(fmt.format(ve_name, ve_type_name,
-                         'yes' if ve_active else 'no',
-                         _str_memval(ve_config.guarantee, options),
-                         _str_memval(ve_config.limit, options),
-                         _str_memval(ve_config.swap, options)))
+        print(fmt % (ve_name, ve_type_name,
+                     'yes' if ve_active else 'no',
+                     _str_memval(ve_config.guarantee, options),
+                     _str_memval(ve_config.limit, options),
+                     _str_memval(ve_config.swap, options)))
 
 
 def _handle_log_level(args):
