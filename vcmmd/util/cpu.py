@@ -55,10 +55,13 @@ def get_vln_mitigations():
     """Return known vulnerabilities mitigations."""
     mitigations = {}
     for vln in _VLN_LIST:
-        with open(_vln_mit_path(vln)) as fp:
-            mit = int(fp.read())
-            if mit:
-                mitigations[vln] = mit
+        try:
+            with open(_vln_mit_path(vln)) as fp:
+                mit = int(fp.read())
+                if mit:
+                    mitigations[vln] = mit
+        except IOError:
+            pass
     return mitigations
 
 
