@@ -160,7 +160,7 @@ try:
             user_slice_cache_limit = min(total_mem // 10, 10 * (1 << 30))
     else:
         user_slice_cache_limit = total_mem
-    cache_limit_path = os.path.join(cgroup_path % 'user.slice', 'memory.cache.limit_in_bytes')
+    cache_limit_path = os.path.join(cgroup_path.format('user.slice'), 'memory.cache.limit_in_bytes')
     with open(cache_limit_path, 'w') as fp:
         fp.write(str(user_slice_cache_limit))
 except Exception as e:
