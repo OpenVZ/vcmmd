@@ -242,8 +242,8 @@ def _handle_list(args):
 
 
 def _handle_log_level(args):
-    parser = OptionParser('Usage: %prog set-log-level {%s}' %
-                          '|'.join(sorted(LOG_LEVELS, key=lambda x:x[1])),
+    log_levels = '|'.join(sorted(LOG_LEVELS, key=LOG_LEVELS.get))
+    parser = OptionParser('Usage: %prog set-log-level {}'.format(log_levels),
                           description='Set VCMMD logging level.')
 
     (options, args) = parser.parse_args(args)
