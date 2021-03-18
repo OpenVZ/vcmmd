@@ -84,8 +84,8 @@ def _ve_config_from_options(options):
 
 
 def _handle_register(args):
-    parser = OptionParser('Usage: %prog register {%s} <VE name> [options]' %
-                          '|'.join(get_all_ve_type_names()),
+    parser = OptionParser('Usage: %prog register {{{}}} <VE name> '
+                          '[options]'.format('|'.join(get_all_ve_type_names())),
                           description='Register a VE with the VCMMD service.',
                           option_class=OptionWithMemsize)
     _add_ve_config_options(parser)
@@ -244,8 +244,8 @@ def _handle_list(args):
 
 
 def _handle_log_level(args):
-    parser = OptionParser('Usage: %prog set-log-level {%s}' %
-                          '|'.join(sorted(LOG_LEVELS, key=lambda x:x[1])),
+    log_levels = '|'.join(sorted(LOG_LEVELS, key=LOG_LEVELS.get))
+    parser = OptionParser('Usage: %prog set-log-level {}'.format(log_levels),
                           description='Set VCMMD logging level.')
 
     (options, args) = parser.parse_args(args)
