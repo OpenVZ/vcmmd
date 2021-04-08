@@ -125,6 +125,11 @@ def lookup_qemu_machine_pid(name):
 
         if not cmd or not cmd[0].endswith('qemu-kvm'):
             continue
+
+        if '-name' not in cmd:
+            logging.getLogger('vcmmd').warning('Found unmanaged qemu-kvm process: {}'.format(' '.join(cmd)))
+            continue
+
         name_idx = cmd.index('-name') + 1
 
         # Workaround PSBM-54553
