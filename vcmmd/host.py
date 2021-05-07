@@ -177,39 +177,23 @@ class Host(Env, metaclass=HostMeta):
                 self.log_debug("Failed to set %r = %r",
                                self.KSM_CONTROL_PATH.format(key), val)
 
+    def _get_numa_node_stats(self, node_id):
+        node_dir = self.numa.NUMA_NODE_SYS_PATH.format(node_id)
+        try:
+            with open(node_dir + 'meminfo') as f:
+                meminfo = dict((s[2][:-1], int(s[3])) for s in map(str.split, f.readlines()))
+        except IOError as err:
+            self.log_err('Failed to update memory stats: %s', err)
+            return
+
+        memtotal = meminfo.get('MemTotal', 0) << 10
+        memfree = meminfo.get('MemFree', 0) << 10
+        memusage = memtotal - memfree - (meminfo.get('KReclaimable', 0) << 10)
+
+        return {'memtotal': memtotal, 'memusage': memusage, 'memfree': memfree}
+
     def get_numa_stats(self):
-        ret = {}
-        for n in self.numa.nodes_ids:
-            node_dir = self.numa.NUMA_NODE_SYS_PATH.format(n)
-            stats = {}
-            try:
-                with open(node_dir + "meminfo") as f:
-                    meminfo = f.readlines()
-            except IOError as err:
-                self.log_err('Failed to update memory stats: %s', err)
-                continue
-
-            for line in meminfo:
-                line = line.split()
-                # Node NUM VARIABLE: VALUE [kB]
-                stats[line[2][:-1]] = int(line[3])
-
-            reclaimable = max(min((stats.get("Inactive(anon)", -1) << 10) // 2,
-                                  self.stats.swaptotal), 0)
-
-            memusage = ((stats.get("MemTotal", -1) << 10) -
-                        (stats.get("MemFree", -1) << 10) -
-                        reclaimable -
-                        (stats.get("Inactive(file)", -1) << 10))
-
-            memtotal = stats.get("MemTotal", -1) << 10
-            memfree = stats.get("MemFree", -1) << 10
-
-            ret[n] = {'memusage': memtotal > 0 and memusage or -1,
-                      'memtotal': memtotal > 0 and memtotal or -1,
-                      'memfree': memfree > 0 and memfree or -1,
-                     }
-        return ret
+        return dict((n, self._get_numa_node_stats(n)) for n in self.numa.nodes_ids)
 
     def get_cpu_stats(self):
         try:
