@@ -22,6 +22,7 @@
 import logging
 import threading
 import importlib
+import psutil
 
 from vcmmd.error import (VCMMDError,
                          VCMMD_ERROR_VE_NAME_ALREADY_IN_USE,
@@ -36,6 +37,7 @@ from vcmmd.ve_type import (VE_TYPE_CT, VE_TYPE_VM, VE_TYPE_VM_LINUX,
 from vcmmd.config import VCMMDConfig
 from vcmmd.ve import VE
 from vcmmd.host import Host
+from vcmmd.cgroup.memory import MemoryCgroup
 
 
 class LoadManager:
@@ -57,6 +59,15 @@ class LoadManager:
         policy_name = self.cfg.get_str('LoadManager.Policy', self.FALLBACK_POLICY)
         policy_name = self._load_alias(policy_name)
         self._load_policy(policy_name)
+        self._set_user_cache_limit()
+
+    def _set_user_cache_limit(self):
+        total_mem = psutil.virtual_memory().total
+        cache_limit = self.cfg.get_num('LoadManager.UserCacheLimitTotal',
+                min(total_mem // 10, 10 * (1 << 30)))
+        if not self.cfg.get_bool('EnableUserCacheLimits', True):
+            cache_limit = total_mem
+        MemoryCgroup('user.slice').write_cache_limit_in_bytes(cache_limit)
 
     def switch_policy(self, policy_name):
         if self.alias is not None and policy_name not in self.alias:
