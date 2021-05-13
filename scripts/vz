@@ -151,15 +151,6 @@ try:
     for service in to_register:
         proxy.register_ve(service[0], VE_TYPE_SERVICE, service[1], 0)
         proxy.activate_ve(service[0], 0)
-    if cfg.get_bool('EnableUserCacheLimits', True):
-        user_slice_cache_limit = cfg.get_num('LoadManager.UserCacheLimitTotal', None)
-        if user_slice_cache_limit is None:
-            user_slice_cache_limit = min(total_mem // 10, 10 * (1 << 30))
-    else:
-        user_slice_cache_limit = total_mem
-    cache_limit_path = os.path.join(cgroup_path % 'user.slice', 'memory.cache.limit_in_bytes')
-    with open(cache_limit_path, 'w') as fp:
-        fp.write(str(user_slice_cache_limit))
 except Exception as e:
     svs_exc_info = sys.exc_info()
 
