@@ -69,7 +69,10 @@ class LoadManager(object):
                 min(total_mem // 10, 10 * (1 << 30)))
         if not self.cfg.get_bool('EnableUserCacheLimits', True):
             cache_limit = total_mem
-        MemoryCgroup('user.slice').write_cache_limit_in_bytes(cache_limit)
+        try:
+            MemoryCgroup('user.slice').write_cache_limit_in_bytes(cache_limit)
+        except IOError as e:
+            self.logger.error(e)
 
     def switch_policy(self, policy_name):
         if self.alias is not None and policy_name not in self.alias:
