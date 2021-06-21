@@ -19,9 +19,11 @@
 # Our contact details: Virtuozzo International GmbH, Vordergasse 59, 8200
 # Schaffhausen, Switzerland.
 
+import importlib
+import functools
 import logging
 import threading
-import importlib
+import types
 import psutil
 
 from vcmmd.error import (VCMMDError,
@@ -40,30 +42,45 @@ from vcmmd.host import Host
 from vcmmd.cgroup.memory import MemoryCgroup
 
 
+# Dummy policy may be used in purpose of debugging other
+# Virtuzzo components. While running this policy, VCMMD returns
+# sucessful result codes for any requests and doesn't keep state of VE's
+# on the node.
+DUMMY_POLICY = types.SimpleNamespace(name='dummy')
+
+
+def _dummy_pass(func=None, *, return_value=None):
+    def decorator_dummy_pass(func):
+        @functools.wraps(func)
+        def wrapper(*args, **kwargs):
+            if args[0]._policy == DUMMY_POLICY:
+                return return_value
+            return func(*args, **kwargs)
+        return wrapper
+    return decorator_dummy_pass if not func else decorator_dummy_pass(func)
+
+
 class LoadManager:
 
     FALLBACK_POLICY = 'Density'
 
     def __init__(self):
         self.logger = logging.getLogger('vcmmd.ldmgr')
-
         self._registered_ves = {}  # str -> VE
         self._registered_ves_lock = threading.Lock()
-
         self.alias = None
-
         self.cfg = VCMMDConfig()
-
         self._host = Host()
-
-        policy_name = self.cfg.get_str('LoadManager.Policy', self.FALLBACK_POLICY)
+        policy_name = self.cfg.get_str(
+                'LoadManager.Policy', self.FALLBACK_POLICY)
         policy_name = self._load_alias(policy_name)
         self._load_policy(policy_name)
         self._set_user_cache_limit()
 
     def _set_user_cache_limit(self):
         total_mem = psutil.virtual_memory().total
-        cache_limit = self.cfg.get_num('LoadManager.UserCacheLimitTotal',
+        cache_limit = self.cfg.get_num(
+                'LoadManager.UserCacheLimitTotal',
                 min(total_mem // 10, 10 * (1 << 30)))
         if not self.cfg.get_bool('EnableUserCacheLimits', True):
             cache_limit = total_mem
@@ -98,6 +115,10 @@ class LoadManager:
         return self.alias.get(policy_name, policy_name)
 
     def _load_policy(self, policy_name):
+        if policy_name == DUMMY_POLICY.name:
+            self._policy = DUMMY_POLICY
+            self.logger.info("Loaded %s policy", DUMMY_POLICY.name)
+            return
         try:
             policy_module = importlib.import_module(
                 'vcmmd.ldmgr.policies.' + policy_name)
@@ -112,6 +133,7 @@ class LoadManager:
         self._policy.load()
         self.logger.info("Loaded policy '%s'", policy_name)
 
+    @_dummy_pass
     def shutdown(self):
         self._policy.shutdown()
 
@@ -121,6 +143,7 @@ class LoadManager:
         if mem_min > self._host.ve_mem:
             raise VCMMDError(VCMMD_ERROR_UNABLE_APPLY_VE_GUARANTEE)
 
+    @_dummy_pass
     def register_ve(self, ve_name, ve_type, ve_config):
         with self._registered_ves_lock:
             if ve_name in self._registered_ves:
@@ -129,7 +152,8 @@ class LoadManager:
             ve_config.complete(DefaultVEConfig)
             if ve_type not in (VE_TYPE_CT, VE_TYPE_SERVICE) and \
                ve_config.guarantee_type == VCMMD_MEMGUARANTEE_AUTO:
-                ve_config.update(guarantee = int(ve_config.limit * self._policy.DEFAULT_VM_AUTO_GUARANTEE))
+                ve_config.update(guarantee=int(
+                    ve_config.limit * self._policy.DEFAULT_VM_AUTO_GUARANTEE))
             ve = VE(ve_type, ve_name, ve_config)
             self._check_guarantees(ve.mem_min)
             ve.effective_limit = min(ve.config.limit, self._host.ve_mem)
@@ -139,6 +163,7 @@ class LoadManager:
 
             self.logger.info('Registered %s (%s)', ve, ve.config)
 
+    @_dummy_pass
     def activate_ve(self, ve_name):
         with self._registered_ves_lock:
             ve = self._registered_ves.get(ve_name)
@@ -160,6 +185,7 @@ class LoadManager:
         self._host._set_slice_mem('machine', -1, verbose=False)
         self._host._set_slice_mem('vstorage', -1, verbose=False)
 
+    @_dummy_pass
     def update_ve_config(self, ve_name, ve_config):
         with self._registered_ves_lock:
             ve = self._registered_ves.get(ve_name)
@@ -168,13 +194,15 @@ class LoadManager:
             if not ve.active:
                 raise VCMMDError(VCMMD_ERROR_VE_NOT_ACTIVE)
 
-            if ve.VE_TYPE in (VE_TYPE_VM, VE_TYPE_VM_LINUX, VE_TYPE_VM_WINDOWS):
+            if ve.VE_TYPE in (
+                    VE_TYPE_VM, VE_TYPE_VM_LINUX, VE_TYPE_VM_WINDOWS):
                 ve._get_obj()._update_cgroups()
 
             ve_config.complete(ve.config)
             if ve.VE_TYPE not in (VE_TYPE_CT, VE_TYPE_SERVICE) and \
                ve_config.guarantee_type == VCMMD_MEMGUARANTEE_AUTO:
-                ve_config.update(guarantee = int(ve_config.limit * self._policy.DEFAULT_VM_AUTO_GUARANTEE))
+                ve_config.update(guarantee=int(
+                    ve_config.limit * self._policy.DEFAULT_VM_AUTO_GUARANTEE))
             self._check_guarantees(ve_config.mem_min - ve.config.mem_min)
 
             try:
@@ -185,6 +213,7 @@ class LoadManager:
 
             self._policy.ve_config_updated(ve)
 
+    @_dummy_pass
     def deactivate_ve(self, ve_name):
         with self._registered_ves_lock:
             ve = self._registered_ves.get(ve_name)
@@ -194,6 +223,7 @@ class LoadManager:
             ve.deactivate()
             self._policy.ve_deactivated(ve)
 
+    @_dummy_pass
     def unregister_ve(self, ve_name):
         with self._registered_ves_lock:
             ve = self._registered_ves.get(ve_name)
@@ -207,6 +237,7 @@ class LoadManager:
                 self._policy.ve_deactivated(ve)
                 self.logger.info('Unregistered %s', ve)
 
+    @_dummy_pass(return_value=True)
     def is_ve_active(self, ve_name):
         try:
             with self._registered_ves_lock:
@@ -214,6 +245,7 @@ class LoadManager:
         except KeyError:
             raise VCMMDError(VCMMD_ERROR_VE_NOT_REGISTERED)
 
+    @_dummy_pass(return_value=[])
     def get_ve_config(self, ve_name):
         with self._registered_ves_lock:
             try:
@@ -221,6 +253,7 @@ class LoadManager:
             except KeyError:
                 raise VCMMDError(VCMMD_ERROR_VE_NOT_REGISTERED)
 
+    @_dummy_pass(return_value=[])
     def get_all_registered_ves(self):
         result = []
         with self._registered_ves_lock:
@@ -229,6 +262,7 @@ class LoadManager:
                                ve.config.as_array()))
         return result
 
+    @_dummy_pass(return_value=DUMMY_POLICY.name)
     def get_current_policy(self):
         cfg = self.cfg.get_str('LoadManager.Policy')
         cur = self._policy.get_name()
@@ -239,12 +273,9 @@ class LoadManager:
 
     def get_policy_from_file(self):
         cfg = self.cfg.read()
+        return cfg and cfg.get('LoadManager', {}).get('Policy', '') or ''
 
-        if cfg is None:
-            return ""
-
-        return cfg.get('LoadManager',{}).get('Policy',"")
-
+    @_dummy_pass(return_value=[])
     def get_stats(self, ve_name):
         with self._registered_ves_lock:
             ve = self._registered_ves.get(ve_name)
@@ -253,6 +284,7 @@ class LoadManager:
         res = list(ve.stats.report().items())
         return res
 
+    @_dummy_pass(return_value={})
     def get_free(self):
         with self._registered_ves_lock:
             qemu_vram_overhead = 0
@@ -264,7 +296,8 @@ class LoadManager:
         swap = self._host.get_slice_swap('machine')
         if swap is None:
             swap = 0
-        available = max(self._host.total_mem - qemu_vram_overhead - guarantee, 0)
+        available = max(
+                self._host.total_mem - qemu_vram_overhead - guarantee, 0)
         return {'total': self._host.total_mem,
                 'qemu overhead+vram': qemu_vram_overhead,
                 'guarantee': guarantee,
@@ -274,5 +307,6 @@ class LoadManager:
     def get_config(self, full_config=False):
         return VCMMDConfig().report(full_config)
 
+    @_dummy_pass(return_value='{}')
     def get_policy_counts(self):
         return self._policy.report()
