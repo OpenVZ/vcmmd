@@ -51,7 +51,7 @@ from vcmmd.rpc.dbus.client import RPCProxy
 from vcmmd.error import VCMMDError, VCMMD_ERROR_VE_NAME_ALREADY_IN_USE
 from vcmmd.ve.ct import _lookup_cgroup
 from vcmmd.cgroup import MemoryCgroup
-from vcmmd.util.libvirt import virDomainProxy
+from vcmmd.util.libvirt import VirtDomainProxy
 from vcmmd.config import VCMMDConfig
 from libvirt import libvirtError
 
@@ -194,7 +194,7 @@ for vm in vm_list:
         uuid = vm.get_uuid()[1:-1]
 
         try:
-            dom = virDomainProxy(uuid)
+            dom = VirtDomainProxy(uuid)
         except libvirtError:
             dom = None
 

@@ -30,7 +30,7 @@ from vcmmd.cgroup import MemoryCgroup, CpuSetCgroup, CpuCgroup, pid_cgroup
 from vcmmd.ve.base import Error, VEImpl, register_ve_impl
 from vcmmd.ve_type import VE_TYPE_VM, VE_TYPE_VM_LINUX, VE_TYPE_VM_WINDOWS
 from vcmmd.config import VCMMDConfig
-from vcmmd.util.libvirt import virDomainProxy, virConnectionProxy
+from vcmmd.util.libvirt import VirtDomainProxy, get_qemu_proxy
 from vcmmd.util.misc import roundup, lookup_qemu_machine_pid
 
 from vcmmd.util.limits import PAGE_SIZE
@@ -50,7 +50,7 @@ class VMImpl(VEImpl):
 
     def __init__(self, name):
         try:
-            self._libvirt_domain = virDomainProxy(name)
+            self._libvirt_domain = VirtDomainProxy(name)
         except libvirtError as err:
             raise Error('Failed to lookup libvirt domain: {}'.format(err))
 
@@ -125,7 +125,7 @@ class VMImpl(VEImpl):
         try:
             name = self._libvirt_domain.name()
             if name not in VMImpl.__cached_stats:
-                conn = virConnectionProxy()
+                conn = get_qemu_proxy()
                 VMImpl.__cached_stats = {dom.name(): stats for dom, stats in \
                                          conn.getAllDomainStats(STATS_BLOCK | STATS_BALLOON,
                                          GET_ALL_RUNNING)}

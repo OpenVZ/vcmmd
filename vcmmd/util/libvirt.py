@@ -20,90 +20,84 @@
 # Schaffhausen, Switzerland.
 
 import logging
-import psutil
 import libvirt
 
-from vcmmd.cgroup import pid_cgroup
-from vcmmd.util.singleton import Singleton
+from contextlib import suppress
 
 
-class virConnectionProxy(metaclass=Singleton):
-    ''' Singleton for handle connection to libvirt.
-    An instance of this class will delegate all its method calls to the
-    underlying virConnect, (re)establishing connection to libvirt whenever
-    necessary.
-    '''
+class _LibvirtProxy():
 
-    def __init__(self):
-        self.__logger = logging.getLogger('vcmmd.libvirt')
+    def __init__(self, libvirt_endpoint):
+        self.__end_point = libvirt_endpoint
+        self.__logger = logging.getLogger('vcmmd.util.libvirt')
         self.__connect()
-
-    def __open_connection(self):
-        self.__conn = libvirt.open('qemu:///system')
 
     def __connect(self):
         self.__logger.debug('Connecting to libvirt')
-        self.__open_connection()
+        self.__conn = libvirt.open(self.__end_point)
 
-    def __reconnect(self):
-        conn = self.__conn
-
-        self.__logger.debug('Connection to libvirt broken, reconnecting')
-        self.__open_connection()
-
-        # Close the stale connection once we've established a new one.
-        if conn is not None:
-            try:
-                conn.close()
-            except libvirt.libvirtError:
-                pass  # don't bother about errors on close
-
-    def __handle_conn_err(self):
+    def __is_connection_error(self):
         if self.__conn.isAlive():
             return False
-
-        # Looks like connection is broken. Try to reconnect.
-        self.__reconnect()
-
+        with suppress(libvirt.libvirtError):
+            self.__conn.close()
+        self.__logger.debug('Connection to libvirt broken')
+        self.__connect()
         return True
 
     def __getattr__(self, name):
         attr = getattr(self.__conn, name)
+
         def wrapper(*args, **kwargs):
             try:
                 return attr(*args, **kwargs)
             except libvirt.libvirtError:
-                if not self.__handle_conn_err():
-                    raise
-                return attr(*args, **kwargs)
-            except:
-                raise
+                if self.__is_connection_error():
+                    return attr(*args, **kwargs)
         return wrapper
 
 
-class virDomainProxy:
-    '''Proxy to libvirt.virDomain with reconnect support.
+__proxies = {
+    'qemu': None,
+    'vzct': None,
+}
+
+
+def __get_proxy(name):
+    if not __proxies[name]:
+        __proxies[name] = _LibvirtProxy(name + ':///system')
+    return __proxies[name]
+
+
+def get_qemu_proxy():
+    return __get_proxy('qemu')
+
+
+def get_vzct_proxy():
+    return __get_proxy('vzct')
+
+
+class VirtDomainProxy:
+    """
+    Proxy to libvirt.virDomain with reconnect support.
 
     An instance of this class will delegate all its method calls to the
     underlying virDomain, (re)establishing connection to libvirt whenever
     necessary.
-    '''
-
-    def __init__(self, uuid):
+    """
+    def __init__(self, uuid, libvirt_proxy=None):
         self.__logger = logging.getLogger('vcmmd.libvirt')
         self.__uuid = uuid
-        self.__conn = virConnectionProxy()
-        # Let's delegate handling connection problems to virConnectionProxy
+        self.__conn = libvirt_proxy or get_qemu_proxy()
         self.__dom = self.__conn.lookupByUUIDString(self.__uuid)
 
     def __getattr__(self, name):
         attr = getattr(self.__dom, name)
+
         def wrapper(*args, **kwargs):
             try:
                 return attr(*args, **kwargs)
             except libvirt.libvirtError:
                 self.__dom = self.__conn.lookupByUUIDString(self.__uuid)
                 return attr(*args, **kwargs)
-            except:
-                raise
         return wrapper
