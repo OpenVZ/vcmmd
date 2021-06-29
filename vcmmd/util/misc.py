@@ -71,3 +71,20 @@ def get_cs_num():
         except psutil.NoSuchProcess:
             pass
     return cs_num
+
+
+def lookup_qemu_machine_pid(name):
+    """Return PID of a QEMU machine."""
+    for proc in psutil.process_iter():
+        try:
+            cmd = proc.cmdline()
+        except psutil.NoSuchProcess:
+            continue
+        if not cmd or not cmd[0].endswith('qemu-kvm') or '-name' not in cmd:
+            continue
+        name_idx = cmd.index('-name') + 1
+        if name_idx < len(cmd):
+            cmd_name = cmd[name_idx].split(',')[0]
+            if cmd_name.startswith('guest=') and cmd_name[len('guest='):] == name:
+                return proc.pid
+    raise OSError("No such process: '{}'".format(name))

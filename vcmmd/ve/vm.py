@@ -26,21 +26,17 @@ from libvirt import (VIR_DOMAIN_STATS_BLOCK as STATS_BLOCK,
                      VIR_DOMAIN_STATS_BALLOON as STATS_BALLOON,
                      VIR_CONNECT_GET_ALL_DOMAINS_STATS_RUNNING as GET_ALL_RUNNING)
 
-from vcmmd.cgroup import MemoryCgroup, CpuSetCgroup, CpuCgroup
+from vcmmd.cgroup import MemoryCgroup, CpuSetCgroup, CpuCgroup, pid_cgroup
 from vcmmd.ve.base import Error, VEImpl, register_ve_impl
 from vcmmd.ve_type import VE_TYPE_VM, VE_TYPE_VM_LINUX, VE_TYPE_VM_WINDOWS
 from vcmmd.config import VCMMDConfig
-from vcmmd.util.libvirt import (virDomainProxy,
-                                lookup_qemu_machine_cgroup,
-                                lookup_qemu_machine_pid,
-                                virConnectionProxy)
-from vcmmd.util.misc import roundup
+from vcmmd.util.libvirt import virDomainProxy, virConnectionProxy
+from vcmmd.util.misc import roundup, lookup_qemu_machine_pid
+
 from vcmmd.util.limits import PAGE_SIZE
 from vcmmd.util.misc import parse_range_list
 from libvirt import VIR_DOMAIN_NUMATUNE_MEM_STRICT as NUMATUNE_MEM_STRICT
-from libvirt import (VIR_DOMAIN_AFFECT_CURRENT as AFFECT_CURRENT,
-                     VIR_DOMAIN_AFFECT_LIVE as AFFECT_LIVE,
-                     VIR_DOMAIN_AFFECT_CONFIG as AFFECT_CONFIG)
+from libvirt import VIR_DOMAIN_AFFECT_LIVE as AFFECT_LIVE
 import psutil
 
 
@@ -73,7 +69,7 @@ class VMImpl(VEImpl):
 
         # libvirt places every virtual machine in its own cgroup
         try:
-            cgroup = lookup_qemu_machine_cgroup(self._libvirt_domain.name())
+            cgroup = pid_cgroup(self.pid)
         except EnvironmentError as err:
             raise Error('Failed to lookup machine cgroup: {}'.format(err))
 
