@@ -27,7 +27,6 @@ import signal
 import optparse
 import time
 import traceback
-import subprocess
 
 import daemon
 import daemon.pidfile
@@ -86,41 +85,6 @@ class _App:
         self.logger = logger
         self.logger_stream = fh.stream  # for DaemonContext:files_preserve
 
-    def run_one_init_script(self, script):
-        self.logger.info("Running init script '%s'", script)
-
-        try:
-            with open(os.devnull, 'r') as devnull:
-                p = subprocess.Popen(
-                    os.path.join(self.INIT_SCRIPTS_DIR, script),
-                    stdout=subprocess.PIPE, stderr=subprocess.PIPE)
-            stdout, stderr = p.communicate()
-        except OSError as err:
-            self.logger.error("Error running init script '%s': %s",
-                              script, err)
-            return
-
-        if p.returncode or stdout or stderr:
-            self.logger.info("Script '%s' returned %d", script, p.returncode)
-        if stdout:
-            self.logger.info("stdout output:\n%s", stdout)
-        if stderr:
-            self.logger.error("stderr output:\n%s", stderr)
-
-    def run_init_scripts(self):
-        if not os.path.isdir(self.INIT_SCRIPTS_DIR):
-            return
-
-        try:
-            scripts = os.listdir(self.INIT_SCRIPTS_DIR)
-        except OSError as err:
-            self.logger.error('Failed to read init scripts dir: %s', err)
-            return
-
-        for script in sorted(scripts):
-            if not script.startswith('.'):
-                self.run_one_init_script(script)
-
     def run(self):
         # Redirect stdout and stderr to logger
         sys.stdout = LoggerWriter(self.logger, logging.INFO)
@@ -136,8 +100,6 @@ class _App:
 
         ldmgr = LoadManager()
         rpcsrv = RPCServer(ldmgr)
-
-        self.run_init_scripts()
 
         # threading.Event would fit better here, but it ignores signals.
         self.should_stop = False

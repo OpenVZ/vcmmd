@@ -36,7 +36,7 @@ from vcmmd.util.limits import PAGE_SIZE, UINT64_MAX
 _thread_pool = ThreadPool(3)
 
 
-def _lookup_cgroup(klass, name):
+def lookup_cgroup(klass, name):
     # A container's cgroup is located either at the top level of the cgroup
     # hierarchy or under machine.slice
 
@@ -56,7 +56,7 @@ class ABSVEImpl(VEImpl):
     VE_TYPE = VE_TYPE_CT
 
     def __init__(self, name):
-        self._memcg = _lookup_cgroup(MemoryCgroup, name)
+        self._memcg = lookup_cgroup(MemoryCgroup, name)
 
         self.mem_limit = UINT64_MAX
 
@@ -99,9 +99,9 @@ class CTImpl(ABSVEImpl):
 
     def __init__(self, name):
         super(CTImpl, self).__init__(name)
-        self._cpusetcg = _lookup_cgroup(CpuSetCgroup, name)
-        self._blkcg = _lookup_cgroup(BlkIOCgroup, name)
-        self._cpucg = _lookup_cgroup(CpuCgroup, name)
+        self._cpusetcg = lookup_cgroup(CpuSetCgroup, name)
+        self._blkcg = lookup_cgroup(BlkIOCgroup, name)
+        self._cpucg = lookup_cgroup(CpuCgroup, name)
 
     def get_stats(self):
         try:

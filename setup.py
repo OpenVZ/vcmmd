@@ -32,7 +32,6 @@ setup(name='vcmmd',
       data_files=[('/etc/dbus-1/system.d', ['dbus/com.virtuozzo.vcmmd.conf']),
                   ('/etc/logrotate.d', ['logrotate/vcmmd']),
                   ('/etc/vz', ['vcmmd.conf', 'vstorage-limits.conf']),
-                  ('/etc/vz/vcmmd.d', ['scripts/vz']),
                   ('/usr/lib/tmpfiles.d/', ['vcmmd-tmpfiles.conf']),
                   (systemd_unitdir, ['systemd/{}'.format(servicefile)])],
       scripts=['bin/vcmmd', 'bin/vcmmdctl'])

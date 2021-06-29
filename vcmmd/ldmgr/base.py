@@ -20,11 +20,14 @@
 # Schaffhausen, Switzerland.
 
 import importlib
+import itertools
 import functools
 import logging
+import os
 import threading
 import types
 import psutil
+import xml.etree.ElementTree as ET
 
 from vcmmd.error import (VCMMDError,
                          VCMMD_ERROR_VE_NAME_ALREADY_IN_USE,
@@ -33,11 +36,14 @@ from vcmmd.error import (VCMMDError,
                          VCMMD_ERROR_VE_NOT_ACTIVE,
                          VCMMD_ERROR_POLICY_SET_ACTIVE_VES,
                          VCMMD_ERROR_POLICY_SET_INVALID_NAME)
-from vcmmd.ve_config import DefaultVEConfig, VCMMD_MEMGUARANTEE_AUTO
+from vcmmd.ve_config import DefaultVEConfig, VEConfig, VCMMD_MEMGUARANTEE_AUTO
 from vcmmd.ve_type import (VE_TYPE_CT, VE_TYPE_VM, VE_TYPE_VM_LINUX,
                            VE_TYPE_VM_WINDOWS, VE_TYPE_SERVICE)
+from vcmmd.ldmgr.policy import clamp
+from vcmmd.util.libvirt import get_qemu_proxy, get_vzct_proxy
 from vcmmd.config import VCMMDConfig
 from vcmmd.ve import VE
+from vcmmd.ve.ct import lookup_cgroup
 from vcmmd.host import Host
 from vcmmd.cgroup.memory import MemoryCgroup
 
@@ -60,6 +66,24 @@ def _dummy_pass(func=None, *, return_value=None):
     return decorator_dummy_pass if not func else decorator_dummy_pass(func)
 
 
+def _fix_vstorage_memory_issues(service_path):
+    # PSBM-64263
+    # PSBM-89802
+    fixes = {
+        os.path.join(service_path, 'memory.disable_cleancache'): '1',
+        os.path.join(service_path, 'memory.swappiness'): '0',
+    }
+    for path, data in fixes.items():
+        with open(path, 'w') as fp:
+            fp.write(data)
+
+
+DEFAULT_GUARANTEE = {
+    VE_TYPE_CT: 0,
+    VE_TYPE_VM: 40
+}
+
+
 class LoadManager:
 
     FALLBACK_POLICY = 'Density'
@@ -76,6 +100,8 @@ class LoadManager:
         policy_name = self._load_alias(policy_name)
         self._load_policy(policy_name)
         self._set_user_cache_limit()
+        self._initialize_services()
+        self._initialize_ves()
 
     def _set_user_cache_limit(self):
         total_mem = psutil.virtual_memory().total
@@ -298,3 +324,82 @@ class LoadManager:
     @_dummy_pass(return_value='{}')
     def get_policy_counts(self):
         return self._policy.report()
+
+    def _initialize_services(self):
+        for name, config in VCMMDConfig().get('Limits', default={}).items():
+            self._initialize_service(name, config)
+
+    def _initialize_service(self, name, config):
+        known_params = {'Limit', 'Guarantee', 'Swap', 'Path'}
+        total_mem = psutil.virtual_memory().total
+        if 'Path' not in config and name == 'VStorage':
+            config['Path'] = 'vstorage.slice/vstorage-services.slice'
+            self.logger.info('Assuming that VStorage is located at %s',
+                             config['Path'])
+        service_name = config['Path']
+        service_path = '/sys/fs/cgroup/memory/{}'.format(service_name)
+        if not os.path.isdir(service_path):
+            self.logger.error('Memory cgroup %s not found', service_path)
+            return
+        if name == 'VStorage':
+            _fix_vstorage_memory_issues(service_path)
+        # read config for limit, guarantee and swap
+        ve_config = {}
+        unknown_params = set(config.keys()) - known_params
+        if unknown_params:
+            raise VCMMDError('Unknown fields in {}: {}'.format(
+                service_name, unknown_params))
+        for Param in known_params - {'Path'}:
+            param = Param.lower()
+            try:
+                unknown_params = (set(config[Param].keys())
+                                  - {'Share', 'Min', 'Max'})
+                if unknown_params:
+                    raise VCMMDError('Unknown fields in {}: {}'.format(
+                        service_name, unknown_params))
+                ve_config[param] = clamp(int(config[Param]['Share'] * total_mem),
+                                         int(config[Param].get('Min', 0)),
+                                         int(config[Param].get('Max', -1)))
+            except (KeyError, TypeError, ValueError):
+                raise VCMMDError('Error parsing {}.{}'.format(service_name, Param))
+        self.register_ve(service_name, VE_TYPE_SERVICE, VEConfig(**ve_config))
+        self.activate_ve(service_name)
+
+    def _initialize_ves(self):
+        cts = get_vzct_proxy().listAllDomains(0)
+        vms = get_qemu_proxy().listAllDomains(0)
+        for domain in itertools.chain(cts, vms):
+            if domain.isActive():
+                self._initialize_ve(domain)
+
+    def _initialize_ve(self, domain):
+        ve_type = VE_TYPE_CT if domain.OSType() == 'exe' else VE_TYPE_VM
+        uuid = domain.UUIDString()
+        ve_config = {}
+        dom_xml = ET.fromstring(domain.XMLDesc())
+        if ve_type == VE_TYPE_VM:
+            ve_config['limit'] = domain.maxMemory() << 10
+            video = dom_xml.findall('./devices/video/model')
+            vram = sum(int(v.attrib.get('vram', 0)) for v in video) << 10
+            ve_config['vram'] = vram
+        else:
+            memcg = lookup_cgroup(MemoryCgroup, uuid)
+            ve_config['limit'] = memcg.read_mem_max()
+            ve_config['swap'] = memcg.read_swap_max()
+        vcpu_dom = dom_xml.find('./vcpu')
+        if vcpu_dom:
+            ve_config['cpulist'] = vcpu_dom.attrib.get('cpuset', '')
+        numa_memory_dom = dom_xml.find('./numatune/memory')
+        if numa_memory_dom:
+            ve_config['nodelist'] = numa_memory_dom.attrib.get('nodeset', '')
+        guarantee_pct = DEFAULT_GUARANTEE[ve_type]
+        guarantee_dom = dom_xml.find('./memtune/min_guarantee')
+        guarantee_auto = False
+        if guarantee_dom:
+            guarantee_auto = guarantee_dom.attrib.get('vz-auto', False)
+            if guarantee_auto != 'yes':
+                guarantee_pct = int(guarantee_dom.text)
+        ve_config['guarantee'] = ve_config['limit'] * guarantee_pct // 100
+        ve_config['guarantee_type'] = guarantee_auto != 'yes'
+        self.register_ve(uuid, ve_type, VEConfig(**ve_config))
+        self.activate_ve(uuid)

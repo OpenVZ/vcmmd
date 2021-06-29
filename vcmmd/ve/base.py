@@ -165,7 +165,6 @@ def _check_ve_config(config):
 
 class VE(Env):
 
-
     class Numa(AbsNuma):
         @update_stats_single
         def update_stats(self):
