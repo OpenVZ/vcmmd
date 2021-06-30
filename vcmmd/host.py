@@ -100,7 +100,7 @@ class Host(Env, metaclass=HostMeta):
 
     def _set_slice_mem(self, name, value, oom_guarantee=None, verbose=True):
         if oom_guarantee is None:
-            oom_guarantee = value
+            oom_guarantee = -1 if value == 'max' else value
         memcg = MemoryCgroup(name + '.slice')
         if not memcg.exists():
             return

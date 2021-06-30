@@ -182,8 +182,8 @@ class LoadManager:
         # but VMs, each of which should have its memory.low configured
         # properly.
         # TODO need only once
-        self._host._set_slice_mem('machine', -1, verbose=False)
-        self._host._set_slice_mem('vstorage', -1, verbose=False)
+        self._host._set_slice_mem('machine', 'max', verbose=False)
+        self._host._set_slice_mem('vstorage', 'max', verbose=False)
 
     @_dummy_pass
     def update_ve_config(self, ve_name, ve_config):

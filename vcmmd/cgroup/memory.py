@@ -117,8 +117,9 @@ class MemoryCgroup(Cgroup):
     MAX_MEM_VAL = INT64_MAX
 
     def _write_file_mem_val(self, filename, value):
-        value = min(value, self.MAX_MEM_VAL)
-        self._write_file_int(filename, value)
+        if isinstance(value, int):
+            value = str(min(value, self.MAX_MEM_VAL))
+        self._write_file_str(filename, value)
 
     def read_mem_current(self):
         return self._read_file_int('usage_in_bytes')
@@ -173,7 +174,7 @@ class MemoryCgroup(Cgroup):
         return self._read_file_kv('stat')
 
     def write_oom_guarantee(self, val):
-        self._write_file_mem_val('oom_guarantee', val)
+        self._write_file_int('oom_guarantee', val)
 
     def write_swappiness(self, val):
         self._write_file_int('swappiness', val)
