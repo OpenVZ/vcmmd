@@ -82,8 +82,9 @@ class Host(Env, metaclass=HostMeta):
         self.log_info('%d bytes available for VEs', self.ve_mem)
         if self.ve_mem < 0:
             self.log_err('Not enough memory to run VEs!')
-
         self.numa = Host.Numa(self)
+        self._set_slice_mem('machine', 'max', verbose=False)
+        self._set_slice_mem('vstorage', 'max', verbose=False)
 
     def __str__(self):
         return self.hostname
@@ -103,6 +104,7 @@ class Host(Env, metaclass=HostMeta):
             oom_guarantee = -1 if value == 'max' else value
         memcg = MemoryCgroup(name + '.slice')
         if not memcg.exists():
+            self.log_err('Memory cgroup %s.slice does not exist', name)
             return
         try:
             memcg.write_mem_low(value)

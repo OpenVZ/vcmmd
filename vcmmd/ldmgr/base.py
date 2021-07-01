@@ -173,18 +173,6 @@ class LoadManager:
             ve.activate()
             self._policy.ve_activated(ve)
 
-        # We need to set memory.low for machine.slice to infinity, otherwise
-        # memory.low in sub-cgroups won't have any effect. We can't do it on
-        # start, because machine.slice might not exist at that time (it is
-        # created on demand, when the first VM starts).
-        #
-        # This is safe, because there is nothing running inside machine.slice
-        # but VMs, each of which should have its memory.low configured
-        # properly.
-        # TODO need only once
-        self._host._set_slice_mem('machine', 'max', verbose=False)
-        self._host._set_slice_mem('vstorage', 'max', verbose=False)
-
     @_dummy_pass
     def update_ve_config(self, ve_name, ve_config):
         with self._registered_ves_lock:
