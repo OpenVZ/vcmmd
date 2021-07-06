@@ -1,5 +1,7 @@
 [Unit]
 Description=@PRODUCT_NAME_SHORT@ memory management daemon
+Requires=libvirtd.service
+After=libvirtd.service
 
 [Service]
 PIDFile=/var/run/vcmmd.pid
