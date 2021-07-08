@@ -21,8 +21,10 @@
 
 import logging
 import libvirt
+import time
 
 from contextlib import suppress
+from vcmmd.error import VCMMDError
 
 
 class _LibvirtProxy():
@@ -34,7 +36,19 @@ class _LibvirtProxy():
 
     def __connect(self):
         self.__logger.debug('Connecting to libvirt')
-        self.__conn = libvirt.open(self.__end_point)
+        attempts_to_connect = 120
+        while attempts_to_connect > 0:
+            try:
+                self.__logger.debug('Connecting to libvirt')
+                self.__conn = libvirt.open(self.__end_point)
+            except libvirt.libvirtError as e:
+                self.__logger.error('Can\'t connect to libvirtd: %s', e)
+                time.sleep(1)
+                attempts_to_connect -= 1
+            else:
+                break
+        else:
+            raise VCMMDError('Can\'t connect to libvirtd')
 
     def __is_connection_error(self):
         if self.__conn.isAlive():
