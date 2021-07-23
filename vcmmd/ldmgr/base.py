@@ -99,7 +99,6 @@ class LoadManager:
                 'LoadManager.Policy', self.FALLBACK_POLICY)
         policy_name = self._load_alias(policy_name)
         self._load_policy(policy_name)
-        self._set_user_cache_limit()
         self._initialize_services()
         self._initialize_ves()
 
@@ -157,6 +156,7 @@ class LoadManager:
                 'vcmmd.ldmgr.policies.' + policy_name)
         self._policy = getattr(policy_module, policy_name)()
         self._policy.load()
+        self._set_user_cache_limit()
         self.logger.info("Loaded policy '%s'", policy_name)
 
     @_dummy_pass
