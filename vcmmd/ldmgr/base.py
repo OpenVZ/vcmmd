@@ -86,7 +86,7 @@ DEFAULT_GUARANTEE = {
 
 class LoadManager:
 
-    FALLBACK_POLICY = 'Density'
+    FALLBACK_POLICY = 'NoOpPolicy'
 
     def __init__(self):
         self.logger = logging.getLogger('vcmmd.ldmgr')
