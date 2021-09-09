@@ -417,7 +417,7 @@ class StoragePolicy(Policy):
         if not any(ve.name == self.storage_config['Path'] for ve in self.get_ves()):
             self.logger.info('Storage is not registered')
             return controller_timeout
-        cache_limit = VCMMDConfig().get('LoadManager.StorageCacheLimitTotal', None)
+        cache_limit = VCMMDConfig().get('LoadManager.Controllers.StorageCacheLimitTotal', None)
         if cache_limit is None:
             cache_limit = self._get_cache_size()
         if not self._update_cgroup(cache_limit):
