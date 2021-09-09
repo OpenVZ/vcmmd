@@ -120,7 +120,7 @@ class VCMMDConfig(metaclass=Singleton):
         """
         Remove from a_dict items storing under the same hierarchy in b_dict and having the same value.
         """
-        for k, v in a_dict.items():
+        for k, v in list(a_dict.items()):
             if k in b_dict:
                 if isinstance(b_dict[k], dict) and isinstance(a_dict[k], dict):
                     cls._exclude(a_dict[k], b_dict[k])
