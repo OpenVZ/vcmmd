@@ -4,6 +4,8 @@ Wants=libvirtd.service
 After=libvirtd.service
 
 [Service]
+Type=dbus
+BusName=com.virtuozzo.vcmmd
 PIDFile=/var/run/vcmmd.pid
 ExecStart=/usr/sbin/vcmmd
 Restart=always

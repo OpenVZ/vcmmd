@@ -211,8 +211,7 @@ class LoadManager:
             if not ve.active:
                 raise VCMMDError(VCMMD_ERROR_VE_NOT_ACTIVE)
 
-            if ve.VE_TYPE in (
-                    VE_TYPE_VM, VE_TYPE_VM_LINUX, VE_TYPE_VM_WINDOWS):
+            if ve.VE_TYPE in (VE_TYPE_VM, VE_TYPE_VM_LINUX, VE_TYPE_VM_WINDOWS):
                 ve._get_obj()._update_cgroups()
 
             ve_config.complete(ve.config)
@@ -220,6 +219,7 @@ class LoadManager:
                ve_config.guarantee_type == VCMMD_MEMGUARANTEE_AUTO:
                 ve_config.update(guarantee=int(
                     ve_config.limit * self._policy.DEFAULT_VM_AUTO_GUARANTEE))
+
             self._check_guarantees(ve_config.mem_min - ve.config.mem_min)
 
             try:
@@ -306,10 +306,12 @@ class LoadManager:
         with self._registered_ves_lock:
             qemu_vram_overhead = 0
             guarantee = 0
+            reserved = 0
             for ve in self._registered_ves.values():
                 qemu_vram_overhead += ve.mem_overhead
-                if ve.protection:
-                    guarantee += ve.protection
+                guarantee += max(ve.mem_min, ve.protection)
+                if ve.VE_TYPE == VE_TYPE_SERVICE:
+                    reserved += ve.mem_min
         swap = self._host.get_slice_swap('machine')
         if swap is None:
             swap = 0
@@ -317,6 +319,7 @@ class LoadManager:
                 self._host.total_mem - qemu_vram_overhead - guarantee, 0)
         return {'total': self._host.total_mem,
                 'qemu overhead+vram': qemu_vram_overhead,
+                'services_reserved': reserved,
                 'guarantee': guarantee,
                 'swap': swap,
                 'available': available}

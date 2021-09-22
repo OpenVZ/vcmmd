@@ -42,8 +42,15 @@ def _fail(msg, fail=True):
         sys.exit(1)
 
 
-def _print_json(json_string):
-    print(json.dumps(json.loads(json_string), sort_keys=True, indent=4))
+def _print_json(data):
+    d = data
+    if isinstance(data, str):  # some APIs already return JSON string
+        d = json.loads(data)
+    print(json.dumps(d, sort_keys=True, indent=4))
+
+
+def _add_json_format_option(parser):
+    parser.add_option('-j', 'store_true', help='JSON output format')
 
 
 def _add_ve_config_options(parser):
@@ -218,6 +225,7 @@ def _handle_list(args):
                           'all memory values are reported in kB.',
                           conflict_handler='resolve')
     _add_memval_config_options(parser)
+    _add_json_format_option(parser)
 
     (options, args) = parser.parse_args(args)
     if len(args) > 0:
@@ -227,18 +235,31 @@ def _handle_list(args):
     ve_list = proxy.get_all_registered_ves()
 
     max_name_len = max(len(ve[0]) for ve in ve_list) if ve_list else 12
+    fields = ('name', 'type', 'active', 'guarantee', 'limit', 'swap')
+
     fmt = '%-{0}s %6s %6s %{1}s %{1}s %{1}s'.format(max_name_len, 11 if options.bytes else 9)
-    print(fmt % ('name', 'type', 'active', 'guarantee', 'limit', 'swap'))
+    if not options.j:
+        print(fmt % ('name', 'type', 'active', 'guarantee', 'limit', 'swap'))
+
+    data = []
+
     for ve_name, ve_type, ve_active, ve_config in sorted(ve_list):
         try:
             ve_type_name = get_ve_type_name(ve_type)
         except KeyError:
             ve_type_name = '?'
+        if options.j:
+            data.append(dict(zip(
+                fields, (ve_name, ve_type_name, ve_active, ve_config.guarantee,
+                    ve_config.limit, ve_config.swap, ve_config.cache))))
+            continue
         print(fmt % (ve_name, ve_type_name,
                      'yes' if ve_active else 'no',
                      _str_memval(ve_config.guarantee, options),
                      _str_memval(ve_config.limit, options),
                      _str_memval(ve_config.swap, options)))
+    if options.j:
+        _print_json(data)
 
 
 def _handle_log_level(args):
@@ -348,17 +369,21 @@ def _handle_free(args):
                           description='Print current memory usage.',
                           conflict_handler='resolve')
     _add_memval_config_options(parser)
+    _add_json_format_option(parser)
 
-    (options, args) = parser.parse_args(args)
+    options, args = parser.parse_args(args)
     if len(args) > 0:
         parser.error('superfluous arguments')
 
     free = RPCProxy().get_free()
-    head = map(str, free.keys())
+    head = [*map(str, free.keys())]
     vals = [_str_memval(v, options) for v in free.values()]
-    fmt = ' '.join(['{:'+str(len(v)+3)+'}' for v in free.keys()])
-    for s in head, vals:
-        print(fmt.format(*s))
+    if options.j:
+        _print_json(dict(zip(head, vals)))
+    else:
+        fmt = ' '.join(['{:'+str(len(v)+3)+'}' for v in free.keys()])
+        for s in head, vals:
+            print(fmt.format(*s))
 
 
 def main():

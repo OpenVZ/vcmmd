@@ -62,8 +62,8 @@ class ABSVEImpl(VEImpl):
 
     def get_rss(self):
         try:
-            return self._memcg.read_mem_current()
-        except (ValueError, IOError) as err:
+            return self._memcg.read_mem_stat()['total_rss']
+        except (KeyError, IOError) as err:
             raise Error('Cgroup read failed: {}'.format(err))
 
     def set_mem_protection(self, value):

@@ -169,7 +169,7 @@ class Policy(metaclass=ABCMeta):
                 _ = os.read(efd, 8)
             except poll_error as err:
                 break
-            self.host.log_debug('"Low memory" notification received.')
+            self.host.log_info('"Low memory" notification received.')
             for callback in self.low_memory_callbacks:
                 callback()
             self.counts['low_mem_events'] += 1
@@ -204,7 +204,7 @@ class BalloonPolicy(Policy):
             return
         self.controllers.add(self.balloon_controller)
         self.low_memory_callbacks.add(self.balloon_controller)
-        self.balloon_timeout = 5
+        self.balloon_timeout = 60
 
     def update_balloon_stats(self):
         pass
