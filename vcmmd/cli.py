@@ -50,7 +50,7 @@ def _print_json(data):
 
 
 def _add_json_format_option(parser):
-    parser.add_option('-j', 'store_true', help='JSON output format')
+    parser.add_option('-j', action='store_true', help='JSON output format')
 
 
 def _add_ve_config_options(parser):
