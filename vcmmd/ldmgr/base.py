@@ -92,13 +92,9 @@ class LoadManager:
         self.logger = logging.getLogger('vcmmd.ldmgr')
         self._registered_ves = {}  # str -> VE
         self._registered_ves_lock = threading.Lock()
-        self.alias = None
         self.cfg = VCMMDConfig()
         self._host = Host()
-        policy_name = self.cfg.get_str(
-                'LoadManager.Policy', self.FALLBACK_POLICY)
-        policy_name = self._load_alias(policy_name)
-        self._load_policy(policy_name)
+        self._load_policy(self.cfg.get_str('LoadManager.Policy', self.FALLBACK_POLICY))
         self._initialize_services()
         self._initialize_ves()
 
@@ -115,10 +111,7 @@ class LoadManager:
             self.logger.error('Can\'t update user.slice: %s', e)
 
     def switch_policy(self, policy_name):
-        if self.alias is not None and policy_name not in self.alias:
-            raise VCMMDError(VCMMD_ERROR_POLICY_SET_INVALID_NAME)
         self.cfg.dump('LoadManager.Policy', policy_name)
-        policy_name = self._load_alias(policy_name)
         with self._registered_ves_lock:
             for ve_name in self._registered_ves:
                 ve = self._registered_ves.get(ve_name)
@@ -133,34 +126,41 @@ class LoadManager:
                 if ve.active:
                     self._policy.ve_activated(ve)
 
-    def _load_alias(self, policy_name):
+    def _load_policy_object(self, policy_name):
+        real_policy_name = policy_name
         try:
-            alias = importlib.import_module('vcmmd.ldmgr.policies.alias')
-        except ImportError as err:
-            return policy_name
+            real_policy_name = importlib.import_module('vzpolicies.alias').policies[policy_name]
+        except (ImportError, KeyError):
+            pass
 
-        self.alias = alias.alias
-        return self.alias.get(policy_name, policy_name)
+        policy_module = None
+        for namespace in 'vzpolicies', 'vcmmd.ldmgr.policies':
+            try:
+                policy_module = importlib.import_module(namespace + '.' + real_policy_name)
+                break
+            except ModuleNotFoundError:
+                pass  # try next namespace
+            except ImportError as err:
+                self.logger.error('Failed to load policy \'%s\': %s', policy_name, err)
+                break
+        else:
+            self.logger.error('Failed to load policy \'%s\': Policy not found', policy_name)
+
+        if policy_module is None:
+            policy_name = real_policy_name = self.FALLBACK_POLICY
+            policy_module = importlib.import_module('vcmmd.ldmgr.policies.' + policy_name)
+
+        self.logger.info("Loaded policy '%s'", policy_name)
+        return getattr(policy_module, real_policy_name)()
 
     def _load_policy(self, policy_name):
         if policy_name == DUMMY_POLICY.name:
             self._policy = DUMMY_POLICY
             self.logger.info("Loaded %s policy", DUMMY_POLICY.name)
             return
-        try:
-            policy_module = importlib.import_module(
-                'vcmmd.ldmgr.policies.' + policy_name)
-        except ImportError as err:
-            self.logger.error("Failed to load policy '%s': %s",
-                              policy_name, err)
-            # fallback on default policy
-            policy_name = self.FALLBACK_POLICY
-            policy_module = importlib.import_module(
-                'vcmmd.ldmgr.policies.' + policy_name)
-        self._policy = getattr(policy_module, policy_name)()
+        self._policy = self._load_policy_object(policy_name)
         self._policy.load()
         self._set_user_cache_limit()
-        self.logger.info("Loaded policy '%s'", policy_name)
 
     @_dummy_pass
     def shutdown(self):
