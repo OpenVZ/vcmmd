@@ -126,13 +126,22 @@ class LoadManager:
                 if ve.active:
                     self._policy.ve_activated(ve)
 
-    def _load_policy_object(self, policy_name):
-        real_policy_name = policy_name
+    @staticmethod
+    def _get_aliases():
         try:
-            real_policy_name = importlib.import_module('vzpolicies.alias').policies[policy_name]
-        except (ImportError, KeyError):
-            pass
+            return importlib.import_module('vzpolicies.alias').policies
+        except ImportError:
+            return {}
 
+    @_dummy_pass(return_value=DUMMY_POLICY.name)
+    def get_current_policy(self):
+        aliases = self._get_aliases()
+        reversed_aliases = dict(zip(aliases.values(), aliases.keys()))
+        policy_name = self._policy.get_name()
+        return reversed_aliases.get(policy_name, policy_name)
+
+    def _load_policy_object(self, policy_name):
+        real_policy_name = self._get_aliases().get(policy_name, policy_name)
         policy_module = None
         for namespace in 'vzpolicies', 'vcmmd.ldmgr.policies':
             try:
@@ -278,15 +287,6 @@ class LoadManager:
                 result.append((ve.name, ve.VE_TYPE, ve.active,
                                ve.config.as_array()))
         return result
-
-    @_dummy_pass(return_value=DUMMY_POLICY.name)
-    def get_current_policy(self):
-        cfg = self.cfg.get_str('LoadManager.Policy')
-        cur = self._policy.get_name()
-        if self._load_alias(cfg) == cur:
-            return cfg
-        else:
-            return cur
 
     def get_policy_from_file(self):
         cfg = self.cfg.read()
