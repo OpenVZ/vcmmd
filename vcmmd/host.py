@@ -19,6 +19,7 @@
 # Our contact details: Virtuozzo International GmbH, Vordergasse 59, 8200
 # Schaffhausen, Switzerland.
 
+import os
 import psutil
 import re
 import socket
@@ -83,8 +84,8 @@ class Host(Env, metaclass=HostMeta):
         if self.ve_mem < 0:
             self.log_err('Not enough memory to run VEs!')
         self.numa = Host.Numa(self)
-        self._set_slice_mem('machine', 'max', verbose=False)
-        self._set_slice_mem('vstorage', 'max', verbose=False)
+        self._set_slice_mem('machine', -1, verbose=False)
+        self._set_slice_mem('vstorage', -1, verbose=False)
 
     def __str__(self):
         return self.hostname
@@ -101,7 +102,10 @@ class Host(Env, metaclass=HostMeta):
 
     def _set_slice_mem(self, name, value, oom_guarantee=None, verbose=True):
         if oom_guarantee is None:
-            oom_guarantee = -1 if value == 'max' else value
+            oom_guarantee = value
+        if value == -1 and 'vz7' not in os.uname().release:
+            value = 'max'
+
         memcg = MemoryCgroup(name + '.slice')
         if not memcg.exists():
             self.log_err('Memory cgroup %s.slice does not exist', name)
