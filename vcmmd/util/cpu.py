@@ -46,7 +46,7 @@ def _vln_mit_path(vln):
 def _set_vln_mitigation(vln, mitigation):
     try:
         with open(_vln_mit_path(vln), 'w') as fp:
-            fp.write(bytes(mitigation))
+            fp.write(str(mitigation))
     except IOError:
         pass
 
