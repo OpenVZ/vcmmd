@@ -372,9 +372,13 @@ class LoadManager:
         self.activate_ve(service_name)
 
     def _initialize_ves(self):
-        cts = get_vzct_proxy().listAllDomains(0)
-        vms = get_qemu_proxy().listAllDomains(0)
-        for domain in itertools.chain(cts, vms):
+        domains = []
+        for getter in get_vzct_proxy, get_qemu_proxy:
+            try:
+                domains += getter().listAllDomains(0)
+            except LookupError as e:
+                self.logger.warning(f'{getter.__name__} failed: {e}')
+        for domain in domains:
             if domain.isActive():
                 self._initialize_ve(domain)
 

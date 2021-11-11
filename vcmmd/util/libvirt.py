@@ -21,26 +21,34 @@
 
 import logging
 import libvirt
+import subprocess
 import time
 
 from contextlib import suppress
-from vcmmd.error import VCMMDError
+
+
+def _driver_installed(driver_name: str) -> bool:
+    cp = subprocess.run(['rpm', '-q', f'libvirt-daemon-driver-{driver_name}'])
+    return cp.returncode == 0
 
 
 class _LibvirtProxy():
 
-    def __init__(self, libvirt_endpoint):
-        self.__end_point = libvirt_endpoint
+    def __init__(self, driver_name):
+        self.__driver_name = driver_name
         self.__logger = logging.getLogger('vcmmd.util.libvirt')
         self.__connect()
 
     def __connect(self):
         self.__logger.debug('Connecting to libvirt')
+        if not _driver_installed(self.__driver_name):
+            raise LookupError(f'libvirt-{self.__driver_name} is not found')
+        libvirt_endpoint = self.__driver_name + ':///system'
         attempts_to_connect = 120
         while attempts_to_connect > 0:
             try:
                 self.__logger.debug('Connecting to libvirt')
-                self.__conn = libvirt.open(self.__end_point)
+                self.__conn = libvirt.open(libvirt_endpoint)
             except libvirt.libvirtError as e:
                 self.__logger.error('Can\'t connect to libvirtd: %s', e)
                 time.sleep(1)
@@ -48,7 +56,7 @@ class _LibvirtProxy():
             else:
                 break
         else:
-            raise VCMMDError('Can\'t connect to libvirtd')
+            raise Exception('Can\'t connect to libvirtd')
 
     def __is_connection_error(self):
         if self.__conn.isAlive():
@@ -77,10 +85,10 @@ __proxies = {
 }
 
 
-def __get_proxy(name):
-    if not __proxies[name]:
-        __proxies[name] = _LibvirtProxy(name + ':///system')
-    return __proxies[name]
+def __get_proxy(driver_name):
+    if not __proxies[driver_name]:
+        __proxies[driver_name] = _LibvirtProxy(driver_name)
+    return __proxies[driver_name]
 
 
 def get_qemu_proxy():
