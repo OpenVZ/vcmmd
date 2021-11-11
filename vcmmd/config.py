@@ -198,8 +198,8 @@ class VCMMDConfig(metaclass=Singleton):
         except (KeyError, TypeError, ValueError) as err:
             # do not complain if the option is absent
             if not isinstance(err, KeyError):
-                self.logger.warn("Invalid value for config option '%s': %s",
-                                 name, err)
+                self.logger.warning("Invalid value for config option '%s': %s",
+                                    name, err)
             val = default
         # Save the value to speed up following retrievals and avoid spewing
         # warnings if any over and over again.
