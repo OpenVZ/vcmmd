@@ -19,16 +19,12 @@
 # Our contact details: Virtuozzo International GmbH, Vordergasse 59, 8200
 # Schaffhausen, Switzerland.
 
-import os
-
 from vcmmd.env import Env
 from vcmmd.util.stats import Stats
 from vcmmd.util.misc import parse_range_list
-from vcmmd.util.threading import update_stats_single
 
 
 class NumaStats:
-
 
     class MemStats(Stats):
         ABSOLUTE_STATS = [

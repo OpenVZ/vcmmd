@@ -25,7 +25,7 @@ from multiprocessing.pool import ThreadPool
 from vcmmd.cgroup import MemoryCgroup, BlkIOCgroup, CpuSetCgroup, CpuCgroup
 from vcmmd.ve.base import Error, VEImpl, register_ve_impl
 from vcmmd.ve_type import VE_TYPE_CT, VE_TYPE_SERVICE
-from vcmmd.util.limits import PAGE_SIZE, UINT64_MAX
+from vcmmd.util.limits import UINT64_MAX
 
 
 # The thread pool is used in order not to block the main thread while

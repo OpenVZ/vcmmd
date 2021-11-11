@@ -20,7 +20,6 @@
 # Schaffhausen, Switzerland.
 
 import importlib
-import itertools
 import functools
 import logging
 import os
@@ -34,8 +33,7 @@ from vcmmd.error import (VCMMDError,
                          VCMMD_ERROR_VE_NOT_REGISTERED,
                          VCMMD_ERROR_UNABLE_APPLY_VE_GUARANTEE,
                          VCMMD_ERROR_VE_NOT_ACTIVE,
-                         VCMMD_ERROR_POLICY_SET_ACTIVE_VES,
-                         VCMMD_ERROR_POLICY_SET_INVALID_NAME)
+                         VCMMD_ERROR_POLICY_SET_ACTIVE_VES)
 from vcmmd.ve_config import DefaultVEConfig, VEConfig, VCMMD_MEMGUARANTEE_AUTO
 from vcmmd.ve_type import (VE_TYPE_CT, VE_TYPE_VM, VE_TYPE_VM_LINUX,
                            VE_TYPE_VM_WINDOWS, VE_TYPE_SERVICE)
