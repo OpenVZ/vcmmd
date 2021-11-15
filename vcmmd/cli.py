@@ -62,6 +62,8 @@ def _add_ve_config_options(parser):
                       help='Size of host swap space that may be used by VE')
     parser.add_option('--cache', type='memsize',
                       help='Max cache size available to VE')
+    parser.add_option('--cpunum', type='int',
+                      help='Max VCPUs available to VE')
 
 
 def _add_memval_config_options(parser):
@@ -89,6 +91,8 @@ def _ve_config_from_options(options):
         kv['swap'] = options.swap
     if options.cache is not None:
         kv['cache'] = options.cache
+    if options.cpunum is not None:
+        kv['cpunum'] = options.cpunum
     return VEConfig(**kv)
 
 
@@ -239,9 +243,11 @@ def _handle_list(args):
     ve_list = proxy.get_all_registered_ves()
 
     max_name_len = max(len(ve[0]) for ve in ve_list) if ve_list else 12
-    fields = ('name', 'type', 'active', 'guarantee', 'limit', 'swap', 'cache')
+    fields = (
+        'name', 'type', 'active', 'guarantee', 'limit', 'swap', 'cache',
+        'cpunum')
 
-    fmt = '%-{0}s %6s %6s %{1}s %{1}s %{1}s %{1}s'.format(
+    fmt = '%-{0}s %6s %6s %{1}s %{1}s %{1}s %{1}s %{1}s'.format(
         max_name_len, 11 if options.bytes else 9)
     if not options.j:
         print(fmt % fields)
@@ -256,14 +262,16 @@ def _handle_list(args):
         if options.j:
             data.append(dict(zip(
                 fields, (ve_name, ve_type_name, ve_active, ve_config.guarantee,
-                    ve_config.limit, ve_config.swap, ve_config.cache))))
+                         ve_config.limit, ve_config.swap, ve_config.cache,
+                         ve_config.cpunum))))
             continue
         print(fmt % (ve_name, ve_type_name,
                      'yes' if ve_active else 'no',
                      _str_memval(ve_config.guarantee, options),
                      _str_memval(ve_config.limit, options),
                      _str_memval(ve_config.swap, options),
-                     _str_memval(ve_config.cache, options)))
+                     _str_memval(ve_config.cache, options),
+                     ve_config.cpunum))
     if options.j:
         _print_json(data)
 

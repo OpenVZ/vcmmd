@@ -305,9 +305,12 @@ class LoadManager:
             qemu_vram_overhead = 0
             guarantee = 0
             reserved = 0
+            cpu_reserved = 0
             for ve in self._registered_ves.values():
                 qemu_vram_overhead += ve.mem_overhead
                 guarantee += max(ve.mem_min, ve.protection)
+                if ve.config.cpunum > 0:
+                    cpu_reserved += ve.config.cpunum
                 if ve.VE_TYPE == VE_TYPE_SERVICE:
                     reserved += ve.mem_min
         swap = self._host.get_slice_swap('machine')
@@ -315,12 +318,14 @@ class LoadManager:
             swap = 0
         available = max(
                 self._host.total_mem - qemu_vram_overhead - guarantee, 0)
+        cpu_reserved = min(cpu_reserved, self._host.get_cpu_count())
         return {'total': self._host.total_mem,
                 'qemu overhead+vram': qemu_vram_overhead,
                 'services_reserved': reserved,
                 'guarantee': guarantee,
                 'swap': swap,
-                'available': available}
+                'available': available,
+                'cpu_reserved': cpu_reserved}
 
     def get_config(self, full_config=False):
         return VCMMDConfig().report(full_config)
@@ -383,10 +388,11 @@ class LoadManager:
     def _initialize_ve(self, domain):
         ve_type = VE_TYPE_CT if domain.OSType() == 'exe' else VE_TYPE_VM
         uuid = domain.UUIDString()
-        ve_config = {}
+        ve_config = {'cpunum': 0}
         dom_xml = ET.fromstring(domain.XMLDesc())
         if ve_type == VE_TYPE_VM:
             ve_config['limit'] = domain.maxMemory() << 10
+            ve_config['cpunum'] = domain.maxVcpus()
             video = dom_xml.findall('./devices/video/model')
             vram = sum(int(v.attrib.get('vram', 0)) for v in video) << 10
             ve_config['vram'] = vram

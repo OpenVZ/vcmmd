@@ -32,6 +32,7 @@ _VEConfigFields = [     # tag
     'cpulist',          # 5
     'guarantee_type',   # 6
     'cache',            # 7
+    'cpunum',           # 8
 ]
 
 _VEConfigFields_string = [
@@ -80,6 +81,8 @@ class VEConfig:
     guarantee_type: Default ve memory guarantee type "auto" or in percent.
 
     cache:          VE page cache limit in bytes.
+
+    cpunum:         Number of VCPUs.
 
     Every field is tagged as follows:
 
@@ -174,8 +177,9 @@ class VEConfig:
                 kv[name] = int(val)
         return VEConfig(**kv)
 
-    def update(self, guarantee):
-        self._kv['guarantee'] = guarantee
+    def update(self, **kwargs):
+        for key, value in kwargs.items():
+            self._kv[key] = value
 
 
 DefaultVEConfig = VEConfig(guarantee=0,
@@ -185,4 +189,5 @@ DefaultVEConfig = VEConfig(guarantee=0,
                            nodelist="",
                            cpulist="",
                            guarantee_type=VCMMD_MEMGUARANTEE_AUTO,
-                           cache=UINT64_MAX)
+                           cache=UINT64_MAX,
+                           cpunum=0)

@@ -89,7 +89,6 @@ class ABSVEImpl(VEImpl):
         try:
             self._memcg.write_oom_guarantee(config.guarantee)
             self._memcg.write_mem_config(config.limit, config.swap)
-            self._memcg.write_oom_control(1)
         except IOError as err:
             raise Error('Cgroup write failed: {}'.format(err))
 

@@ -197,8 +197,8 @@ class VE(Env):
     def _get_obj(self):
         if self._obj is None:
             obj = self._impl(self.name)
-            obj.set_config(self.config)
             self._obj = obj
+            self.set_config(self.config)
         return self._obj
 
     def activate(self):
@@ -308,10 +308,13 @@ class VE(Env):
         '''Update VE config.
         '''
         _check_ve_config(config)
-        self.config = config
 
         try:
             obj = self._get_obj()
+            vm_types = (VE_TYPE_VM_LINUX, VE_TYPE_VM_WINDOWS, VE_TYPE_VM)
+            if obj.VE_TYPE in vm_types:
+                config.update(cpunum=obj.nr_cpus)
+            self.config = config
             obj.set_config(config)
         except Error as err:
             self.log_err('Failed to set config: %s', err)

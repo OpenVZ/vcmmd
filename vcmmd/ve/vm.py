@@ -314,6 +314,7 @@ class VMWinImpl(VMImpl):
             stats['memavail'] = stats['memfree']
         return stats
 
+
 register_ve_impl(VMImpl)
 register_ve_impl(VMLinImpl)
 register_ve_impl(VMWinImpl)
