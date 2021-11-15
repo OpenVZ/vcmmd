@@ -60,6 +60,8 @@ def _add_ve_config_options(parser):
                       help='Max memory allocation available to VE')
     parser.add_option('--swap', type='memsize',
                       help='Size of host swap space that may be used by VE')
+    parser.add_option('--cache', type='memsize',
+                      help='Max cache size available to VE')
 
 
 def _add_memval_config_options(parser):
@@ -85,6 +87,8 @@ def _ve_config_from_options(options):
         kv['limit'] = options.limit
     if options.swap is not None:
         kv['swap'] = options.swap
+    if options.cache is not None:
+        kv['cache'] = options.cache
     return VEConfig(**kv)
 
 
@@ -235,11 +239,12 @@ def _handle_list(args):
     ve_list = proxy.get_all_registered_ves()
 
     max_name_len = max(len(ve[0]) for ve in ve_list) if ve_list else 12
-    fields = ('name', 'type', 'active', 'guarantee', 'limit', 'swap')
+    fields = ('name', 'type', 'active', 'guarantee', 'limit', 'swap', 'cache')
 
-    fmt = '%-{0}s %6s %6s %{1}s %{1}s %{1}s'.format(max_name_len, 11 if options.bytes else 9)
+    fmt = '%-{0}s %6s %6s %{1}s %{1}s %{1}s %{1}s'.format(
+        max_name_len, 11 if options.bytes else 9)
     if not options.j:
-        print(fmt % ('name', 'type', 'active', 'guarantee', 'limit', 'swap'))
+        print(fmt % fields)
 
     data = []
 
@@ -257,7 +262,8 @@ def _handle_list(args):
                      'yes' if ve_active else 'no',
                      _str_memval(ve_config.guarantee, options),
                      _str_memval(ve_config.limit, options),
-                     _str_memval(ve_config.swap, options)))
+                     _str_memval(ve_config.swap, options),
+                     _str_memval(ve_config.cache, options)))
     if options.j:
         _print_json(data)
 

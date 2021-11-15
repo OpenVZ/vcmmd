@@ -31,6 +31,7 @@ _VEConfigFields = [     # tag
     'nodelist',         # 4
     'cpulist',          # 5
     'guarantee_type',   # 6
+    'cache',            # 7
 ]
 
 _VEConfigFields_string = [
@@ -77,6 +78,8 @@ class VEConfig:
                     the virtual environment process.
 
     guarantee_type: Default ve memory guarantee type "auto" or in percent.
+
+    cache:          VE page cache limit in bytes.
 
     Every field is tagged as follows:
 
@@ -181,4 +184,5 @@ DefaultVEConfig = VEConfig(guarantee=0,
                            vram=0,
                            nodelist="",
                            cpulist="",
-                           guarantee_type=VCMMD_MEMGUARANTEE_AUTO)
+                           guarantee_type=VCMMD_MEMGUARANTEE_AUTO,
+                           cache=UINT64_MAX)

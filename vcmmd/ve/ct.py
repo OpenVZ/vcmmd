@@ -89,10 +89,13 @@ class ABSVEImpl(VEImpl):
         try:
             self._memcg.write_oom_guarantee(config.guarantee)
             self._memcg.write_mem_config(config.limit, config.swap)
+            self._memcg.write_oom_control(1)
         except IOError as err:
             raise Error('Cgroup write failed: {}'.format(err))
 
         self.mem_limit = min(self.mem_limit, config.limit)
+        _thread_pool.apply_async(
+            self._memcg.write_cache_limit_in_bytes, (config.cache,))
 
 
 class CTImpl(ABSVEImpl):
@@ -178,7 +181,6 @@ class CTImpl(ABSVEImpl):
             self._cpusetcg.set_cpu_list(cpus)
         except IOError as err:
             raise Error('Cgroup write failed: {}'.format(err))
-
 
 
 class ServiceCTImpl(ABSVEImpl):
