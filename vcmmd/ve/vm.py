@@ -19,12 +19,13 @@
 # Our contact details: Virtuozzo International GmbH, Vordergasse 59, 8200
 # Schaffhausen, Switzerland.
 
-from multiprocessing.pool import ThreadPool
-
+import psutil
 from libvirt import libvirtError
 from libvirt import (VIR_DOMAIN_STATS_BLOCK as STATS_BLOCK,
                      VIR_DOMAIN_STATS_BALLOON as STATS_BALLOON,
                      VIR_CONNECT_GET_ALL_DOMAINS_STATS_RUNNING as GET_ALL_RUNNING)
+from libvirt import VIR_DOMAIN_NUMATUNE_MEM_STRICT as NUMATUNE_MEM_STRICT
+from libvirt import VIR_DOMAIN_AFFECT_LIVE as AFFECT_LIVE
 
 from vcmmd.cgroup import MemoryCgroup, CpuSetCgroup, CpuCgroup, pid_cgroup
 from vcmmd.ve.base import Error, VEImpl, register_ve_impl
@@ -35,12 +36,7 @@ from vcmmd.util.misc import roundup, lookup_qemu_machine_pid
 
 from vcmmd.util.limits import PAGE_SIZE
 from vcmmd.util.misc import parse_range_list
-from libvirt import VIR_DOMAIN_NUMATUNE_MEM_STRICT as NUMATUNE_MEM_STRICT
-from libvirt import VIR_DOMAIN_AFFECT_LIVE as AFFECT_LIVE
-import psutil
-
-
-_thread_pool = ThreadPool(3)
+from vcmmd.util.threading import run_async
 
 
 class VMImpl(VEImpl):
@@ -181,7 +177,7 @@ class VMImpl(VEImpl):
         # Update current allocation size by inflating/deflating balloon.
         try:
             # libvirt wants kB
-            _thread_pool.apply_async(self._libvirt_domain.setMemory, (value >> 10,))
+            run_async(self._libvirt_domain.setMemory, value >> 10)
         except libvirtError as err:
             raise Error('Failed to set libvirt domain memory size: {}'.format(err))
 

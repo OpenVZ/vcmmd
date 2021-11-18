@@ -21,6 +21,7 @@
 
 import sys
 import threading
+from multiprocessing.pool import ThreadPool
 
 
 def setup_thread_excepthook():
@@ -34,7 +35,6 @@ def setup_thread_excepthook():
     init_original = threading.Thread.__init__
 
     def init(self, *args, **kwargs):
-
         init_original(self, *args, **kwargs)
         run_original = self.run
 
@@ -48,12 +48,14 @@ def setup_thread_excepthook():
 
     threading.Thread.__init__ = init
 
+
 def update_stats_single(fn):
-    '''
-    Special decorator for update stats methos
+    """
+    Special decorator for update stats methods.
     Such methods should not be running in parallel for single object
-    '''
+    """
     lock = threading.Lock()
+
     def wrapped(*args, **kwargs):
         if lock.locked():
             # looks like some one update this stats right now,
@@ -66,3 +68,17 @@ def update_stats_single(fn):
             assert not fn(*args, **kwargs)
     wrapped.__lock = lock
     return wrapped
+
+
+# The thread pool is used in order not to block the main thread while
+# performing costly operations, like memory.high adjustment, or avoid deadlock
+# with libvirtd.
+
+# XXX: Note, using threads should not really hurt parallelism, because real
+# work is done from system calls, with GIL released.
+
+_thread_pool = ThreadPool(3)
+
+
+def run_async(func, *args, **kwargs):
+    return _thread_pool.apply_async(func, args, kwargs)
