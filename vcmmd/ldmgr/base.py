@@ -44,6 +44,7 @@ from vcmmd.ve import VE
 from vcmmd.ve.ct import lookup_cgroup
 from vcmmd.host import Host
 from vcmmd.cgroup.memory import MemoryCgroup
+from vcmmd.cgroup.cpu import CpuCgroup
 
 
 # Dummy policy may be used in purpose of debugging other
@@ -398,8 +399,10 @@ class LoadManager:
             ve_config['vram'] = vram
         else:
             memcg = lookup_cgroup(MemoryCgroup, uuid)
+            cpucg = lookup_cgroup(CpuCgroup, uuid)
             ve_config['limit'] = memcg.read_mem_max()
             ve_config['swap'] = memcg.read_swap_max()
+            ve_config['cpunum'] = cpucg.get_nr_cpus()
         vcpu_dom = dom_xml.find('./vcpu')
         if vcpu_dom:
             ve_config['cpulist'] = vcpu_dom.attrib.get('cpuset', '')
