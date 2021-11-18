@@ -19,18 +19,12 @@
 # Our contact details: Virtuozzo International GmbH, Vordergasse 59, 8200
 # Schaffhausen, Switzerland.
 
+import os
 import logging
 import libvirt
-import subprocess
 import time
 
 from contextlib import suppress
-
-
-def _driver_installed(driver_name: str) -> bool:
-    cp = subprocess.run(['rpm', '-q', f'libvirt-daemon-driver-{driver_name}'])
-    return cp.returncode == 0
-
 
 class _LibvirtProxy():
 
@@ -41,8 +35,6 @@ class _LibvirtProxy():
 
     def __connect(self):
         self.__logger.debug('Connecting to libvirt')
-        if not _driver_installed(self.__driver_name):
-            raise LookupError(f'libvirt-{self.__driver_name} is not found')
         libvirt_endpoint = self.__driver_name + ':///system'
         attempts_to_connect = 120
         while attempts_to_connect > 0:
@@ -96,6 +88,9 @@ def get_qemu_proxy():
 
 
 def get_vzct_proxy():
+    if not os.path.exists(
+            '/usr/lib64/libvirt/connection-driver/libvirt_driver_vzct.so'):
+        raise LookupError('vzct driver is not found')
     return __get_proxy('vzct')
 
 
