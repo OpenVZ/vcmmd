@@ -93,8 +93,11 @@ class VEConfig:
     nodelist:       4
     cpulist:        5
     guarantee_type: 6
+    cache:          7
+    cpunum:         8
 
     The tags are used for converting the config to a tuple/array and back.
+    libvcmmd should be updated as well while adding new fields.
     '''
 
     def __init__(self, **kv):
