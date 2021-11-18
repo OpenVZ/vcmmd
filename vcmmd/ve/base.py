@@ -33,6 +33,7 @@ from vcmmd.numa import Numa as AbsNuma
 from vcmmd.env import Env
 from vcmmd.util.threading import update_stats_single
 from vcmmd.ve_type import (get_ve_type_name,
+                           VE_TYPE_SERVICE,
                            VE_TYPE_CT,
                            VE_TYPE_VM_LINUX,
                            VE_TYPE_VM_WINDOWS,
@@ -311,8 +312,7 @@ class VE(Env):
 
         try:
             obj = self._get_obj()
-            vm_types = (VE_TYPE_VM_LINUX, VE_TYPE_VM_WINDOWS, VE_TYPE_VM)
-            if obj.VE_TYPE in vm_types:
+            if obj.VE_TYPE != VE_TYPE_SERVICE:
                 config.update(cpunum=obj.nr_cpus)
             self.config = config
             obj.set_config(config)
@@ -321,6 +321,17 @@ class VE(Env):
             raise VCMMDError(VCMMD_ERROR_VE_OPERATION_FAILED)
 
         self.log_info('Config updated: %s', config)
+
+    def get_config(self):
+        config = self.config
+        try:
+            obj = self._get_obj()
+            if obj.VE_TYPE != VE_TYPE_SERVICE:
+                config.update(cpunum=obj.nr_cpus)
+        except Error as err:
+            self.log_err(f'Failed to get config {err}')
+            raise VCMMDError(VCMMD_ERROR_INVALID_VE_CONFIG)
+        return config
 
     def set_node_list(self, nodes):
         '''Set VE NUMA binding
