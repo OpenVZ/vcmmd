@@ -23,6 +23,7 @@ import re
 
 from vcmmd.cgroup.base import Cgroup
 
+
 class CpuCgroup(Cgroup):
 
     CONTROLLER = 'cpu'
@@ -44,3 +45,6 @@ class CpuCgroup(Cgroup):
 
     def get_nr_cpus(self):
         return self._read_file_int("nr_cpus")
+
+    def write_cpu_shares(self, val):
+        self._write_file_int('shares', val)

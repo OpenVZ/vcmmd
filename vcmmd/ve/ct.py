@@ -24,6 +24,7 @@ import time
 from vcmmd.cgroup import MemoryCgroup, BlkIOCgroup, CpuSetCgroup, CpuCgroup
 from vcmmd.ve.base import Error, VEImpl, register_ve_impl
 from vcmmd.ve_type import VE_TYPE_CT, VE_TYPE_SERVICE
+from vcmmd.config import VCMMDConfig
 from vcmmd.util.limits import UINT64_MAX
 from vcmmd.util.threading import run_async
 
@@ -49,7 +50,6 @@ class ABSVEImpl(VEImpl):
 
     def __init__(self, name):
         self._memcg = lookup_cgroup(MemoryCgroup, name)
-
         self.mem_limit = UINT64_MAX
 
     def get_rss(self):
@@ -175,6 +175,33 @@ class CTImpl(ABSVEImpl):
 class ServiceCTImpl(ABSVEImpl):
 
     VE_TYPE = VE_TYPE_SERVICE
+
+    def __init__(self, name):
+        super(ServiceCTImpl, self).__init__(name)
+        self._cpucg = CpuCgroup(name)
+        self._default_cpu_share = VCMMDConfig().get_num(
+            'VE.SRVC.DefaultCPUShare', default=10000, integer=True,
+            mininum=1024)
+
+    def set_config(self, config):
+        try:
+            # protect services from OOM killer
+            self._memcg.write_oom_guarantee(-1)
+            self._memcg.write_mem_low(config.guarantee)
+            self._memcg.write_mem_config(config.limit, config.swap)
+            if not config.swap:
+                self._memcg.write_swappiness(0)
+            self._memcg.write_cleancache(False)
+        except OSError as err:
+            raise Error(f'CGroup write failed: {err}')
+
+        run_async(self._memcg.write_cache_limit_in_bytes, config.cache)
+
+        try:
+            # reserve CPU for each service
+            self._cpucg.write_cpu_shares(self._default_cpu_share)
+        except OSError as err:
+            raise Error(f'CGroup write failed: {err}')
 
 
 register_ve_impl(CTImpl)
