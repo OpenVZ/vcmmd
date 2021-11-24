@@ -45,6 +45,7 @@ from vcmmd.ve.ct import lookup_cgroup
 from vcmmd.host import Host
 from vcmmd.cgroup.memory import MemoryCgroup
 from vcmmd.cgroup.cpu import CpuCgroup
+from vcmmd.util.limits import UINT64_MAX
 
 
 # Dummy policy may be used in purpose of debugging other
@@ -307,24 +308,30 @@ class LoadManager:
             guarantee = 0
             reserved = 0
             cpu_reserved = 0
+            file_cache = 0
             for ve in self._registered_ves.values():
                 qemu_vram_overhead += ve.mem_overhead
                 guarantee += max(ve.mem_min, ve.protection)
-                if ve.config.cpunum > 0:
-                    cpu_reserved += ve.config.cpunum
                 if ve.VE_TYPE == VE_TYPE_SERVICE:
                     reserved += ve.mem_min
+                    if ve.config.cpunum > 0:
+                        cpu_reserved += ve.config.cpunum
+                    if ve.config.cache < UINT64_MAX:
+                        file_cache += ve.config.cache
         swap = self._host.get_slice_swap('machine')
         if swap is None:
             swap = 0
         available = max(
                 self._host.total_mem - qemu_vram_overhead - guarantee, 0)
+        file_cache = min(file_cache, MemoryCgroup('/').read_mem_stat()['total_active_file'])
+        reserved = min(reserved + file_cache, self._host.total_mem)
         cpu_reserved = min(cpu_reserved, self._host.get_cpu_count())
         return {'total': self._host.total_mem,
-                'qemu overhead+vram': qemu_vram_overhead,
-                'services_reserved': reserved,
+                'overhead': qemu_vram_overhead,
+                'host_reserved': reserved,
                 'guarantee': guarantee,
-                'swap': swap,
+                'swap_usage': swap,
+                'swap_total': self._host.get_swap_total(),
                 'available': available,
                 'cpu_reserved': cpu_reserved}
 

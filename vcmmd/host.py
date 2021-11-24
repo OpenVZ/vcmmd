@@ -147,10 +147,9 @@ class Host(Env, metaclass=HostMeta):
                 self.log_err("Failed to update stat: open %s failed: %s",
                              name, err)
         mem = psutil.virtual_memory()
-        swaptotal = psutil.swap_memory().total
 
         stats = {'memtotal': self.total_mem,
-                 'swaptotal': swaptotal,
+                 'swaptotal': self.get_swap_total(),
                  'memfree': mem.free,
                  'memavail': mem.available,
                  'ksm_pg_shared': ksm_stats.get('pages_shared', -1),
@@ -235,3 +234,7 @@ class Host(Env, metaclass=HostMeta):
         # NotImplementedError while psutil will be able to obtain
         # the number of CPUs.
         return multiprocessing.cpu_count()
+
+    @staticmethod
+    def get_swap_total():
+        return psutil.swap_memory().total
