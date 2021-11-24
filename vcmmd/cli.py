@@ -391,10 +391,11 @@ def _handle_free(args):
 
     free = RPCProxy().get_free()
     head = [*map(str, free.keys())]
-    vals = [_str_memval(v, options) for v in free.values()]
     if options.j:
+        vals = free.values()
         _print_json(dict(zip(head, vals)))
     else:
+        vals = [_str_memval(v, options) for v in free.values()]
         fmt = ' '.join(['{:'+str(len(v)+3)+'}' for v in free.keys()])
         for s in head, vals:
             print(fmt.format(*s))
