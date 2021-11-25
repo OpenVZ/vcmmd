@@ -116,7 +116,7 @@ class virDomainProxy(object):
 def lookup_qemu_machine_pid(name):
     '''Given the name of a QEMU machine, lookup its PID.
     '''
-    pids = []
+    procs = []
     for proc in psutil.process_iter():
         # Workaround for old psutil(1.2.1)
         if isinstance(proc.cmdline, list):
@@ -144,10 +144,11 @@ def lookup_qemu_machine_pid(name):
             cmd_name = cmd[name_idx].split(',')[0]
             if cmd_name.startswith('guest=') and cmd_name[len('guest='):] == name or \
                cmd_name == name:
-                pids.append(proc.pid)
+                procs.append((proc.create_time(), proc.pid))
 
-    if len(pids) == 1:
-        return pids[0]
+    procs.sort(reverse=True)
+    if len(procs) > 0:
+        return procs[0][1]
 
     raise OSError("No such process: '%s'" % name)
 
