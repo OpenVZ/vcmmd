@@ -62,9 +62,9 @@ def _add_logging(fn):
 def _log_dbus_methods(klass):
     """Wrap all _LoadManagerObject dbus methods with _add_logging decorator."""
     def is_vcmmd_dbus_method(attr):
-        return (attr.__module__ == 'vcmmd.rpc.dbus.server' and
-                not attr.__name__.startswith('_') and
-                inspect.isfunction(attr))
+        return (inspect.isfunction(attr) and
+                attr.__module__ == 'vcmmd.rpc.dbus.server' and
+                not attr.__name__.startswith('_'))
     for name, fn in inspect.getmembers(klass, is_vcmmd_dbus_method):
         setattr(klass, name, _add_logging(fn))
     return klass
