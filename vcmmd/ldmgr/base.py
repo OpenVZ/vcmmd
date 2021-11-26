@@ -378,12 +378,12 @@ class LoadManager:
             if not memcg.read_swappiness():
                 kv['swap'] = 0
             try:
-                self.register_ve(cgroup_name, VE_TYPE_SERVICE, VEConfig(**kv), 0)
+                self.register_ve(cgroup_name, VE_TYPE_SERVICE, VEConfig(**kv))
             except VCMMDError as e:
                 if e.errno == VCMMD_ERROR_VE_NAME_ALREADY_IN_USE:
                     continue
                 raise
-            self.activate_ve(cgroup_name, 0)
+            self.activate_ve(cgroup_name)
 
     def _initialize_service(self, name, config):
         known_params = {'Limit', 'Guarantee', 'Swap', 'Path'}
