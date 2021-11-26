@@ -95,6 +95,9 @@ class MemoryCgroup(Cgroup):
     def write_swappiness(self, val):
         self._write_file_int('swappiness', val)
 
+    def read_swappiness(self):
+        return self._read_file_int('swappiness')
+
     def write_oom_control(self, val):
         self._write_file_int('oom_control', val)
 

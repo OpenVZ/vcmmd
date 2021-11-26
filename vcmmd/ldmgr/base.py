@@ -345,6 +345,45 @@ class LoadManager:
     def _initialize_services(self):
         for name, config in VCMMDConfig().get('Limits', default={}).items():
             self._initialize_service(name, config)
+        self._initialize_hci_services()
+
+    def _initialize_hci_services(self):
+        memory_cgroup_path = '/sys/fs/cgroup/memory'
+        vstorage_cgroup_path = f'{memory_cgroup_path}/vstorage.slice'
+        mem_cgroups = []
+        for service_slice in (
+                'vstorage-compute.slice',
+                'vstorage-compute.slice/vstorage-compute-storage.slice',
+                'vstorage-services.slice',
+                'vstorage-target.slice',
+                'vstorage-ui.slice'):
+            full_path = os.path.join(vstorage_cgroup_path, service_slice)
+            if not os.path.isdir(full_path):
+                continue
+            mem_cgroups.append(f'vstorage.slice/{service_slice}')
+        for service_slice in (
+                'system.slice/postgresql.service',
+                'system.slice/nginx.service'):
+            full_path = os.path.join(memory_cgroup_path, service_slice)
+            if not os.path.isdir(full_path):
+                continue
+            mem_cgroups.append(service_slice)
+        for cgroup_name in mem_cgroups:
+            memcg = MemoryCgroup(cgroup_name)
+            kv = {
+                'guarantee': memcg.read_mem_low(),
+                'limit': memcg.read_mem_max(),
+                'cache': memcg.read_cache_limit_in_bytes()
+            }
+            if not memcg.read_swappiness():
+                kv['swap'] = 0
+            try:
+                self.register_ve(cgroup_name, VE_TYPE_SERVICE, VEConfig(**kv), 0)
+            except VCMMDError as e:
+                if e.errno == VCMMD_ERROR_VE_NAME_ALREADY_IN_USE:
+                    continue
+                raise
+            self.activate_ve(cgroup_name, 0)
 
     def _initialize_service(self, name, config):
         known_params = {'Limit', 'Guarantee', 'Swap', 'Path'}
