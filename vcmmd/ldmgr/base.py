@@ -254,7 +254,8 @@ class LoadManager:
         with self._registered_ves_lock:
             ve = self._registered_ves.get(ve_name)
             if ve is None:
-                raise VCMMDError(VCMMD_ERROR_VE_NOT_REGISTERED)
+                self.logger.warning(f'VE \'{ve_name}\' is not registered, skipping')
+                return
 
             del self._registered_ves[ve.name]
 
