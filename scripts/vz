@@ -188,6 +188,9 @@ for vm in vm_list:
         vram = None
         swap = memcg.read_swap_max()
     else:
+        # Reset ve_type since current version of libvirt doesn't pass ve_type
+        # on starting up VM.
+        ve_type = VE_TYPE_VM
         uuid = vm.get_uuid()[1:-1]
 
         try:
