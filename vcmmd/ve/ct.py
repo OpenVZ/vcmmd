@@ -181,7 +181,7 @@ class ServiceCTImpl(ABSVEImpl):
         self._cpucg = CpuCgroup(name)
         self._default_cpu_share = VCMMDConfig().get_num(
             'VE.SRVC.DefaultCPUShare', default=10000, integer=True,
-            mininum=1024)
+            minimum=1024)
 
     def set_config(self, config):
         try:
