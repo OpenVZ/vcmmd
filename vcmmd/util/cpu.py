@@ -98,3 +98,7 @@ def enable_vln_mitigations():
             if mitigation:
                 _set_vln_mitigation(vln, mitigation)
         os.remove(_VLN_STORE_FILEPATH)
+
+
+def is_vln_mitigations_supported():
+    return 'vz7' in os.uname().release

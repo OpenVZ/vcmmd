@@ -178,6 +178,8 @@ class Policy(metaclass=ABCMeta):
         self.host.log_info('"Low memory" watchdog stopped(msg="%s").', err)
 
     def _update_vulnerabilities_mitigations(self):
+        if not vcmmd.util.cpu.is_vln_mitigations_supported():
+            return
         vm_ves = [ve for ve in self.get_ves() if ve.VE_TYPE != VE_TYPE_SERVICE]
         mitigations_enabled = vcmmd.util.cpu.is_vln_mitigations_enabled()
         management_enabled = VCMMDConfig().get_bool('EnableMitigationsManagement', True)
