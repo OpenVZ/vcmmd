@@ -76,7 +76,7 @@ def set_vln_mitigations(mitigations):
 def is_vln_mitigations_enabled():
     """Check if the mitigations is enabled."""
     x = any(get_vln_mitigations().values())
-    return x and not os.path.isfile(_VLN_STORE_FILEPATH)
+    return x or not os.path.isfile(_VLN_STORE_FILEPATH)
 
 
 def disable_vln_mitigations():
