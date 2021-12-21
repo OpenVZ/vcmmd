@@ -40,7 +40,7 @@ from vcmmd.util.threading import setup_thread_excepthook
 
 class _App:
 
-    PID_FILE = '/var/run/vcmmd.pid'
+    PID_FILE = '/run/vcmmd.pid'
     LOG_FILE = '/var/log/vcmmd.log'
     INIT_SCRIPTS_DIR = '/etc/vz/vcmmd.d'
     DEFAULT_CONFIG = '/etc/vz/vcmmd.conf'
