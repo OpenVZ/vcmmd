@@ -172,7 +172,7 @@ class CTImpl(ABSVEImpl):
             raise Error('Cgroup write failed: {}'.format(err))
 
 
-class ServiceCTImpl(ABSVEImpl):
+class ServiceCTImpl(CTImpl):
 
     VE_TYPE = VE_TYPE_SERVICE
 
