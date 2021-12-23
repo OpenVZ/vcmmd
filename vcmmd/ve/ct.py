@@ -172,7 +172,7 @@ class CTImpl(ABSVEImpl):
             raise Error('Cgroup write failed: {}'.format(err))
 
 
-class ServiceCTImpl(CTImpl):
+class ServiceCTImpl(ABSVEImpl):
 
     VE_TYPE = VE_TYPE_SERVICE
 
@@ -182,6 +182,14 @@ class ServiceCTImpl(CTImpl):
         self._default_cpu_share = VCMMDConfig().get_num(
             'VE.SRVC.DefaultCPUShare', default=10000, integer=True,
             minimum=1024)
+
+    @property
+    def nr_cpus(self):
+        try:
+            self._nr_cpus = self._cpucg.get_nr_cpus()
+            return self._nr_cpus
+        except IOError:
+            return getattr(self, "_nr_cpus", -1)
 
     def set_config(self, config):
         try:
