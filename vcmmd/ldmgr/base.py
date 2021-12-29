@@ -381,11 +381,11 @@ class LoadManager:
                 kv['swap'] = 0
             try:
                 self.register_ve(cgroup_name, VE_TYPE_SERVICE, VEConfig(**kv))
+                self.activate_ve(cgroup_name)
             except VCMMDError as e:
                 if e.errno == VCMMD_ERROR_VE_NAME_ALREADY_IN_USE:
                     continue
-                raise
-            self.activate_ve(cgroup_name)
+                self.logger.error('Can\'t register %s: %s', cgroup_name, e)
 
     def _initialize_service(self, name, config):
         known_params = {'Limit', 'Guarantee', 'Swap', 'Path'}
@@ -420,8 +420,11 @@ class LoadManager:
                                          int(config[Param].get('Max', -1)))
             except (KeyError, TypeError, ValueError):
                 raise VCMMDError('Error parsing {}.{}'.format(service_name, Param))
-        self.register_ve(service_name, VE_TYPE_SERVICE, VEConfig(**ve_config))
-        self.activate_ve(service_name)
+        try:
+            self.register_ve(service_name, VE_TYPE_SERVICE, VEConfig(**ve_config))
+            self.activate_ve(service_name)
+        except VCMMDError as e:
+            self.logger.error('Can\'t register %s: %s', service_name, e)
 
     def _initialize_ves(self):
         domains = []
