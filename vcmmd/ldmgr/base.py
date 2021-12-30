@@ -33,7 +33,8 @@ from vcmmd.error import (VCMMDError,
                          VCMMD_ERROR_VE_NOT_REGISTERED,
                          VCMMD_ERROR_UNABLE_APPLY_VE_GUARANTEE,
                          VCMMD_ERROR_VE_NOT_ACTIVE,
-                         VCMMD_ERROR_POLICY_SET_ACTIVE_VES)
+                         VCMMD_ERROR_POLICY_SET_ACTIVE_VES,
+                         VCMMD_ERROR_VE_OPERATION_FAILED)
 from vcmmd.ve_config import DefaultVEConfig, VEConfig, VCMMD_MEMGUARANTEE_AUTO
 from vcmmd.ve_type import (VE_TYPE_CT, VE_TYPE_VM, VE_TYPE_VM_LINUX,
                            VE_TYPE_VM_WINDOWS, VE_TYPE_SERVICE)
@@ -41,6 +42,7 @@ from vcmmd.ldmgr.policy import clamp
 from vcmmd.util.libvirt import get_qemu_proxy, get_vzct_proxy
 from vcmmd.config import VCMMDConfig
 from vcmmd.ve import VE
+from vcmmd.ve.base import Error
 from vcmmd.ve.ct import lookup_cgroup
 from vcmmd.host import Host
 from vcmmd.cgroup.memory import MemoryCgroup
@@ -192,7 +194,15 @@ class LoadManager:
                ve_config.guarantee_type == VCMMD_MEMGUARANTEE_AUTO:
                 ve_config.update(guarantee=int(
                     ve_config.limit * self._policy.DEFAULT_VM_AUTO_GUARANTEE))
-            ve = VE(ve_type, ve_name, ve_config)
+            try:
+                ve = VE(ve_type, ve_name, ve_config)
+            except Error as err:
+                if ve_type == VE_TYPE_SERVICE:
+                    self.logger.info('Skip registering %s: %s', ve_name, err)
+                else:
+                    self.logger.error('Can\'t register %s: %s', ve_name, err)
+                    raise VCMMDError(VCMMD_ERROR_VE_OPERATION_FAILED)
+
             self._check_guarantees(ve.mem_min)
             ve.effective_limit = min(ve.config.limit, self._host.ve_mem)
 

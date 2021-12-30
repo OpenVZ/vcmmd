@@ -179,6 +179,11 @@ class VE(Env):
         self._impl = _lookup_ve_impl(ve_type)
         self._obj = None
 
+        # Instantiate service as soon as possible in order to
+        # gently prevent registering of not existing service.
+        if ve_type == VE_TYPE_SERVICE:
+            self._get_obj()
+
         self.name = name
         self.config = config
         self.stats = VEStats()
