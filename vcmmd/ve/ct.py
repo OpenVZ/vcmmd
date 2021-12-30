@@ -19,6 +19,7 @@
 # Our contact details: Virtuozzo International GmbH, Vordergasse 59, 8200
 # Schaffhausen, Switzerland.
 
+import logging
 import time
 
 from vcmmd.cgroup import MemoryCgroup, BlkIOCgroup, CpuSetCgroup, CpuCgroup
@@ -27,6 +28,8 @@ from vcmmd.ve_type import VE_TYPE_CT, VE_TYPE_SERVICE
 from vcmmd.config import VCMMDConfig
 from vcmmd.util.limits import UINT64_MAX
 from vcmmd.util.threading import run_async
+
+logger = logging.getLogger(__name__)
 
 
 def lookup_cgroup(klass, name):
@@ -178,7 +181,11 @@ class ServiceCTImpl(ABSVEImpl):
 
     def __init__(self, name):
         super(ServiceCTImpl, self).__init__(name)
-        self._cpucg = CpuCgroup(name)
+        try:
+            self._cpucg = lookup_cgroup(CpuCgroup, name)
+        except Error as err:
+            logger.info('Skip using CPU cgroup: %s', err)
+            self._cpucg = None
         self._default_cpu_share = VCMMDConfig().get_num(
             'VE.SRVC.DefaultCPUShare', default=10000, integer=True,
             minimum=1024)
@@ -188,8 +195,8 @@ class ServiceCTImpl(ABSVEImpl):
         try:
             self._nr_cpus = self._cpucg.get_nr_cpus()
             return self._nr_cpus
-        except IOError:
-            return getattr(self, "_nr_cpus", -1)
+        except (OSError, AttributeError):
+            return -1
 
     def set_config(self, config):
         try:
@@ -205,11 +212,11 @@ class ServiceCTImpl(ABSVEImpl):
 
         run_async(self._memcg.write_cache_limit_in_bytes, config.cache)
 
-        try:
-            # reserve CPU for each service
-            self._cpucg.write_cpu_shares(self._default_cpu_share)
-        except OSError as err:
-            raise Error(f'CGroup write failed: {err}')
+        if self._cpucg:
+            try:
+                self._cpucg.write_cpu_shares(self._default_cpu_share)
+            except OSError as err:
+                raise Error(f'CGroup write failed: {err}')
 
 
 register_ve_impl(CTImpl)
