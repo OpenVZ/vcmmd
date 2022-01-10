@@ -179,11 +179,6 @@ class VE(Env):
         self._impl = _lookup_ve_impl(ve_type)
         self._obj = None
 
-        # Instantiate service as soon as possible in order to
-        # gently prevent registering of not existing service.
-        if ve_type == VE_TYPE_SERVICE:
-            self._get_obj()
-
         self.name = name
         self.config = config
         self.stats = VEStats()
@@ -192,6 +187,11 @@ class VE(Env):
         self._overhead = self._impl.mem_overhead(config.limit)
         self.target = None
         self.protection = None
+
+        # Instantiate service as soon as possible in order to
+        # gently prevent registering of not existing service.
+        if ve_type == VE_TYPE_SERVICE:
+            self._get_obj()
 
     def __str__(self):
         return "{} '{}'".format(get_ve_type_name(self.VE_TYPE), self.name)
