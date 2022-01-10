@@ -157,7 +157,7 @@ class LoadManager:
         else:
             self.logger.error('Failed to load policy \'%s\': Policy not found', policy_name)
 
-        if policy_module is None:
+        if policy_module is None or not self._host.check_numa_complete():
             policy_name = real_policy_name = self.FALLBACK_POLICY
             policy_module = importlib.import_module('vcmmd.ldmgr.policies.' + policy_name)
 

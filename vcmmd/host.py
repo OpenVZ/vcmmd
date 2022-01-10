@@ -238,3 +238,12 @@ class Host(Env, metaclass=HostMeta):
     @staticmethod
     def get_swap_total():
         return psutil.swap_memory().total
+
+    def check_numa_complete(self) -> bool:
+        """Verify that all NUMA-nodes has RAM."""
+        numa_ok = True
+        for node_id, stats in self.get_numa_stats():
+            if stats['memtotal'] == 0:
+                self.log_err('NUMA-node %i without RAM found', node_id)
+                numa_ok = False
+        return numa_ok
