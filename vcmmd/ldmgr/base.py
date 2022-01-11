@@ -199,6 +199,7 @@ class LoadManager:
             except Error as err:
                 if ve_type == VE_TYPE_SERVICE:
                     self.logger.info('Skip registering %s: %s', ve_name, err)
+                    return
                 else:
                     self.logger.error('Can\'t register %s: %s', ve_name, err)
                     raise VCMMDError(VCMMD_ERROR_VE_OPERATION_FAILED)
