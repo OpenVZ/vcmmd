@@ -19,6 +19,7 @@
 # Our contact details: Virtuozzo International GmbH, Vordergasse 59, 8200
 # Schaffhausen, Switzerland.
 
+import functools
 import os
 import logging
 import libvirt
@@ -26,72 +27,68 @@ import time
 
 from contextlib import suppress
 
-class _LibvirtProxy():
 
-    def __init__(self, driver_name):
-        self.__driver_name = driver_name
-        self.__logger = logging.getLogger('vcmmd.util.libvirt')
+logger = logging.getLogger(__name__)
+
+
+class _LibvirtProxy:
+
+    def __init__(self, endpoint):
+        self.__endpoint = endpoint
+        self.__conn = None
         self.__connect()
 
     def __connect(self):
-        self.__logger.debug('Connecting to libvirt')
-        libvirt_endpoint = self.__driver_name + ':///system'
-        attempts_to_connect = 120
-        while attempts_to_connect > 0:
+        if self.__conn:
+            with suppress(libvirt.libvirtError):
+                self.__conn.close()
+        retry_num = 120
+        while retry_num > 0:
             try:
-                self.__logger.debug('Connecting to libvirt')
-                self.__conn = libvirt.open(libvirt_endpoint)
+                logger.debug(f'libvirtd.open("{self.__endpoint}")')
+                self.__conn = libvirt.open(self.__endpoint)
             except libvirt.libvirtError as e:
-                self.__logger.error('Can\'t connect to libvirtd: %s', e)
+                logger.error('Failed to connect to libvirtd: %s', e)
                 time.sleep(1)
-                attempts_to_connect -= 1
+                retry_num -= 1
             else:
                 break
         else:
-            raise Exception('Can\'t connect to libvirtd')
+            raise Exception('Failed connect to libvirtd')
 
     def __is_connection_error(self):
         if self.__conn.isAlive():
             return False
-        with suppress(libvirt.libvirtError):
-            self.__conn.close()
-        self.__logger.debug('Connection to libvirt broken')
+        logger.debug('Connection to libvirtd broken')
         self.__connect()
         return True
 
-    def __getattr__(self, name):
-        attr = getattr(self.__conn, name)
+    def __attr(self, name):
+        return getattr(self.__conn, name)
 
-        def wrapper(*args, **kwargs):
+    def __getattr__(self, name):
+        def wrapped_attr(*args, **kwargs):
             try:
-                return attr(*args, **kwargs)
+                return self.__attr(name)(*args, **kwargs)
             except libvirt.libvirtError:
                 if self.__is_connection_error():
-                    return attr(*args, **kwargs)
-        return wrapper
+                    return self.__attr(name)(*args, **kwargs)
+                else:
+                    raise
+        return wrapped_attr
 
 
-__proxies = {
-    'qemu': None,
-    'vzct': None,
-}
-
-
-def __get_proxy(driver_name):
-    if not __proxies[driver_name]:
-        __proxies[driver_name] = _LibvirtProxy(driver_name)
-    return __proxies[driver_name]
-
-
+@functools.lru_cache()
 def get_qemu_proxy():
-    return __get_proxy('qemu')
+    return _LibvirtProxy('qemu:///system')
 
 
+@functools.lru_cache()
 def get_vzct_proxy():
     if not os.path.exists(
             '/usr/lib64/libvirt/connection-driver/libvirt_driver_vzct.so'):
         raise LookupError('vzct driver is not found')
-    return __get_proxy('vzct')
+    return _LibvirtProxy('vzct:///system')
 
 
 class VirtDomainProxy:
@@ -103,18 +100,15 @@ class VirtDomainProxy:
     necessary.
     """
     def __init__(self, uuid, libvirt_proxy=None):
-        self.__logger = logging.getLogger('vcmmd.libvirt')
         self.__uuid = uuid
         self.__conn = libvirt_proxy or get_qemu_proxy()
         self.__dom = self.__conn.lookupByUUIDString(self.__uuid)
 
     def __getattr__(self, name):
-        attr = getattr(self.__dom, name)
-
-        def wrapper(*args, **kwargs):
+        def wrapped_attr(*args, **kwargs):
             try:
-                return attr(*args, **kwargs)
+                return getattr(self.__dom, name)(*args, **kwargs)
             except libvirt.libvirtError:
                 self.__dom = self.__conn.lookupByUUIDString(self.__uuid)
-                return attr(*args, **kwargs)
-        return wrapper
+                return getattr(self.__dom, name)(*args, **kwargs)
+        return wrapped_attr
