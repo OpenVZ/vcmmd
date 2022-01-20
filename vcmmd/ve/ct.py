@@ -63,7 +63,7 @@ class ABSVEImpl(VEImpl):
             raise Error('Cgroup read failed: {}'.format(err))
 
     def set_mem_protection(self, value):
-        # Use memcg/memory.low to protect the CT from host pressure.
+        """Use memcg/memory.low to protect the CT from host pressure."""
         try:
             self._memcg.write_mem_low(value)
         except IOError as err:
@@ -141,8 +141,7 @@ class CTImpl(ABSVEImpl):
             return getattr(self, "_nr_cpus", -1)
 
     def get_node_list(self):
-        '''Get list of nodes where CT is running
-        '''
+        """Get list of nodes where CT is running."""
         try:
             node_list = self._cpusetcg.get_node_list()
         except IOError as err:
@@ -156,21 +155,21 @@ class CTImpl(ABSVEImpl):
             raise Error('Cgroup write failed: {}'.format(err))
 
     def pin_node_mem(self, nodes):
-        '''Change list of memory nodes for CT
+        """Change list of memory nodes for CT.
 
         This function changes CT affinity for memory and migrates CT's memory
-        accordingly
-        '''
+        accordingly.
+        """
         try:
             self._cpusetcg.set_node_list(nodes)
         except IOError as err:
             raise Error('Cgroup write failed: {}'.format(err))
 
     def pin_cpu_list(self, cpus):
-        '''Change list of CPUs for CT
+        """Change list of CPUs for CT.
 
-        This function changes CT affinity for CPUs
-        '''
+        This function changes CT affinity for CPUs.
+        """
         try:
             self._cpusetcg.set_cpu_list(cpus)
         except IOError as err:
