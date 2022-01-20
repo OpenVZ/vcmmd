@@ -460,8 +460,10 @@ class LoadManager:
             vram = sum(int(v.attrib.get('vram', 0)) for v in video) << 10
             ve_config['vram'] = vram
         else:
-            memcg = lookup_cgroup(MemoryCgroup, uuid)
-            cpucg = lookup_cgroup(CpuCgroup, uuid)
+            extra_id = dom_xml.find('./extraId')
+            ctid = extra_id.text if extra_id is not None else None
+            memcg = lookup_cgroup(MemoryCgroup, uuid, ctid)
+            cpucg = lookup_cgroup(CpuCgroup, uuid, ctid)
             ve_config['limit'] = memcg.read_mem_max()
             ve_config['swap'] = memcg.read_swap_max()
             ve_config['cpunum'] = cpucg.get_nr_cpus()
