@@ -23,6 +23,7 @@ import functools
 import os
 import logging
 import libvirt
+from libvirt import libvirtError
 import time
 
 from contextlib import suppress
@@ -40,14 +41,14 @@ class _LibvirtProxy:
 
     def __connect(self):
         if self.__conn:
-            with suppress(libvirt.libvirtError):
+            with suppress(libvirtError):
                 self.__conn.close()
         retry_num = 120
         while retry_num > 0:
             try:
                 logger.debug(f'libvirtd.open("{self.__endpoint}")')
                 self.__conn = libvirt.open(self.__endpoint)
-            except libvirt.libvirtError as e:
+            except libvirtError as e:
                 logger.error('Failed to connect to libvirtd: %s', e)
                 time.sleep(1)
                 retry_num -= 1
@@ -70,7 +71,7 @@ class _LibvirtProxy:
         def wrapped_attr(*args, **kwargs):
             try:
                 return self.__attr(name)(*args, **kwargs)
-            except libvirt.libvirtError:
+            except libvirtError:
                 if self.__is_connection_error():
                     return self.__attr(name)(*args, **kwargs)
                 else:
@@ -108,7 +109,7 @@ class VirtDomainProxy:
         def wrapped_attr(*args, **kwargs):
             try:
                 return getattr(self.__dom, name)(*args, **kwargs)
-            except libvirt.libvirtError:
+            except libvirtError:
                 self.__dom = self.__conn.lookupByUUIDString(self.__uuid)
                 return getattr(self.__dom, name)(*args, **kwargs)
         return wrapped_attr
