@@ -21,11 +21,13 @@
 
 import logging
 import time
+import xml.etree.ElementTree as ET
 
 from vcmmd.cgroup import MemoryCgroup, BlkIOCgroup, CpuSetCgroup, CpuCgroup
 from vcmmd.ve.base import Error, VEImpl, register_ve_impl
 from vcmmd.ve_type import VE_TYPE_CT, VE_TYPE_SERVICE
 from vcmmd.config import VCMMDConfig
+from vcmmd.util.libvirt import get_vzct_proxy, VirtDomainProxy, libvirtError
 from vcmmd.util.limits import UINT64_MAX
 from vcmmd.util.threading import run_async
 
@@ -33,10 +35,13 @@ from vcmmd.util.threading import run_async
 logger = logging.getLogger(__name__)
 
 
-def lookup_cgroup(klass, name):
-    # A container's cgroup is located either at the top level of the cgroup
-    # hierarchy or under machine.slice
+def lookup_cgroup(klass, name, ctid=None):
+    """
+    Lookup for cgroup of type `klass` for VE `name`.
 
+    In case when it looks up for container's cgroup, the cgroup may be
+    found by UUID or CTID.
+    """
     cg = klass(name)
     if cg.exists():
         return cg
@@ -45,7 +50,10 @@ def lookup_cgroup(klass, name):
     if cg.exists():
         return cg
 
-    raise Error("cgroup not found: '{}'".format(cg.abs_path))
+    if ctid:
+        return lookup_cgroup(klass, ctid)
+
+    raise Error(f'Cgroup {klass}:{name}:({ctid}) not found')
 
 
 class ABSVEImpl(VEImpl):
@@ -53,8 +61,10 @@ class ABSVEImpl(VEImpl):
     VE_TYPE = VE_TYPE_CT
 
     def __init__(self, name):
+        super(ABSVEImpl, self).__init__(name)
         self.mem_limit = UINT64_MAX
         self._memcg = None
+        self._nr_cpus = None
 
     def get_rss(self):
         try:
@@ -95,10 +105,23 @@ class CTImpl(ABSVEImpl):
 
     def __init__(self, name):
         super(CTImpl, self).__init__(name)
-        self._cpusetcg = lookup_cgroup(CpuSetCgroup, name)
-        self._blkcg = lookup_cgroup(BlkIOCgroup, name)
-        self._cpucg = lookup_cgroup(CpuCgroup, name)
-        self._memcg = lookup_cgroup(MemoryCgroup, name)
+        ctid = self._get_ctid(name)
+
+        self._cpusetcg = lookup_cgroup(CpuSetCgroup, name, ctid)
+        self._blkcg = lookup_cgroup(BlkIOCgroup, name, ctid)
+        self._cpucg = lookup_cgroup(CpuCgroup, name, ctid)
+        self._memcg = lookup_cgroup(MemoryCgroup, name, ctid)
+
+    @staticmethod
+    def _get_ctid(name):
+        try:
+            domain = VirtDomainProxy(name, get_vzct_proxy())
+            dom_xml = ET.fromstring(domain.XMLDesc())
+            extra_id = dom_xml.find('./extraId')
+            return extra_id.text if extra_id is not None else None
+        except libvirtError as err:
+            logger.info('Failed to retrieve CTID: %r', err)
+            return None
 
     def get_stats(self):
         try:
