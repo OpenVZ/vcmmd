@@ -29,6 +29,7 @@ from vcmmd.config import VCMMDConfig
 from vcmmd.util.limits import UINT64_MAX
 from vcmmd.util.threading import run_async
 
+
 logger = logging.getLogger(__name__)
 
 
@@ -52,8 +53,8 @@ class ABSVEImpl(VEImpl):
     VE_TYPE = VE_TYPE_CT
 
     def __init__(self, name):
-        self._memcg = lookup_cgroup(MemoryCgroup, name)
         self.mem_limit = UINT64_MAX
+        self._memcg = None
 
     def get_rss(self):
         try:
@@ -97,6 +98,7 @@ class CTImpl(ABSVEImpl):
         self._cpusetcg = lookup_cgroup(CpuSetCgroup, name)
         self._blkcg = lookup_cgroup(BlkIOCgroup, name)
         self._cpucg = lookup_cgroup(CpuCgroup, name)
+        self._memcg = lookup_cgroup(MemoryCgroup, name)
 
     def get_stats(self):
         try:
@@ -181,6 +183,7 @@ class ServiceCTImpl(ABSVEImpl):
 
     def __init__(self, name):
         super(ServiceCTImpl, self).__init__(name)
+        self._memcg = lookup_cgroup(MemoryCgroup, name)
         try:
             self._cpucg = lookup_cgroup(CpuCgroup, name)
         except Error as err:
