@@ -112,6 +112,10 @@ class VEConfig:
                     self._kv[str(k)] = parse_range_list(str(v))
                     continue
                 self._kv[str(k)] = str(v)
+        if 'guarantee' not in self._kv and 'guarantee_type' not in self._kv:
+            self._kv['guarantee_type'] = VCMMD_MEMGUARANTEE_AUTO
+        elif 'guarantee' in self._kv and 'guarantee_type' not in self._kv:
+            self._kv['guarantee_type'] = VCMMD_MEMGUARANTEE_BYTES
 
     def __getattr__(self, name):
         try:
