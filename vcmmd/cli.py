@@ -82,15 +82,19 @@ def _add_memval_config_options(parser):
 
 
 def _ve_config_from_options(options):
+    def negative_max(val):
+        """Consider values less than 0 as INT64_MAX."""
+        return INT64_MAX if val < 0 else val
+
     kv = {}
     if options.guarantee is not None:
-        kv['guarantee'] = options.guarantee
+        kv['guarantee'] = negative_max(options.guarantee)
     if options.limit is not None:
-        kv['limit'] = options.limit
+        kv['limit'] = negative_max(options.limit)
     if options.swap is not None:
-        kv['swap'] = options.swap
+        kv['swap'] = negative_max(options.swap)
     if options.cache is not None:
-        kv['cache'] = options.cache
+        kv['cache'] = negative_max(options.cache)
     if options.cpunum is not None:
         kv['cpunum'] = options.cpunum
     return VEConfig(**kv)

@@ -47,7 +47,7 @@ from vcmmd.ve.ct import lookup_cgroup
 from vcmmd.host import Host
 from vcmmd.cgroup.memory import MemoryCgroup
 from vcmmd.cgroup.cpu import CpuCgroup
-from vcmmd.util.limits import UINT64_MAX
+from vcmmd.util.limits import INT64_MAX
 
 
 # Dummy policy may be used in purpose of debugging other
@@ -329,7 +329,7 @@ class LoadManager:
                     reserved += ve.mem_min
                     if ve.config.cpunum > 0:
                         cpu_reserved += ve.config.cpunum
-                    if ve.config.cache < UINT64_MAX:
+                    if ve.config.cache < INT64_MAX:
                         file_cache += ve.config.cache
         swap = self._host.get_slice_swap('machine')
         if swap is None:

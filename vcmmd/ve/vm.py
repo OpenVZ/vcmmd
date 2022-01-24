@@ -34,7 +34,7 @@ from vcmmd.config import VCMMDConfig
 from vcmmd.util.libvirt import VirtDomainProxy, get_qemu_proxy
 from vcmmd.util.misc import roundup, lookup_qemu_machine_pid
 
-from vcmmd.util.limits import PAGE_SIZE
+from vcmmd.util.limits import PAGE_SIZE, INT64_MAX
 from vcmmd.util.misc import parse_range_list
 from vcmmd.util.threading import run_async
 
@@ -111,9 +111,11 @@ class VMImpl(VEImpl):
     def mem_overhead(config_limit):
         # we assume, that for one guest page need at least 8b overhead
         # in qemu process
-        guest_mem_overhead = 8 * config_limit // PAGE_SIZE
-        config_overhead =  VCMMDConfig().get_num('VE.VM.MemOverhead', default=(64 << 20),
-                                                 integer=True, minimum=0)
+        guest_mem_overhead = 0
+        if config_limit < INT64_MAX:
+            guest_mem_overhead = 8 * config_limit // PAGE_SIZE
+        config_overhead = VCMMDConfig().get_num(
+            'VE.VM.MemOverhead', default=(64 << 20), integer=True, minimum=0)
         return config_overhead + guest_mem_overhead
 
     def get_stats(self):

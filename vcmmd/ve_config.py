@@ -19,7 +19,7 @@
 # Our contact details: Virtuozzo International GmbH, Vordergasse 59, 8200
 # Schaffhausen, Switzerland.
 
-from vcmmd.util.limits import UINT64_MAX
+from vcmmd.util.limits import INT64_MAX
 from vcmmd.util.misc import parse_range_list
 
 
@@ -186,11 +186,11 @@ class VEConfig:
 
 
 DefaultVEConfig = VEConfig(guarantee=0,
-                           limit=UINT64_MAX,
-                           swap=UINT64_MAX,
+                           limit=INT64_MAX,
+                           swap=INT64_MAX,
                            vram=0,
                            nodelist="",
                            cpulist="",
                            guarantee_type=VCMMD_MEMGUARANTEE_AUTO,
-                           cache=UINT64_MAX,
+                           cache=INT64_MAX,
                            cpunum=0)

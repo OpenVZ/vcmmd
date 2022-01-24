@@ -28,7 +28,7 @@ from vcmmd.ve.base import Error, VEImpl, register_ve_impl
 from vcmmd.ve_type import VE_TYPE_CT, VE_TYPE_SERVICE
 from vcmmd.config import VCMMDConfig
 from vcmmd.util.libvirt import get_vzct_proxy, VirtDomainProxy, libvirtError
-from vcmmd.util.limits import UINT64_MAX
+from vcmmd.util.limits import INT64_MAX
 from vcmmd.util.threading import run_async
 
 
@@ -62,7 +62,7 @@ class ABSVEImpl(VEImpl):
 
     def __init__(self, name):
         super(ABSVEImpl, self).__init__(name)
-        self.mem_limit = UINT64_MAX
+        self.mem_limit = INT64_MAX
         self._memcg = None
         self._nr_cpus = None
 
