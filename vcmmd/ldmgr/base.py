@@ -96,6 +96,7 @@ class LoadManager:
         self._registered_ves_lock = threading.Lock()
         self.cfg = VCMMDConfig()
         self._host = Host()
+        self._policy = None
         self._load_policy(self.cfg.get_str('LoadManager.Policy', self.FALLBACK_POLICY))
         self._initialize_services()
         self._initialize_ves()
@@ -144,38 +145,39 @@ class LoadManager:
 
     def _load_policy_object(self, policy_name):
         real_policy_name = self._get_aliases().get(policy_name, policy_name)
-        policy_module = None
         for namespace in 'vzpolicies', 'vcmmd.ldmgr.policies':
             try:
                 policy_module = importlib.import_module(namespace + '.' + real_policy_name)
-                break
+                return getattr(policy_module, real_policy_name)()
             except ModuleNotFoundError:
                 pass  # try next namespace
-            except ImportError as err:
-                self.logger.error('Failed to load policy \'%s\': %s', policy_name, err)
-                break
-        else:
-            self.logger.error('Failed to load policy \'%s\': Policy not found', policy_name)
+        raise ImportError('Policy not found')
 
-        if policy_module is None or not self._host.check_numa_complete():
-            policy_name = real_policy_name = self.FALLBACK_POLICY
-            policy_module = importlib.import_module('vcmmd.ldmgr.policies.' + policy_name)
-
-        self.logger.info("Loaded policy '%s'", policy_name)
-        return getattr(policy_module, real_policy_name)()
+    @staticmethod
+    def _load_fallback_policy():
+        policy_module = importlib.import_module('vcmmd.ldmgr.policies.NoOpPolicy')
+        return getattr(policy_module, 'NoOpPolicy')()
 
     def _load_policy(self, policy_name):
         if policy_name == DUMMY_POLICY.name:
             self._policy = DUMMY_POLICY
-            self.logger.info("Loaded %s policy", DUMMY_POLICY.name)
+            self.logger.info('Loaded %s policy', DUMMY_POLICY.name)
             return
-        self._policy = self._load_policy_object(policy_name)
+        try:
+            self._policy = self._load_policy_object(policy_name)
+        except ImportError as err:
+            self.logger.error('Failed to load policy "%s": %s', policy_name, err)
+        if not self._policy:
+            self.logger.info('Switch to fallback policy')
+            self._policy = self._load_fallback_policy()
+        self.logger.info('Loaded policy "%s"', self.get_current_policy())
         self._policy.load()
         self._set_user_cache_limit()
 
     @_dummy_pass
     def shutdown(self):
         self._policy.shutdown()
+        self._policy = None
 
     def _check_guarantees(self, delta):
         mem_min = sum(ve.mem_min for ve in self._registered_ves.values())
