@@ -462,6 +462,14 @@ class LoadManager:
             vram = sum(int(v.attrib.get('vram', 0)) for v in video) << 10
             ve_config['vram'] = vram
         else:
+            self.logger.debug('%s: check for CTID', uuid)
+            extra_id = dom_xml.find('./extraId')
+            if extra_id is not None and uuid != extra_id.text:
+                self.logger.debug('%s: use %s as UUID', uuid, extra_id.text)
+                uuid = extra_id.text
+            else:
+                self.logger.debug(
+                    'Registering container %s without CTID', uuid)
             memcg = lookup_cgroup(MemoryCgroup, uuid)
             cpucg = lookup_cgroup(CpuCgroup, uuid)
             ve_config['limit'] = memcg.read_mem_max()
