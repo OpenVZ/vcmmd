@@ -165,7 +165,7 @@ class LoadManager:
             return
         try:
             self._policy = self._load_policy_object(policy_name)
-        except ImportError as err:
+        except RuntimeError as err:
             self.logger.error('Failed to load policy "%s": %s', policy_name, err)
         if not self._policy:
             self.logger.info('Switch to fallback policy')
