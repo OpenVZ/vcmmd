@@ -151,7 +151,7 @@ class LoadManager:
                 return getattr(policy_module, real_policy_name)()
             except ModuleNotFoundError:
                 pass  # try next namespace
-        raise ImportError('Policy not found')
+        raise RuntimeError('Policy not found')
 
     @staticmethod
     def _load_fallback_policy():
