@@ -193,53 +193,6 @@ class Policy(metaclass=ABCMeta):
                 vcmmd.util.cpu.enable_vln_mitigations()
 
 
-class BalloonPolicy(Policy):
-    '''Manages balloons in VEs.
-    '''
-    def __init__(self):
-        super(BalloonPolicy, self).__init__()
-        self.__apply_changes_lock = Lock()
-
-        bc = VCMMDConfig().get_bool("LoadManager.Controllers.Balloon", True)
-        self.counts['Balloon'] = {}
-        if not bc:
-            return
-        self.controllers.add(self.balloon_controller)
-        self.low_memory_callbacks.add(self.balloon_controller)
-        self.balloon_timeout = 60
-
-    def update_balloon_stats(self):
-        pass
-
-    @Policy.controller
-    def balloon_controller(self):
-        '''Set VE memory quotas
-
-        Expects that self is an appropriate BalloonPolicy with overwritten
-        calculate_balloon_size.
-        '''
-        with self.__apply_changes_lock:
-            self.update_balloon_stats()
-
-            ve_quotas = self.calculate_balloon_size()
-
-            # Apply the quotas.
-            for ve, (target, protection) in ve_quotas.items():
-                if ve.target != target or ve.protection != protection:
-                    ve.set_mem(target=target, protection=protection)
-
-        return self.balloon_timeout
-
-    def calculate_balloon_size(self):
-        '''Calculate VE memory quotas
-
-        Returns a mapping VE -> (target, protection), where 'target'
-        is the memory consumption that should be set for a VE and 'protection'
-        is the amount memory that should be protected from host pressure.
-        '''
-        return {ve: (ve.config.limit, ve.mem_min) for ve in self.get_ves()}
-
-
 class NumaPolicy(Policy):
     '''Manages NUMA nodes' load by VEs.
     '''
