@@ -374,7 +374,7 @@ class VE(Env):
         except Error as err:
             self.log_err('Failed to bind CPU list: %s', err)
         else:
-            self.log_debug('pin_cpu_list: %s', cpus)
+            self.log_debug('pin_cpu_list: %s', [*cpus])
 
     def reset_numa_settings(self):
         '''Reset all NUMA-related bindings

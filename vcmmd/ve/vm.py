@@ -266,11 +266,9 @@ class VMImpl(VEImpl):
         if libvirt:
             return self.pin_cpu_list_libvirt(cpus)
 
-        cpu_map = ','.join([str(cpu) for cpu in cpus])
         try:
             for vcpu in range(self.nr_cpus):
                 self._vcpucg[vcpu].set_cpu_list(cpus)
-
             self._emulatorcg.set_cpu_list(cpus)
         except (IOError, libvirtError) as err:
             raise Error('Cgroup write failed: {}'.format(err))
