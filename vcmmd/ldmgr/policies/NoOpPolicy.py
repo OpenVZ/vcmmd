@@ -19,10 +19,10 @@
 # Our contact details: Virtuozzo International GmbH, Vordergasse 59, 8200
 # Schaffhausen, Switzerland.
 
-from vcmmd.ldmgr.policy import (BalloonPolicy,
-                                NumaPolicy,
+from vcmmd.ldmgr.policy import (NumaPolicy,
                                 KSMPolicy as AbsKsmPolicy,
                                 StoragePolicy)
+
 
 class KsmPolicy(AbsKsmPolicy):
     """
@@ -68,7 +68,7 @@ class KsmPolicy(AbsKsmPolicy):
         return params
 
 
-class NoOpPolicy(KsmPolicy, BalloonPolicy, StoragePolicy):
+class NoOpPolicy(KsmPolicy, StoragePolicy):
     """
     NoOpPolicy load manager policy.
 
