@@ -1,7 +1,7 @@
 [Unit]
 Description=@PRODUCT_NAME_SHORT@ memory management daemon
 Wants=libvirtd.service
-Before=postgresql.service nginx.service
+Before=postgresql.service nginx.service docker.service
 After=libvirtd.service
 
 [Service]
