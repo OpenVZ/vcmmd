@@ -185,11 +185,35 @@ class LoadManager:
         if mem_min > self._host.ve_mem:
             raise VCMMDError(VCMMD_ERROR_UNABLE_APPLY_VE_GUARANTEE)
 
+    def _fix_hci_ve_type(self, ve_name, ve_type):
+        """
+        Treat VE_TYPE_CT as VE_TYPE_VM if container's cgroup doesn't exist.
+
+        Since for a while, binary compatibility has been broken,
+        HCI registers VM with VE_TYPE_CT. This WA checks if
+        ve_type == VE_TYPE_CT and ensures that corresponding cgroup exists.
+        Otherwise, VCMMD treats VE as VM. (Only for HCI platform).
+        """
+        if ve_type == VE_TYPE_CT:
+            from vcmmd.rpc.dbus.common import BUS_NAME
+            if 'hci' in BUS_NAME:
+                from vcmmd.ve.ct import lookup_cgroup, CpuCgroup, Error
+                try:
+                    x = lookup_cgroup(CpuCgroup, ve_name)
+                except Error:
+                    self.logger.warning(
+                        f'Trying to register {ve_name} as CT. '
+                        'Failed to find cgroup. Treat this VE as VM.')
+                    ve_type = VE_TYPE_VM
+        return ve_type
+
     @_dummy_pass
     def register_ve(self, ve_name, ve_type, ve_config):
         with self._registered_ves_lock:
             if ve_name in self._registered_ves:
                 raise VCMMDError(VCMMD_ERROR_VE_NAME_ALREADY_IN_USE)
+
+            ve_type = self._fix_hci_ve_type(ve_name, ve_type)
 
             ve_config.complete(DefaultVEConfig)
             if ve_type not in (VE_TYPE_CT, VE_TYPE_SERVICE) and \
