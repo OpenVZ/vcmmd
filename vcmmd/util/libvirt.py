@@ -113,3 +113,14 @@ class VirtDomainProxy:
                 self.__dom = self.__conn.lookupByUUIDString(self.__uuid)
                 return getattr(self.__dom, name)(*args, **kwargs)
         return wrapped_attr
+
+
+def list_active_domains():
+    domains = []
+    for getter in get_vzct_proxy, get_qemu_proxy:
+        try:
+            domains += getter().listAllDomains(
+                libvirt.VIR_CONNECT_LIST_DOMAINS_ACTIVE)
+        except LookupError as e:
+            logger.warning(f'{getter.__name__} failed: {e}')
+    return domains

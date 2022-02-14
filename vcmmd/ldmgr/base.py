@@ -39,7 +39,7 @@ from vcmmd.ve_config import DefaultVEConfig, VEConfig, VCMMD_MEMGUARANTEE_AUTO
 from vcmmd.ve_type import (VE_TYPE_CT, VE_TYPE_VM, VE_TYPE_VM_LINUX,
                            VE_TYPE_VM_WINDOWS, VE_TYPE_SERVICE)
 from vcmmd.ldmgr.policy import clamp
-from vcmmd.util.libvirt import get_qemu_proxy, get_vzct_proxy
+from vcmmd.util.libvirt import list_active_domains
 from vcmmd.config import VCMMDConfig
 from vcmmd.ve import VE
 from vcmmd.ve.base import Error
@@ -464,15 +464,8 @@ class LoadManager:
             self.logger.error('Can\'t register %s: %s', service_name, e)
 
     def _initialize_ves(self):
-        domains = []
-        for getter in get_vzct_proxy, get_qemu_proxy:
-            try:
-                domains += getter().listAllDomains(0)
-            except LookupError as e:
-                self.logger.warning(f'{getter.__name__} failed: {e}')
-        for domain in domains:
-            if domain.isActive():
-                self._initialize_ve(domain)
+        for domain in list_active_domains():
+            self._initialize_ve(domain)
 
     def _initialize_ve(self, domain):
         ve_type = VE_TYPE_CT if domain.OSType() == 'exe' else VE_TYPE_VM
