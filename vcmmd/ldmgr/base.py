@@ -473,7 +473,7 @@ class LoadManager:
         ve_config = {'cpunum': 0}
         dom_xml = ET.fromstring(domain.XMLDesc())
         if ve_type == VE_TYPE_VM:
-            ve_config['limit'] = domain.maxMemory() << 10
+            ve_config['limit'] = domain.info()[2] << 10
             ve_config['cpunum'] = domain.maxVcpus()
             video = dom_xml.findall('./devices/video/model')
             vram = sum(int(v.attrib.get('vram', 0)) for v in video) << 10
