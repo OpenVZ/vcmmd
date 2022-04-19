@@ -23,31 +23,31 @@ from vcmmd.util.limits import INT64_MAX
 from vcmmd.util.misc import parse_range_list
 
 
-_VEConfigFields = [     # tag
-    'guarantee',        # 0
-    'limit',            # 1
-    'swap',             # 2
-    'vram',             # 3
-    'nodelist',         # 4
-    'cpulist',          # 5
-    'guarantee_type',   # 6
-    'cache',            # 7
-    'cpunum',           # 8
+_VEConfigFields = [    # tag
+    "guarantee",       # 0
+    "limit",           # 1
+    "swap",            # 2
+    "vram",            # 3
+    "nodelist",        # 4
+    "cpulist",         # 5
+    "guarantee_type",  # 6
+    "cache",           # 7
+    "cpunum",          # 8
 ]
 
 _VEConfigFields_string = [
-    'nodelist',         # 4
-    'cpulist',          # 5
+    "nodelist",  # 4
+    "cpulist",   # 5
 ]
 
 VCMMD_MEMGUARANTEE_AUTO = 0
 VCMMD_MEMGUARANTEE_BYTES = 1
 
-VCMMD_EMPTY_MASK = ''
+VCMMD_EMPTY_MASK = ""
 
 
 class VEConfig:
-    '''Represents a VE's memory configuration.
+    """Represents a VE's memory configuration.
 
     guarantee:      VE memory guarantee
 
@@ -98,7 +98,7 @@ class VEConfig:
 
     The tags are used for converting the config to a tuple/array and back.
     libvcmmd should be updated as well while adding new fields.
-    '''
+    """
 
     def __init__(self, **kv):
         self._kv = {}
@@ -108,14 +108,14 @@ class VEConfig:
             if k not in _VEConfigFields_string:
                 self._kv[str(k)] = int(v)
             else:
-                if k in ['nodelist', 'cpulist']:
+                if k in ["nodelist", "cpulist"]:
                     self._kv[str(k)] = parse_range_list(str(v))
                     continue
                 self._kv[str(k)] = str(v)
-        if 'guarantee' not in self._kv and 'guarantee_type' not in self._kv:
-            self._kv['guarantee_type'] = VCMMD_MEMGUARANTEE_AUTO
-        elif 'guarantee' in self._kv and 'guarantee_type' not in self._kv:
-            self._kv['guarantee_type'] = VCMMD_MEMGUARANTEE_BYTES
+        if "guarantee" not in self._kv and "guarantee_type" not in self._kv:
+            self._kv["guarantee_type"] = VCMMD_MEMGUARANTEE_AUTO
+        elif "guarantee" in self._kv and "guarantee_type" not in self._kv:
+            self._kv["guarantee_type"] = VCMMD_MEMGUARANTEE_BYTES
 
     def __getattr__(self, name):
         try:
@@ -124,39 +124,41 @@ class VEConfig:
             raise AttributeError
 
     def __str__(self):
-        return ' '.join('{}:{}'.format(k, self._kv[k])
-                        for k in _VEConfigFields if k in self._kv)
+        return " ".join(
+            "{}:{}".format(k, self._kv[k])
+            for k in _VEConfigFields
+            if k in self._kv
+        )
 
     @property
     def mem_min(self):
-        '''The minimal amount of memory required by this configuration.
-        '''
+        """The minimal amount of memory required by this configuration."""
         return self.guarantee + self.vram
 
     def is_valid(self):
-        '''Check that the config has all fields initialized and its values pass
+        """Check that the config has all fields initialized and its values pass
         all sanity checks.
-        '''
-        return (set(self._kv) == set(_VEConfigFields) and
-                self.guarantee <= self.limit)
+        """
+        return (
+            set(self._kv) == set(_VEConfigFields)
+            and self.guarantee <= self.limit
+        )
 
     def complete(self, config):
-        '''Initialize absent fields with values from a given config.
-        '''
+        """Initialize absent fields with values from a given config."""
         for k, v in config._kv.items():
             if k not in self._kv:
                 self._kv[k] = v
 
     def as_array(self):
-        '''Convert to an array of (tag, value, string) turples.
-        '''
+        """Convert to an array of (tag, value, string) turples."""
         arr = []
         for tag, name in enumerate(_VEConfigFields):
             try:
                 if name in _VEConfigFields_string:
                     val = 0
                     if isinstance(self._kv[name], list):
-                        string = ",".join(map(str,self._kv[name]))
+                        string = ",".join(map(str, self._kv[name]))
                     else:
                         string = str(self._kv[name])
                 else:
@@ -169,9 +171,9 @@ class VEConfig:
 
     @staticmethod
     def from_array(arr):
-        '''Make a config from an array of (tag, value, string) turples. Unknown
+        """Make a config from an array of (tag, value, string) turples. Unknown
         tags are silently ignored.
-        '''
+        """
         kv = {}
         for tag, val, string in arr:
             try:
@@ -189,12 +191,14 @@ class VEConfig:
             self._kv[key] = value
 
 
-DefaultVEConfig = VEConfig(guarantee=0,
-                           limit=INT64_MAX,
-                           swap=INT64_MAX,
-                           vram=0,
-                           nodelist="",
-                           cpulist="",
-                           guarantee_type=VCMMD_MEMGUARANTEE_AUTO,
-                           cache=INT64_MAX,
-                           cpunum=0)
+DefaultVEConfig = VEConfig(
+    guarantee=0,
+    limit=INT64_MAX,
+    swap=INT64_MAX,
+    vram=0,
+    nodelist="",
+    cpulist="",
+    guarantee_type=VCMMD_MEMGUARANTEE_AUTO,
+    cache=INT64_MAX,
+    cpunum=0,
+)
