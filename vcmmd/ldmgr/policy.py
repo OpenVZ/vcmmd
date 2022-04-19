@@ -106,14 +106,14 @@ class Policy(metaclass=ABCMeta):
     def ve_registered(self, ve):
         """Called before a VE gets activated."""
         if ve.VE_TYPE == VE_TYPE_CT:
-            ve.set_mem(ve.config.limit, ve.mem_min)
+            ve.apply_limit_settings()
 
     def ve_activated(self, ve):
         """Called right after a VE gets registered."""
         with self.__ve_data_lock:
             if ve not in self.__ve_data:
                 self.__ve_data[ve] = {}
-        ve.set_mem(ve.config.limit, ve.mem_min)
+        ve.apply_limit_settings()
         self._update_vulnerabilities_mitigations()
 
     def ve_deactivated(self, ve):
@@ -129,7 +129,7 @@ class Policy(metaclass=ABCMeta):
 
     def ve_config_updated(self, ve):
         """Called right after a VE's configuration update."""
-        ve.set_mem(ve.config.limit, ve.mem_min)
+        ve.apply_limit_settings()
 
     def load(self):
         for ctrl in self.controllers:

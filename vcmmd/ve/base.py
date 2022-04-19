@@ -186,8 +186,6 @@ class VE(Env):
         self.numa = VE.Numa(self)
         self.active = False
         self._overhead = self._impl.mem_overhead(config.limit)
-        self.target = None
-        self.protection = None
 
         # Instantiate service as soon as possible in order to
         # gently prevent registering of not existing service.
@@ -288,26 +286,23 @@ class VE(Env):
     def mem_shared(self):
         return max(0, self.stats.rss - self.stats.host_mem)
 
-    def set_mem(self, target=None, protection=None):
-        """Set VE memory consumption target."""
+    def apply_limit_settings(self):
+        """Set VE memory consumption according to VE's configuration."""
         msg = ""
         try:
             obj = self._get_obj()
             vm_types = (VE_TYPE_VM_LINUX, VE_TYPE_VM_WINDOWS, VE_TYPE_VM)
             # Don't set target memory for VM's because libvirt manages it
-            if target and obj.VE_TYPE not in vm_types:
-                obj.set_mem_target(target)
-                msg = "target:{} ".format(target)
-            if protection is not None:
-                obj.set_mem_protection(protection)
-                msg += "protection:{}".format(protection)
+            if self.config.limit and obj.VE_TYPE not in vm_types:
+                obj.set_mem_target(self.config.limit)
+                msg = "target:{} ".format(self.config.limit)
+            obj.set_mem_protection(self.mem_min)
+            msg += "protection:{}".format(self.mem_min)
         except Error as err:
             self.log_err("Failed to tune allocation: %s", err)
         else:
             if msg:
                 self.log_debug("set_mem: %s", msg)
-            self.target = target
-            self.protection = protection
 
     def set_config(self, config):
         """Update VE config."""

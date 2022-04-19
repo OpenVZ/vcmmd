@@ -350,7 +350,7 @@ class LoadManager:
             file_cache = 0
             for ve in self._registered_ves.values():
                 qemu_vram_overhead += ve.mem_overhead
-                guarantee += max(ve.mem_min, ve.protection)
+                guarantee += ve.mem_min
                 if ve.VE_TYPE == VE_TYPE_SERVICE:
                     reserved += ve.mem_min
                     if ve.config.cpunum > 0:
