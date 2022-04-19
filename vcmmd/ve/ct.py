@@ -41,7 +41,7 @@ def lookup_cgroup(klass, name):
     if cg.exists():
         return cg
 
-    cg = klass('/machine.slice/' + name)
+    cg = klass("/machine.slice/" + name)
     if cg.exists():
         return cg
 
@@ -59,16 +59,16 @@ class ABSVEImpl(VEImpl):
 
     def get_rss(self):
         try:
-            return self._memcg.read_mem_stat()['total_rss']
+            return self._memcg.read_mem_stat()["total_rss"]
         except (KeyError, IOError) as err:
-            raise Error('Cgroup read failed: {}'.format(err))
+            raise Error("Cgroup read failed: {}".format(err))
 
     def set_mem_protection(self, value):
         """Use memcg/memory.low to protect the CT from host pressure."""
         try:
             self._memcg.write_mem_low(value)
         except IOError as err:
-            raise Error('Cgroup write failed: {}'.format(err))
+            raise Error("Cgroup write failed: {}".format(err))
 
     def set_mem_target(self, value):
         # Decreasing memory.high might take long as it implies memory reclaim,
@@ -86,14 +86,13 @@ class ABSVEImpl(VEImpl):
             self._memcg.write_oom_guarantee(config.guarantee)
             self._memcg.write_mem_config(config.limit, config.swap)
         except IOError as err:
-            raise Error('Cgroup write failed: {}'.format(err))
+            raise Error("Cgroup write failed: {}".format(err))
 
         self.mem_limit = min(self.mem_limit, config.limit)
         run_async(self._memcg.write_cache_limit_in_bytes, config.cache)
 
 
 class CTImpl(ABSVEImpl):
-
     def __init__(self, name):
         super(CTImpl, self).__init__(name)
         self._cpusetcg = lookup_cgroup(CpuSetCgroup, name)
@@ -108,30 +107,32 @@ class CTImpl(ABSVEImpl):
             io_serviced = self._blkcg.get_io_serviced()
             io_service_bytes = self._blkcg.get_io_service_bytes()
         except IOError as err:
-            raise Error('Cgroup read failed: {}'.format(err))
+            raise Error("Cgroup read failed: {}".format(err))
 
         memtotal = max(self.mem_limit, current)
         memfree = memtotal - current
-        memavail = (memfree +
-                    stat.get('active_file', 0) +
-                    stat.get('inactive_file', 0) +
-                    stat.get('slab_reclaimable', 0))
+        memavail = (
+            memfree + stat.get("active_file", 0) +
+            stat.get("inactive_file", 0) + stat.get("slab_reclaimable", 0)
+        )
 
-        return {'rss': current,
-                'host_mem': current,
-                'host_swap': stat.get('swap', -1),
-                'actual': memtotal,
-                'memfree': memfree,
-                'memavail': memavail,
-                'swapin': stat.get('pswpin', -1),
-                'swapout': stat.get('pswpout', -1),
-                'minflt': stat.get('pgfault', -1),
-                'majflt': stat.get('pgmajfault', -1),
-                'rd_req': io_serviced[0],
-                'rd_bytes': io_service_bytes[0],
-                'wr_req': io_serviced[1],
-                'wr_bytes': io_service_bytes[1],
-                'last_update': int(time.time())}
+        return {
+            "rss": current,
+            "host_mem": current,
+            "host_swap": stat.get("swap", -1),
+            "actual": memtotal,
+            "memfree": memfree,
+            "memavail": memavail,
+            "swapin": stat.get("pswpin", -1),
+            "swapout": stat.get("pswpout", -1),
+            "minflt": stat.get("pgfault", -1),
+            "majflt": stat.get("pgmajfault", -1),
+            "rd_req": io_serviced[0],
+            "rd_bytes": io_service_bytes[0],
+            "wr_req": io_serviced[1],
+            "wr_bytes": io_service_bytes[1],
+            "last_update": int(time.time()),
+        }
 
     @property
     def nr_cpus(self):
@@ -146,14 +147,14 @@ class CTImpl(ABSVEImpl):
         try:
             node_list = self._cpusetcg.get_node_list()
         except IOError as err:
-            raise Error('Cgroup read failed: {}'.format(err))
+            raise Error("Cgroup read failed: {}".format(err))
         return node_list
 
     def node_mem_migrate(self, nodes):
         try:
             self._memcg.set_node_list(nodes)
         except IOError as err:
-            raise Error('Cgroup write failed: {}'.format(err))
+            raise Error("Cgroup write failed: {}".format(err))
 
     def pin_node_mem(self, nodes):
         """Change list of memory nodes for CT.
@@ -164,7 +165,7 @@ class CTImpl(ABSVEImpl):
         try:
             self._cpusetcg.set_node_list(nodes)
         except IOError as err:
-            raise Error('Cgroup write failed: {}'.format(err))
+            raise Error("Cgroup write failed: {}".format(err))
 
     def pin_cpu_list(self, cpus):
         """Change list of CPUs for CT.
@@ -174,7 +175,7 @@ class CTImpl(ABSVEImpl):
         try:
             self._cpusetcg.set_cpu_list(cpus)
         except IOError as err:
-            raise Error('Cgroup write failed: {}'.format(err))
+            raise Error("Cgroup write failed: {}".format(err))
 
 
 class ServiceCTImpl(ABSVEImpl):
@@ -187,11 +188,12 @@ class ServiceCTImpl(ABSVEImpl):
         try:
             self._cpucg = lookup_cgroup(CpuCgroup, name)
         except Error as err:
-            logger.info('Skip using CPU cgroup: %s', err)
+            logger.info("Skip using CPU cgroup: %s", err)
             self._cpucg = None
         self._default_cpu_share = VCMMDConfig().get_num(
-            'VE.SRVC.DefaultCPUShare', default=10000, integer=True,
-            minimum=1024)
+            "VE.SRVC.DefaultCPUShare", default=10000,
+            integer=True, minimum=1024
+        )
 
     @property
     def nr_cpus(self):
@@ -211,7 +213,7 @@ class ServiceCTImpl(ABSVEImpl):
                 self._memcg.write_swappiness(0)
             self._memcg.write_cleancache(False)
         except OSError as err:
-            raise Error(f'CGroup write failed: {err}')
+            raise Error(f"CGroup write failed: {err}")
 
         run_async(self._memcg.write_cache_limit_in_bytes, config.cache)
 
@@ -219,7 +221,7 @@ class ServiceCTImpl(ABSVEImpl):
             try:
                 self._cpucg.write_cpu_shares(self._default_cpu_share)
             except OSError as err:
-                raise Error(f'CGroup write failed: {err}')
+                raise Error(f"CGroup write failed: {err}")
 
 
 register_ve_impl(CTImpl)

@@ -21,9 +21,11 @@
 
 import psutil
 from libvirt import libvirtError
-from libvirt import (VIR_DOMAIN_STATS_BLOCK as STATS_BLOCK,
-                     VIR_DOMAIN_STATS_BALLOON as STATS_BALLOON,
-                     VIR_CONNECT_GET_ALL_DOMAINS_STATS_RUNNING as GET_ALL_RUNNING)
+from libvirt import (
+    VIR_DOMAIN_STATS_BLOCK as STATS_BLOCK,
+    VIR_DOMAIN_STATS_BALLOON as STATS_BALLOON,
+    VIR_CONNECT_GET_ALL_DOMAINS_STATS_RUNNING as GET_ALL_RUNNING,
+)
 from libvirt import VIR_DOMAIN_NUMATUNE_MEM_STRICT as NUMATUNE_MEM_STRICT
 from libvirt import VIR_DOMAIN_AFFECT_LIVE as AFFECT_LIVE
 
@@ -50,7 +52,7 @@ class VMImpl(VEImpl):
         try:
             self._libvirt_domain = VirtDomainProxy(name)
         except libvirtError as err:
-            raise Error('Failed to lookup libvirt domain: {}'.format(err))
+            raise Error("Failed to lookup libvirt domain: {}".format(err))
 
         self.pid = -1
         self._update_cgroups()
@@ -59,7 +61,7 @@ class VMImpl(VEImpl):
         try:
             pid = lookup_qemu_machine_pid(self._libvirt_domain.name())
         except EnvironmentError as err:
-            raise Error('Failed to lookup machine pid: {}'.format(err))
+            raise Error("Failed to lookup machine pid: {}".format(err))
 
         if self.pid == pid:
             return
@@ -69,27 +71,30 @@ class VMImpl(VEImpl):
         try:
             cgroup = pid_cgroup(self.pid)
         except EnvironmentError as err:
-            raise Error('Failed to lookup machine cgroup: {}'.format(err))
+            raise Error("Failed to lookup machine cgroup: {}".format(err))
 
         self._memcg = MemoryCgroup(cgroup[MemoryCgroup.CONTROLLER])
         if not self._memcg.exists():
-            raise Error("Memory cgroup not found: "
-                        "'{}'".format(self._memcg.abs_path))
+            raise Error(
+                "Memory cgroup not found: '{}'".format(self._memcg.abs_path)
+            )
         self._cpucg = CpuCgroup(cgroup[CpuCgroup.CONTROLLER])
         if not self._cpucg.exists():
-            raise Error("Cpu cgroup not found: "
-                        "'{}'".format(self._cpucg.abs_path))
+            raise Error(
+                "Cpu cgroup not found: '{}'".format(self._cpucg.abs_path)
+            )
 
         self._emulatorcg = CpuSetCgroup(cgroup[CpuSetCgroup.CONTROLLER])
         if not self._emulatorcg.exists():
-            raise Error("Cpuset cgroup not found: "
-                        "'{}'".format(self._cpucg.abs_path))
+            raise Error(
+                "Cpuset cgroup not found: " "'{}'".format(self._cpucg.abs_path)
+            )
 
         max_vcpus = self._libvirt_domain.maxVcpus()
         self._vcpucg = {}
         vcpu_path = self._emulatorcg.path
-        assert vcpu_path.endswith('emulator')
-        vcpu_path = '{}/vcpu{{}}'.format(vcpu_path[:-len('emulator')])
+        assert vcpu_path.endswith("emulator")
+        vcpu_path = "{}/vcpu{{}}".format(vcpu_path[: -len("emulator")])
 
         for vcpu in range(max_vcpus):
             self._vcpucg[vcpu] = CpuSetCgroup(vcpu_path.format(vcpu))
@@ -106,8 +111,10 @@ class VMImpl(VEImpl):
             self._libvirt_domain.setMemoryStatsPeriod(period)
             self.__memstats_update_period = period
         except libvirtError as err:
-            raise Error('Failed to enable libvirt domain '
-                        'memory stats: {}'.format(err))
+            raise Error(
+                "Failed to enable libvirt domain "
+                "memory stats: {}".format(err)
+            )
 
     @staticmethod
     def mem_overhead(config_limit):
@@ -117,7 +124,8 @@ class VMImpl(VEImpl):
         if config_limit < INT64_MAX:
             guest_mem_overhead = 8 * config_limit // PAGE_SIZE
         config_overhead = VCMMDConfig().get_num(
-            'VE.VM.MemOverhead', default=(64 << 20), integer=True, minimum=0)
+            "VE.VM.MemOverhead", default=(64 << 20), integer=True, minimum=0
+        )
         return config_overhead + guest_mem_overhead
 
     def get_stats(self):
@@ -126,56 +134,67 @@ class VMImpl(VEImpl):
             name = self._libvirt_domain.name()
             if name not in VMImpl.__cached_stats:
                 conn = get_qemu_proxy()
-                VMImpl.__cached_stats = {dom.name(): stats for dom, stats in \
-                                         conn.getAllDomainStats(STATS_BLOCK | STATS_BALLOON,
-                                         GET_ALL_RUNNING)}
+                VMImpl.__cached_stats = {
+                    dom.name(): stats
+                    for dom, stats in conn.getAllDomainStats(
+                        STATS_BLOCK | STATS_BALLOON, GET_ALL_RUNNING
+                    )
+                }
             stats = VMImpl.__cached_stats.pop(name, {})
         except libvirtError as err:
-            raise Error('Failed to retrieve libvirt domain stats: {}'.format(err))
+            raise Error(
+                "Failed to retrieve libvirt domain stats: {}".format(err)
+            )
 
-        memstats = {k.split('.')[1]: v for k,v in stats.items() if k.startswith('balloon')}
+        memstats = {
+            k.split(".")[1]: v
+            for k, v in stats.items()
+            if k.startswith("balloon")
+        }
         try:
             memcg_stat = self._memcg.read_mem_stat()
         except IOError as err:
-            raise Error('Cgroup read failed: {}'.format(err))
+            raise Error("Cgroup read failed: {}".format(err))
 
         try:
             # Unmapped file pages are of no interest in case of VMs
-            host_mem = memcg_stat['rss'] + memcg_stat['mapped_file']
+            host_mem = memcg_stat["rss"] + memcg_stat["mapped_file"]
         except KeyError:
             host_mem = -1
 
-        host_swap = memcg_stat.get('swap', -1)
+        host_swap = memcg_stat.get("swap", -1)
 
-        blk_stat = {'rd.reqs': 0, 'rd.bytes': 0, 'wr.reqs': 0, 'wr.bytes': 0}
+        blk_stat = {"rd.reqs": 0, "rd.bytes": 0, "wr.reqs": 0, "wr.bytes": 0}
         for s in blk_stat:
-            for c in range(0, stats.get('block.count', 0)):
-                blk_stat[s] += stats.get('block.{}.{}'.format(c, s), 0)
+            for c in range(0, stats.get("block.count", 0)):
+                blk_stat[s] += stats.get("block.{}.{}".format(c, s), 0)
 
         # libvirt reports memory values in kB, so we need to convert them to
         # bytes
-        return {'actual': memstats.get('current', -1) << 10,
-                'rss': memstats.get('rss', -1) << 10,
-                'host_mem': host_mem,
-                'host_swap': host_swap,
-                'memfree': memstats.get('unused', -1) << 10,
-                'memavail': memstats.get('usable', -1) << 10,
-                'swapin': memstats.get('swap_in', -1) << 10,
-                'swapout': memstats.get('swap_out', -1) << 10,
-                'minflt': memstats.get('minor_fault', -1),
-                'majflt': memstats.get('major_fault', -1),
-                'rd_req': blk_stat['rd.reqs'],
-                'rd_bytes': blk_stat['rd.bytes'],
-                'wr_req': blk_stat['wr.reqs'],
-                'wr_bytes': blk_stat['wr.bytes'],
-                'last_update': memstats.get('last-update', -1)}
+        return {
+            "actual": memstats.get("current", -1) << 10,
+            "rss": memstats.get("rss", -1) << 10,
+            "host_mem": host_mem,
+            "host_swap": host_swap,
+            "memfree": memstats.get("unused", -1) << 10,
+            "memavail": memstats.get("usable", -1) << 10,
+            "swapin": memstats.get("swap_in", -1) << 10,
+            "swapout": memstats.get("swap_out", -1) << 10,
+            "minflt": memstats.get("minor_fault", -1),
+            "majflt": memstats.get("major_fault", -1),
+            "rd_req": blk_stat["rd.reqs"],
+            "rd_bytes": blk_stat["rd.bytes"],
+            "wr_req": blk_stat["wr.reqs"],
+            "wr_bytes": blk_stat["wr.bytes"],
+            "last_update": memstats.get("last-update", -1),
+        }
 
     def set_mem_protection(self, value):
         # Use memcg/memory.low to protect the VM from host pressure.
         try:
             self._memcg.write_mem_low(value)
         except IOError as err:
-            raise Error('Cgroup write failed: {}'.format(err))
+            raise Error("Cgroup write failed: {}".format(err))
 
     def set_mem_target(self, value):
         # Update current allocation size by inflating/deflating balloon.
@@ -183,20 +202,27 @@ class VMImpl(VEImpl):
             # libvirt wants kB
             run_async(self._libvirt_domain.setMemory, value >> 10)
         except libvirtError as err:
-            raise Error('Failed to set libvirt domain memory size: {}'.format(err))
+            raise Error(
+                "Failed to set libvirt domain memory size: {}".format(err)
+            )
 
     def _hotplug_memory(self, value):
-        grain = VCMMDConfig().get_num('VE.VM.MemHotplugGrain',
-                                      default=134217728, integer=True,
-                                      minimum=1048576)
+        grain = VCMMDConfig().get_num(
+            "VE.VM.MemHotplugGrain",
+            default=134217728,
+            integer=True,
+            minimum=1048576,
+        )
         value = roundup(value, grain)
         value >>= 10  # libvirt wants kB
-        xml = ("<memory model='dimm'>"
-               "  <target>"
-               "    <size unit='KiB'>{memsize}</size>"
-               "    <node>0</node>"
-               "  </target>"
-               "</memory>").format(memsize=value)
+        xml = (
+            "<memory model='dimm'>"
+            "  <target>"
+            "    <size unit='KiB'>{memsize}</size>"
+            "    <node>0</node>"
+            "  </target>"
+            "</memory>"
+        ).format(memsize=value)
         self._libvirt_domain.attachDevice(xml)
 
     def set_config(self, config):
@@ -204,11 +230,13 @@ class VMImpl(VEImpl):
         try:
             self._memcg.write_oom_guarantee(config.guarantee)
         except IOError as err:
-            raise Error('Cgroup write failed: {}'.format(err))
+            raise Error("Cgroup write failed: {}".format(err))
 
         # Set memory.cache.limit_in_bytes to limit cache generated by backup
-        cache_limit = VCMMDConfig().get('LoadManager.Controllers.VMCacheLimitTotal',
-            VM_DEFAULT_CACHE_LIMIT_MB * 1024 * 1024)
+        cache_limit = VCMMDConfig().get(
+            "LoadManager.Controllers.VMCacheLimitTotal",
+            VM_DEFAULT_CACHE_LIMIT_MB * 1024 * 1024,
+        )
         self._memcg.write_cache_limit_in_bytes(cache_limit)
 
         # Update memory limit
@@ -225,51 +253,55 @@ class VMImpl(VEImpl):
             if value > max_mem:
                 self._hotplug_memory(value - max_mem)
         except libvirtError as err:
-            raise Error('Failed to hotplug libvirt domain memory: {}'.format(err))
+            raise Error(
+                "Failed to hotplug libvirt domain memory: {}".format(err)
+            )
 
     def get_node_list(self):
-        '''Get list of nodes where VM is running
+        """Get list of nodes where VM is running
         NOTE: only for memory
-        '''
+        """
         try:
             ret = self._libvirt_domain.numaParameters()
         except libvirtError as err:
             raise Error(str(err))
 
-        return parse_range_list(ret['numa_nodeset'])
+        return parse_range_list(ret["numa_nodeset"])
 
-    def pin_node_mem(self, nodes, libvirt = False):
-        '''Change list of memory nodes for VM
+    def pin_node_mem(self, nodes, libvirt=False):
+        """Change list of memory nodes for VM
 
         This function changes VM affinity for memory and migrates VM's memory
         accordingly
-        '''
+        """
         if libvirt:
             return self.pin_node_mem_libvirt(nodes)
 
-        node_mask = ','.join([str(node) for node in nodes])
+        node_mask = ",".join([str(node) for node in nodes])
         try:
             for vcpu in range(self.nr_cpus):
                 self._vcpucg[vcpu].set_node_list(nodes)
 
             self._emulatorcg.set_node_list(nodes)
         except (IOError, libvirtError) as err:
-            raise Error('Cgroup write failed: {}'.format(err))
+            raise Error("Cgroup write failed: {}".format(err))
 
     def pin_node_mem_libvirt(self, nodes):
-        params = {'numa_nodeset': ','.join([str(node) for node in nodes]),
-                  'numa_mode': NUMATUNE_MEM_STRICT}
+        params = {
+            "numa_nodeset": ",".join([str(node) for node in nodes]),
+            "numa_mode": NUMATUNE_MEM_STRICT,
+        }
 
         try:
             self._libvirt_domain.setNumaParameters(params, AFFECT_LIVE)
         except libvirtError as err:
             raise Error(str(err))
 
-    def pin_cpu_list(self, cpus, libvirt = False):
-        '''Change list of CPUs for VM
+    def pin_cpu_list(self, cpus, libvirt=False):
+        """Change list of CPUs for VM
 
         This function changes VM affinity for CPUs
-        '''
+        """
         if libvirt:
             return self.pin_cpu_list_libvirt(cpus)
 
@@ -278,7 +310,7 @@ class VMImpl(VEImpl):
                 self._vcpucg[vcpu].set_cpu_list(cpus)
             self._emulatorcg.set_cpu_list(cpus)
         except (IOError, libvirtError) as err:
-            raise Error('Cgroup write failed: {}'.format(err))
+            raise Error("Cgroup write failed: {}".format(err))
 
     def pin_cpu_list_libvirt(self, cpus):
         cpu_map = [0] * (max(cpus) + 1)
@@ -313,8 +345,8 @@ class VMWinImpl(VMImpl):
 
     def get_stats(self):
         stats = super(VMWinImpl, self).get_stats()
-        if stats['memavail'] < 0:
-            stats['memavail'] = stats['memfree']
+        if stats["memavail"] < 0:
+            stats["memavail"] = stats["memfree"]
         return stats
 
 
