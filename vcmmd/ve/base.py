@@ -307,7 +307,6 @@ class VE(Env):
     def set_config(self, config):
         """Update VE config."""
         _check_ve_config(config)
-
         try:
             obj = self._get_obj()
             if obj.VE_TYPE != VE_TYPE_SERVICE:
@@ -315,7 +314,7 @@ class VE(Env):
             self.config = config
             obj.set_config(config)
         except Error as err:
-            self.log_err("Failed to set config: %s", err)
+            self.log_err(f"Failed to set config: {err}")
             raise VCMMDError(VCMMD_ERROR_VE_OPERATION_FAILED)
 
         self.log_info("Config updated: %s", config)
@@ -323,9 +322,10 @@ class VE(Env):
     def get_config(self):
         config = self.config
         try:
-            obj = self._get_obj()
-            if obj.VE_TYPE != VE_TYPE_SERVICE:
-                config.update(cpunum=obj.nr_cpus)
+            if self.active:
+                obj = self._get_obj()
+                if obj.VE_TYPE != VE_TYPE_SERVICE:
+                    config.update(cpunum=obj.nr_cpus)
         except Error as err:
             self.log_err(f"Failed to get config {err}")
             raise VCMMDError(VCMMD_ERROR_INVALID_VE_CONFIG)
