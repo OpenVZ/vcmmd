@@ -39,6 +39,8 @@ from vcmmd.util.misc import get_cs_num
 def clamp(v, l, h):
     if h == -1:
         h = INT64_MAX
+    if v < 0:
+        v = INT64_MAX
     return max(l, min(v, h))
 
 
