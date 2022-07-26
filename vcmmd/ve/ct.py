@@ -45,9 +45,7 @@ def lookup_cgroup(klass, name):
     if cg.exists():
         return cg
 
-    # raise Error("cgroup not found: '{}'".format(cg.abs_path))
-    logger.error("PSBM-140023: cgroup not found: '%s'; skipping", cg.abs_path)
-    return None
+    raise Error("cgroup not found: '{}'".format(cg.abs_path))
 
 
 class ABSVEImpl(VEImpl):
