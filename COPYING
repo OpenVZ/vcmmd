@@ -1,0 +1,49 @@
+                Virtuozzo License Terms for VCMMD 
+                          November, 2022
+
+Virtuozzo provides open source versions of VCMMD (“Virtuozzo Products”
+or “VCMMD”) subject to GPL2 license terms. Open source versions
+of Virtuozzo Products are governed by the relevant version of GPL
+(GNU GPL v.2 or later), information on GPL licenses is available here:
+https://www.gnu.org/licenses/old-licenses/gpl-2.0.en.html.  
+
+The open source version of VCMMD source code is available here:
+https://src.openvz.org/projects/OVZ/repos/vcmmd.
+
+Open source versions of VCMMD does not include VCMMD-Plugins (“Plugins”),
+which are available only in commercial version of VCMMD, and are not
+open source. Plugins are provided in the commercial version of Virtuozzo
+Products and under commercial license only as described herein below. 
+
+         Virtuozzo Commercial License for VCMMD-Plugins
+
+Plugins are proprietary software of Virtuozzo and, together with
+commercial version of VCMMD, are subject to Virtuozzo EULA available at:
+https://www.virtuozzo.com/legal/eula/ and General Terms and Conditions
+available at: https://www.virtuozzo.com/legal/terms-and-conditions/. 
+
+The commercial license Plugins allows the Customer to distribute
+commercial binaries of Plugins without any changes and without
+subjecting the Plugins to the GPL and its requirement to distribute
+the source code subject to the following terms:
+- Redistributions in binary form must reproduce all prior and current
+copyright notices, this list of conditions, and the following disclaimer
+in the documentation and/or other materials provided with the distribution;
+- The source code is not provided and redistributions of source code
+is strictly forbidden;
+- All advertising materials mentioning features or use of the Plugins
+must display the following acknowledgment: “Plugins are included only
+in the commercial versions of Virtuozzo Products”.
+
+THESE PLUGINS ARE PROVIDED ``AS IS'' AND ANY EXPRESS OR IMPLIED
+WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE IMPLIED WARRANTIES
+OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE ARE DISCLAIMED.
+IN NO EVENT SHALL THE AUTHOR(S) BE LIABLE FOR ANY DIRECT, INDIRECT,
+INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING,
+BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES;
+LOSS OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER
+CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT
+LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY
+WAY OUT OF THE USE OF THIS PRODUCT, EVEN IF ADVISED OF THE POSSIBILITY
+OF SUCH DAMAGE.
+
