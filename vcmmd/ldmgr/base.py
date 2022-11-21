@@ -115,19 +115,22 @@ class LoadManager:
 
     def switch_policy(self, policy_name):
         self.cfg.dump('LoadManager.Policy', policy_name)
+        active_vms = False
         with self._registered_ves_lock:
-            for ve_name in self._registered_ves:
-                ve = self._registered_ves.get(ve_name)
-                if ve.VE_TYPE != VE_TYPE_SERVICE:
-                    raise VCMMDError(VCMMD_ERROR_POLICY_SET_ACTIVE_VES)
             self.shutdown()
             # Load a policy
             self._load_policy(policy_name)
             for ve_name in self._registered_ves:
                 ve = self._registered_ves.get(ve_name)
+                if ve.VE_TYPE not in (VE_TYPE_CT, VE_TYPE_SERVICE):
+                    active_vms = True
                 self._policy.ve_registered(ve)
                 if ve.active:
                     self._policy.ve_activated(ve)
+        if active_vms:
+            self.logger.warning("Memory policy has been switched to %s, "
+                "but there're VMs running", policy_name)
+            raise VCMMDError(VCMMD_ERROR_POLICY_SET_ACTIVE_VES)
 
     @staticmethod
     def _get_aliases():
