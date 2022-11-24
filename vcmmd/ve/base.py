@@ -278,7 +278,7 @@ class VE(Env):
         because its allocation cannot be tuned anymore.
         """
         val = self.config.mem_min + self._overhead
-        if not self.active:
+        if not (self._impl.VE_TYPE == VE_TYPE_SERVICE or self.active):
             val = max(val, self.get_rss(verbose=False))
         return val
 
