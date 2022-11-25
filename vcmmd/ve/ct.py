@@ -205,9 +205,7 @@ class ServiceCTImpl(ABSVEImpl):
 
     def set_config(self, config):
         try:
-            # protect services from OOM killer
-            self._memcg.write_oom_guarantee(-1)
-            self._memcg.write_mem_low(config.guarantee)
+            self._memcg.write_oom_guarantee(config.guarantee)
             self._memcg.write_mem_config(config.limit, config.swap)
             if not config.swap:
                 self._memcg.write_swappiness(0)
