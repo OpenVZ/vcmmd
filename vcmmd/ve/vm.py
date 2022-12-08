@@ -87,7 +87,7 @@ class VMImpl(VEImpl):
         self._emulatorcg = CpuSetCgroup(cgroup[CpuSetCgroup.CONTROLLER])
         if not self._emulatorcg.exists():
             raise Error(
-                "Cpuset cgroup not found: " "'{}'".format(self._cpucg.abs_path)
+                "Cpuset cgroup not found: " "'{}'".format(self._emulatorcg.abs_path)
             )
 
         max_vcpus = self._libvirt_domain.maxVcpus()
