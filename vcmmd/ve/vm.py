@@ -19,6 +19,7 @@
 # Our contact details: Virtuozzo International GmbH, Vordergasse 59, 8200
 # Schaffhausen, Switzerland.
 
+import logging
 import psutil
 from libvirt import libvirtError
 from libvirt import (
@@ -30,6 +31,7 @@ from libvirt import VIR_DOMAIN_NUMATUNE_MEM_STRICT as NUMATUNE_MEM_STRICT
 from libvirt import VIR_DOMAIN_AFFECT_LIVE as AFFECT_LIVE
 
 from vcmmd.cgroup import MemoryCgroup, CpuSetCgroup, CpuCgroup, pid_cgroup
+from vcmmd.error import VCMMDError, VCMMD_ERROR_VE_OPERATION_FAILED
 from vcmmd.ve.base import Error, VEImpl, register_ve_impl
 from vcmmd.ve_type import VE_TYPE_VM, VE_TYPE_VM_LINUX, VE_TYPE_VM_WINDOWS
 from vcmmd.config import VCMMDConfig
@@ -40,7 +42,9 @@ from vcmmd.util.limits import PAGE_SIZE, INT64_MAX
 from vcmmd.util.misc import parse_range_list
 from vcmmd.util.threading import run_async
 
+
 VM_DEFAULT_CACHE_LIMIT_MB = 512
+logger = logging.getLogger(__name__)
 
 
 class VMImpl(VEImpl):
@@ -93,7 +97,11 @@ class VMImpl(VEImpl):
         max_vcpus = self._libvirt_domain.maxVcpus()
         self._vcpucg = {}
         vcpu_path = self._emulatorcg.path
-        assert vcpu_path.endswith("emulator")
+        if not vcpu_path.endswith("emulator"):
+            vm_uuid = self._libvirt_domain.UUIDString()
+            logger.error(f"Cpuset cgroup path \"{vcpu_path}\" for VM "
+                         f"\"{vm_uuid}\" doesn't end with \"emulator\"")
+            raise VCMMDError(VCMMD_ERROR_VE_OPERATION_FAILED)
         vcpu_path = "{}/vcpu{{}}".format(vcpu_path[: -len("emulator")])
 
         for vcpu in range(max_vcpus):
