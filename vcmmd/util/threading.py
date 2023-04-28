@@ -77,8 +77,9 @@ def update_stats_single(fn):
 # XXX: Note, using threads should not really hurt parallelism, because real
 # work is done from system calls, with GIL released.
 
-_thread_pool = ThreadPool(3)
-
-
 def run_async(func, *args, **kwargs):
-    return _thread_pool.apply_async(func, args, kwargs)
+    if run_async.thread_pool is None:
+        run_async.thread_pool = ThreadPool(3)
+    return run_async.thread_pool.apply_async(func, args, kwargs)
+
+run_async.thread_pool = None
