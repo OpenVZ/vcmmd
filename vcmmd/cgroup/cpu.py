@@ -20,7 +20,7 @@
 # Schaffhausen, Switzerland.
 
 import re
-import dbus
+import pydbus
 
 from vcmmd.cgroup.base import Cgroup
 
@@ -48,14 +48,7 @@ class CpuCgroup(Cgroup):
         return self._read_file_int("nr_cpus")
 
     def write_cpu_shares(self, val):
-        cname = self.path.split('/')[1]
-        bus = dbus.SystemBus()
-        systemd = bus.get_object('org.freedesktop.systemd1',
-                                 '/org/freedesktop/systemd1')
-        manager = dbus.Interface(systemd,'org.freedesktop.systemd1.Manager')
-        unit = manager.GetUnit(cname)
-        cg_obj = bus.get_object('org.freedesktop.systemd1', unit)
-        dbus_interface = dbus.Interface(cg_obj, 'org.freedesktop.systemd1.Unit')
-        prop = dbus.Struct(['CPUShares', dbus.UInt64(val)], signature='sv')
-        dbus_interface.SetProperties(True, dbus.Array([prop], signature='a(sv)'))
-        bus.close()
+        systemd = pydbus.SystemBus().get('org.freedesktop.systemd1',
+                                         '/org/freedesktop/systemd1')
+        prop = {'CPUShares': pydbus.Variant.new_uint64(val)}
+        systemd.SetUnitProperties(self.path.split('/')[-1], True, prop)
