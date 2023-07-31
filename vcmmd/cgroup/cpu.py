@@ -50,5 +50,5 @@ class CpuCgroup(Cgroup):
     def write_cpu_shares(self, val):
         systemd = pydbus.SystemBus().get('org.freedesktop.systemd1',
                                          '/org/freedesktop/systemd1')
-        prop = {'CPUShares': pydbus.Variant.new_uint64(val)}
+        prop = (('CPUShares', pydbus.Variant.new_uint64(val)),)
         systemd.SetUnitProperties(self.path.split('/')[-1], True, prop)
