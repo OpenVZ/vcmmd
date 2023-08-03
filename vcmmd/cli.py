@@ -399,8 +399,13 @@ def _handle_free(args):
         vals = free.values()
         _print_json(dict(zip(head, vals)))
     else:
-        vals = [_str_memval(v, options) for v in free.values()]
         fmt = ' '.join(['{:'+str(len(v)+3)+'}' for v in free.keys()])
+        vals = []
+        for k, v in free.items():
+            if 'cpu' in k:
+                vals.append(str(v))
+            else:
+                vals.append(_str_memval(v, options))
         for s in head, vals:
             print(fmt.format(*s))
 
