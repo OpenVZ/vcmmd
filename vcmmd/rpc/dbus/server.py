@@ -145,7 +145,10 @@ class _LoadManagerObject(dbus.service.Object):
 
     @dbus.service.method(IFACE, in_signature='', out_signature='a(siba(qts))')
     def GetAllRegisteredVEs(self):
-        return self.ldmgr.get_all_registered_ves()
+        all_ves = self.ldmgr.get_get_all_registered_ves()
+        logger = logging.getLogger('vcmmd')
+        logger.info(all_ves)
+        return all_ves
 
     @dbus.service.method(IFACE, in_signature='i', out_signature='')
     def SetLogLevel(self, lvl):
@@ -185,7 +188,10 @@ class _LoadManagerObject(dbus.service.Object):
 
     @dbus.service.method(IFACE, in_signature='', out_signature='a{st}')
     def GetFree(self):
-        return self.ldmgr.get_free()
+        free = self.ldmgr.get_free()
+        logger = logging.getLogger('vcmmd')
+        logger.info(free)
+        return free
 
 
 class RPCServer:
