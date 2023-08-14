@@ -145,7 +145,7 @@ class _LoadManagerObject(dbus.service.Object):
 
     @dbus.service.method(IFACE, in_signature='', out_signature='a(siba(qts))')
     def GetAllRegisteredVEs(self):
-        all_ves = self.ldmgr.get_get_all_registered_ves()
+        all_ves = self.ldmgr.get_all_registered_ves()
         logger = logging.getLogger('vcmmd')
         logger.info(all_ves)
         return all_ves
