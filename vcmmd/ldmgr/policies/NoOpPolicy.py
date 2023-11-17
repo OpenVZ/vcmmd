@@ -40,6 +40,7 @@ class KsmPolicy(AbsKsmPolicy):
         ksm_npages_max = 1250
         ksm_threshold = 0.20
         ksm_sleep_ms_baseline = 10
+        ksm_vms_active_threshold = 16
         ksm_hostmem_baseline = 16 << 30
 
         params = {'merge_across_nodes': int(not isinstance(self, NumaPolicy))}
@@ -50,7 +51,8 @@ class KsmPolicy(AbsKsmPolicy):
         if any(x < 0 for x in need_stats):
             return params
 
-        if self.host.stats.memfree > ksm_threshold * self.host.stats.memtotal:
+        if self.active_vm < ksm_vms_active_threshold or \
+            self.host.stats.memfree > ksm_threshold * self.host.stats.memtotal:
             params['run'] = 0
         else:
             params['run'] = 1
