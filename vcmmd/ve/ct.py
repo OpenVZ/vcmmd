@@ -22,6 +22,8 @@
 import logging
 import time
 
+from multiprocessing import TimeoutError
+
 from vcmmd.cgroup import MemoryCgroup, BlkIOCgroup, CpuSetCgroup, CpuCgroup
 from vcmmd.ve.base import Error, VEImpl, register_ve_impl
 from vcmmd.ve_type import VE_TYPE_CT, VE_TYPE_SERVICE
@@ -81,6 +83,16 @@ class ABSVEImpl(VEImpl):
         run_async(self._memcg.write_mem_high, value)
         self.mem_limit = value
 
+    def apply_cache_limit(self, config):
+        res = run_async(self._memcg.write_cache_limit_in_bytes, config.cache)
+        try:
+            # Updating cache limit might take a while, hence we're doing it
+            # asynchronously.  But if writing to the cgroup fails, we return
+            # immediately
+            res.get(timeout=0.250)
+        except OSError as err:
+            raise Error(f"CGroup write failed: {err}")
+
     def set_config(self, config):
         try:
             self._memcg.write_oom_guarantee(config.guarantee)
@@ -89,7 +101,7 @@ class ABSVEImpl(VEImpl):
             raise Error("Cgroup write failed: {}".format(err))
 
         self.mem_limit = min(self.mem_limit, config.limit)
-        run_async(self._memcg.write_cache_limit_in_bytes, config.cache)
+        self.apply_cache_limit(config)
 
 
 class CTImpl(ABSVEImpl):
@@ -213,7 +225,7 @@ class ServiceCTImpl(ABSVEImpl):
         except OSError as err:
             raise Error(f"CGroup write failed: {err}")
 
-        run_async(self._memcg.write_cache_limit_in_bytes, config.cache)
+        self.apply_cache_limit(config)
 
         if self._cpucg:
             try:

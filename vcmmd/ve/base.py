@@ -307,6 +307,7 @@ class VE(Env):
     def set_config(self, config):
         """Update VE config."""
         _check_ve_config(config)
+        old_config = self.config
         try:
             obj = self._get_obj()
             if obj.VE_TYPE != VE_TYPE_SERVICE:
@@ -315,6 +316,8 @@ class VE(Env):
             obj.set_config(config)
         except Error as err:
             self.log_err(f"Failed to set config: {err}")
+            self.config = old_config
+            obj.set_config(old_config)
             raise VCMMDError(VCMMD_ERROR_VE_OPERATION_FAILED)
 
         self.log_info("Config updated: %s", config)
