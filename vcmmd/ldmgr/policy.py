@@ -30,7 +30,11 @@ import json
 import vcmmd.util.cpu
 from vcmmd.host import Host
 from vcmmd.config import VCMMDConfig
-from vcmmd.ve_type import VE_TYPE_CT, VE_TYPE_SERVICE
+from vcmmd.ve_type import (VE_TYPE_CT,
+                           VE_TYPE_SERVICE,
+                           VE_TYPE_VM,
+                           VE_TYPE_VM_LINUX,
+                           VE_TYPE_VM_WINDOWS)
 from vcmmd.cgroup import MemoryCgroup
 from vcmmd.util.limits import INT64_MAX
 from vcmmd.util.misc import get_cs_num
@@ -299,6 +303,8 @@ class NumaPolicy(Policy):
 class KSMPolicy(Policy):
     '''Manages ksm parametrs on host
     '''
+    active_vm = 0
+
     def __init__(self):
         super(KSMPolicy, self).__init__()
         nested_v = 'hypervisor' in vcmmd.util.cpu.get_features()
@@ -312,6 +318,15 @@ class KSMPolicy(Policy):
         self.controllers.add(self.ksm_controller)
         self.ksm_timeout = 60
         self.counts['KSM'] = {'run': 0}
+
+    def ve_activated(self, ve):
+        if ve.VE_TYPE in (VE_TYPE_VM, VE_TYPE_VM_LINUX, VE_TYPE_VM_WINDOWS):
+            self.active_vm += 1
+
+    def ve_deactivated(self, ve):
+        if ve.VE_TYPE in (VE_TYPE_VM, VE_TYPE_VM_LINUX, VE_TYPE_VM_WINDOWS):
+            self.active_vm -= 1
+            self.active_vm = max(self.active_vm, 0)
 
     @abstractmethod
     def update_ksm_stats(self):
