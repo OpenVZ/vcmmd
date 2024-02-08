@@ -89,7 +89,9 @@ class ABSVEImpl(VEImpl):
             # Updating cache limit might take a while, hence we're doing it
             # asynchronously.  But if writing to the cgroup fails, we return
             # immediately
-            res.get(timeout=0.250)
+            res.get(timeout=2.5)
+        except TimeoutError:
+            pass
         except OSError as err:
             raise Error(f"CGroup write failed: {err}")
 
