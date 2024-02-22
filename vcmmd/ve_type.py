@@ -19,14 +19,14 @@
 # Our contact details: Virtuozzo International GmbH, Vordergasse 59, 8200
 # Schaffhausen, Switzerland.
 
-VE_TYPE_CT = 0
+VE_TYPE_NONE = 0
 VE_TYPE_VM = 1
 VE_TYPE_VM_LINUX = 2
 VE_TYPE_VM_WINDOWS = 3
 VE_TYPE_SERVICE = 4
 
 _TYPE_NAME = {
-    VE_TYPE_CT: 'CT',
+    VE_TYPE_NONE: 'NONE',
     VE_TYPE_VM: 'VM',
     VE_TYPE_VM_LINUX: 'VM_LIN',
     VE_TYPE_VM_WINDOWS: 'VM_WIN',

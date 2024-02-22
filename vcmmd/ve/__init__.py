@@ -20,5 +20,4 @@
 # Schaffhausen, Switzerland.
 
 from vcmmd.ve.base import VE
-from vcmmd.ve.ct import CTImpl
 from vcmmd.ve.vm import VMImpl

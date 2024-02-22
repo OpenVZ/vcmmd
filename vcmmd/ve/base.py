@@ -37,7 +37,6 @@ from vcmmd.util.threading import update_stats_single
 from vcmmd.ve_type import (
     get_ve_type_name,
     VE_TYPE_SERVICE,
-    VE_TYPE_CT,
     VE_TYPE_VM_LINUX,
     VE_TYPE_VM_WINDOWS,
     VE_TYPE_VM,
@@ -351,8 +350,6 @@ class VE(Env):
         try:
             obj = self._get_obj()
             obj.pin_node_mem(nodes)
-            if self.VE_TYPE == VE_TYPE_CT and migrate:
-                obj.node_mem_migrate(nodes)
         except Error as err:
             self.log_err("Failed to bind NUMA nodes: %s", err)
         else:

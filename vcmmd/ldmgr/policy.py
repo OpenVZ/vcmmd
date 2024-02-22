@@ -30,8 +30,7 @@ import json
 import vcmmd.util.cpu
 from vcmmd.host import Host
 from vcmmd.config import VCMMDConfig
-from vcmmd.ve_type import (VE_TYPE_CT,
-                           VE_TYPE_SERVICE,
+from vcmmd.ve_type import (VE_TYPE_SERVICE,
                            VE_TYPE_VM,
                            VE_TYPE_VM_LINUX,
                            VE_TYPE_VM_WINDOWS)
@@ -108,11 +107,6 @@ class Policy(metaclass=ABCMeta):
         with self.__ve_data_lock:
             t = type(data)
             self.__ve_data[ve][t] = data
-
-    def ve_registered(self, ve):
-        """Called before a VE gets activated."""
-        if ve.VE_TYPE == VE_TYPE_CT:
-            ve.apply_limit_settings()
 
     def ve_activated(self, ve):
         """Called right after a VE gets registered."""

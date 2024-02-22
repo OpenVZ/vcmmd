@@ -1,8 +1,8 @@
 [Unit]
 Description=@PRODUCT_NAME_SHORT@ memory management daemon
-Wants=virtqemud.service virtvzctd.service
+Wants=virtqemud.service
 Before=postgresql.service nginx.service docker.service
-After=virtqemud.service virtvzctd.service
+After=virtqemud.service
 
 [Service]
 Type=dbus

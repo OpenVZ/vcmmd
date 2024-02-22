@@ -36,7 +36,7 @@ from vcmmd.error import (VCMMDError,
                          VCMMD_ERROR_POLICY_SET_ACTIVE_VES,
                          VCMMD_ERROR_VE_OPERATION_FAILED)
 from vcmmd.ve_config import DefaultVEConfig, VEConfig, VCMMD_MEMGUARANTEE_AUTO
-from vcmmd.ve_type import (VE_TYPE_CT, VE_TYPE_VM, VE_TYPE_VM_LINUX,
+from vcmmd.ve_type import (VE_TYPE_VM, VE_TYPE_VM_LINUX,
                            VE_TYPE_VM_WINDOWS, VE_TYPE_SERVICE)
 from vcmmd.ldmgr.policy import clamp
 from vcmmd.util.libvirt import list_active_domains
@@ -80,10 +80,7 @@ def _fix_vstorage_memory_issues(service_path):
             fp.write(data)
 
 
-DEFAULT_GUARANTEE = {
-    VE_TYPE_CT: 0,
-    VE_TYPE_VM: 40
-}
+DEFAULT_GUARANTEE_VM = 40
 
 
 class LoadManager:
@@ -122,9 +119,8 @@ class LoadManager:
             self._load_policy(policy_name)
             for ve_name in self._registered_ves:
                 ve = self._registered_ves.get(ve_name)
-                if ve.VE_TYPE not in (VE_TYPE_CT, VE_TYPE_SERVICE):
+                if ve.VE_TYPE != VE_TYPE_SERVICE:
                     active_vms = True
-                self._policy.ve_registered(ve)
                 if ve.active:
                     self._policy.ve_activated(ve)
         if active_vms:
@@ -188,38 +184,14 @@ class LoadManager:
         if mem_min > self._host.ve_mem:
             raise VCMMDError(VCMMD_ERROR_UNABLE_APPLY_VE_GUARANTEE)
 
-    def _fix_hci_ve_type(self, ve_name, ve_type):
-        """
-        Treat VE_TYPE_CT as VE_TYPE_VM if container's cgroup doesn't exist.
-
-        Since for a while, binary compatibility has been broken,
-        HCI registers VM with VE_TYPE_CT. This WA checks if
-        ve_type == VE_TYPE_CT and ensures that corresponding cgroup exists.
-        Otherwise, VCMMD treats VE as VM. (Only for HCI platform).
-        """
-        if ve_type == VE_TYPE_CT:
-            from vcmmd.rpc.dbus.common import BUS_NAME
-            if 'hci' in BUS_NAME:
-                from vcmmd.ve.ct import lookup_cgroup, CpuCgroup, Error
-                try:
-                    x = lookup_cgroup(CpuCgroup, ve_name)
-                except Error:
-                    self.logger.warning(
-                        f'Trying to register {ve_name} as CT. '
-                        'Failed to find cgroup. Treat this VE as VM.')
-                    ve_type = VE_TYPE_VM
-        return ve_type
-
     @_dummy_pass
     def register_ve(self, ve_name, ve_type, ve_config):
         with self._registered_ves_lock:
             if ve_name in self._registered_ves:
                 raise VCMMDError(VCMMD_ERROR_VE_NAME_ALREADY_IN_USE)
 
-            ve_type = self._fix_hci_ve_type(ve_name, ve_type)
-
             ve_config.complete(DefaultVEConfig)
-            if ve_type not in (VE_TYPE_CT, VE_TYPE_SERVICE) and \
+            if ve_type != VE_TYPE_SERVICE and \
                ve_config.guarantee_type == VCMMD_MEMGUARANTEE_AUTO:
                 ve_config.update(guarantee=int(
                     ve_config.limit * self._policy.DEFAULT_VM_AUTO_GUARANTEE))
@@ -237,7 +209,6 @@ class LoadManager:
             ve.effective_limit = min(ve.config.limit, self._host.ve_mem)
 
             self._registered_ves[ve_name] = ve
-            self._policy.ve_registered(ve)
 
             self.logger.info('Registered %s (%s)', ve, ve.config)
 
@@ -264,7 +235,7 @@ class LoadManager:
                 ve._get_obj()._update_cgroups()
 
             ve_config.complete(ve.config)
-            if ve.VE_TYPE not in (VE_TYPE_CT, VE_TYPE_SERVICE) and \
+            if ve.VE_TYPE != VE_TYPE_SERVICE and \
                ve_config.guarantee_type == VCMMD_MEMGUARANTEE_AUTO:
                 ve_config.update(guarantee=int(
                     ve_config.limit * self._policy.DEFAULT_VM_AUTO_GUARANTEE))
@@ -471,37 +442,23 @@ class LoadManager:
             self._initialize_ve(domain)
 
     def _initialize_ve(self, domain):
-        ve_type = VE_TYPE_CT if domain.OSType() == 'exe' else VE_TYPE_VM
+        ve_type = VE_TYPE_VM
         uuid = domain.UUIDString()
         ve_config = {'cpunum': 0}
         dom_xml = ET.fromstring(domain.XMLDesc())
-        if ve_type == VE_TYPE_VM:
-            ve_config['limit'] = domain.info()[2] << 10
-            ve_config['cpunum'] = domain.maxVcpus()
-            video = dom_xml.findall('./devices/video/model')
-            vram = sum(int(v.attrib.get('vram', 0)) for v in video) << 10
-            ve_config['vram'] = vram
-        else:
-            self.logger.debug('%s: check for CTID', uuid)
-            extra_id = dom_xml.find('./extraId')
-            if extra_id is not None and uuid != extra_id.text:
-                self.logger.debug('%s: use %s as UUID', uuid, extra_id.text)
-                uuid = extra_id.text
-            else:
-                self.logger.debug(
-                    'Registering container %s without CTID', uuid)
-            memcg = lookup_cgroup(MemoryCgroup, uuid)
-            cpucg = lookup_cgroup(CpuCgroup, uuid)
-            ve_config['limit'] = memcg.read_mem_max()
-            ve_config['swap'] = memcg.read_swap_max()
-            ve_config['cpunum'] = cpucg.get_nr_cpus()
+        ve_config['limit'] = domain.info()[2] << 10
+        ve_config['cpunum'] = domain.maxVcpus()
+        video = dom_xml.findall('./devices/video/model')
+        vram = sum(int(v.attrib.get('vram', 0)) for v in video) << 10
+        ve_config['vram'] = vram
+
         vcpu_dom = dom_xml.find('./vcpu')
         if vcpu_dom:
             ve_config['cpulist'] = vcpu_dom.attrib.get('cpuset', '')
         numa_memory_dom = dom_xml.find('./numatune/memory')
         if numa_memory_dom:
             ve_config['nodelist'] = numa_memory_dom.attrib.get('nodeset', '')
-        guarantee_pct = DEFAULT_GUARANTEE[ve_type]
+        guarantee_pct = DEFAULT_GUARANTEE_VM
         guarantee_dom = dom_xml.find('./memtune/min_guarantee')
         guarantee_auto = False
         if guarantee_dom:

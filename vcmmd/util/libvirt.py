@@ -84,14 +84,6 @@ def get_qemu_proxy():
     return _LibvirtProxy('qemu:///system')
 
 
-@functools.lru_cache()
-def get_vzct_proxy():
-    if not os.path.exists(
-            '/usr/lib64/libvirt/connection-driver/libvirt_driver_vzct.so'):
-        raise LookupError('vzct driver is not found')
-    return _LibvirtProxy('vzct:///system')
-
-
 class VirtDomainProxy:
     """
     Proxy to libvirt.virDomain with reconnect support.
@@ -117,10 +109,10 @@ class VirtDomainProxy:
 
 def list_active_domains():
     domains = []
-    for getter in get_vzct_proxy, get_qemu_proxy:
-        try:
-            domains += getter().listAllDomains(
-                libvirt.VIR_CONNECT_LIST_DOMAINS_ACTIVE)
-        except LookupError as e:
-            logger.warning(f'{getter.__name__} failed: {e}')
+
+    try:
+        domains += get_qemu_proxy().listAllDomains(
+            libvirt.VIR_CONNECT_LIST_DOMAINS_ACTIVE)
+    except LookupError as e:
+        logger.warning(f'{get_qemu_proxy.__name__} failed: {e}')
     return domains

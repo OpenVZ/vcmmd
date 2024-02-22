@@ -26,7 +26,7 @@ from multiprocessing import TimeoutError
 
 from vcmmd.cgroup import MemoryCgroup, BlkIOCgroup, CpuSetCgroup, CpuCgroup
 from vcmmd.ve.base import Error, VEImpl, register_ve_impl
-from vcmmd.ve_type import VE_TYPE_CT, VE_TYPE_SERVICE
+from vcmmd.ve_type import VE_TYPE_NONE, VE_TYPE_SERVICE
 from vcmmd.config import VCMMDConfig
 from vcmmd.util.limits import INT64_MAX
 from vcmmd.util.threading import run_async
@@ -52,7 +52,7 @@ def lookup_cgroup(klass, name):
 
 class ABSVEImpl(VEImpl):
 
-    VE_TYPE = VE_TYPE_CT
+    VE_TYPE = VE_TYPE_NONE
 
     def __init__(self, name):
         super(ABSVEImpl, self).__init__(name)
@@ -106,92 +106,6 @@ class ABSVEImpl(VEImpl):
         self.apply_cache_limit(config)
 
 
-class CTImpl(ABSVEImpl):
-    def __init__(self, name):
-        super(CTImpl, self).__init__(name)
-        self._cpusetcg = lookup_cgroup(CpuSetCgroup, name)
-        self._blkcg = lookup_cgroup(BlkIOCgroup, name)
-        self._cpucg = lookup_cgroup(CpuCgroup, name)
-        self._memcg = lookup_cgroup(MemoryCgroup, name)
-
-    def get_stats(self):
-        try:
-            current = self._memcg.read_mem_current()
-            stat = self._memcg.read_mem_stat()
-            io_serviced = self._blkcg.get_io_serviced()
-            io_service_bytes = self._blkcg.get_io_service_bytes()
-        except IOError as err:
-            raise Error("Cgroup read failed: {}".format(err))
-
-        memtotal = max(self.mem_limit, current)
-        memfree = memtotal - current
-        memavail = (
-            memfree + stat.get("active_file", 0) +
-            stat.get("inactive_file", 0) + stat.get("slab_reclaimable", 0)
-        )
-
-        return {
-            "rss": current,
-            "host_mem": current,
-            "host_swap": stat.get("swap", -1),
-            "actual": memtotal,
-            "memfree": memfree,
-            "memavail": memavail,
-            "swapin": stat.get("pswpin", -1),
-            "swapout": stat.get("pswpout", -1),
-            "minflt": stat.get("pgfault", -1),
-            "majflt": stat.get("pgmajfault", -1),
-            "rd_req": io_serviced[0],
-            "rd_bytes": io_service_bytes[0],
-            "wr_req": io_serviced[1],
-            "wr_bytes": io_service_bytes[1],
-            "last_update": int(time.time()),
-        }
-
-    @property
-    def nr_cpus(self):
-        try:
-            self._nr_cpus = self._cpucg.get_nr_cpus()
-            return self._nr_cpus
-        except IOError:
-            return getattr(self, "_nr_cpus", -1)
-
-    def get_node_list(self):
-        """Get list of nodes where CT is running."""
-        try:
-            node_list = self._cpusetcg.get_node_list()
-        except IOError as err:
-            raise Error("Cgroup read failed: {}".format(err))
-        return node_list
-
-    def node_mem_migrate(self, nodes):
-        try:
-            self._memcg.set_node_list(nodes)
-        except IOError as err:
-            raise Error("Cgroup write failed: {}".format(err))
-
-    def pin_node_mem(self, nodes):
-        """Change list of memory nodes for CT.
-
-        This function changes CT affinity for memory and migrates CT's memory
-        accordingly.
-        """
-        try:
-            self._cpusetcg.set_node_list(nodes)
-        except IOError as err:
-            raise Error("Cgroup write failed: {}".format(err))
-
-    def pin_cpu_list(self, cpus):
-        """Change list of CPUs for CT.
-
-        This function changes CT affinity for CPUs.
-        """
-        try:
-            self._cpusetcg.set_cpu_list(cpus)
-        except IOError as err:
-            raise Error("Cgroup write failed: {}".format(err))
-
-
 class ServiceCTImpl(ABSVEImpl):
 
     VE_TYPE = VE_TYPE_SERVICE
@@ -236,5 +150,4 @@ class ServiceCTImpl(ABSVEImpl):
                 raise Error(f"CGroup write failed: {err}")
 
 
-register_ve_impl(CTImpl)
 register_ve_impl(ServiceCTImpl)
