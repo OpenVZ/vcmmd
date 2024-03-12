@@ -320,10 +320,12 @@ class KSMPolicy(Policy):
         self.counts['KSM'] = {'run': 0}
 
     def ve_activated(self, ve):
+        super(KSMPolicy, self).ve_activated(ve)
         if ve.VE_TYPE in (VE_TYPE_VM, VE_TYPE_VM_LINUX, VE_TYPE_VM_WINDOWS):
             self.active_vm += 1
 
     def ve_deactivated(self, ve):
+        super(KSMPolicy, self).ve_deactivated(ve)
         if ve.VE_TYPE in (VE_TYPE_VM, VE_TYPE_VM_LINUX, VE_TYPE_VM_WINDOWS):
             self.active_vm -= 1
             self.active_vm = max(self.active_vm, 0)
