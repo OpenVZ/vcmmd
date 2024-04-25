@@ -44,6 +44,7 @@ from vcmmd.config import VCMMDConfig
 from vcmmd.ve import VE
 from vcmmd.ve.base import Error
 from vcmmd.ve.ct import lookup_cgroup
+from vcmmd.ve.vm import VM_DEFAULT_CACHE_LIMIT_MB
 from vcmmd.host import Host
 from vcmmd.cgroup.memory import MemoryCgroup
 from vcmmd.cgroup.cpu import CpuCgroup
@@ -189,6 +190,11 @@ class LoadManager:
         with self._registered_ves_lock:
             if ve_name in self._registered_ves:
                 raise VCMMDError(VCMMD_ERROR_VE_NAME_ALREADY_IN_USE)
+
+            if ve_type != VE_TYPE_SERVICE:
+                ve_config.complete(cache=int(
+                    VCMMDConfig().get("LoadManager.Controllers.VMCacheLimitTotal",
+                                      VM_DEFAULT_CACHE_LIMIT_MB * 1024 * 1024)))
 
             ve_config.complete(DefaultVEConfig)
             if ve_type != VE_TYPE_SERVICE and \
@@ -465,6 +471,9 @@ class LoadManager:
             guarantee_auto = guarantee_dom.attrib.get('vz-auto', False)
             if guarantee_auto != 'yes':
                 guarantee_pct = int(guarantee_dom.text)
+        cache_limit_dom = dom_xml.find('./memtune/page_cache_limit')
+        if cache_limit_dom:
+            ve_config['cache'] = int(cache_limit_dom.text)
         ve_config['guarantee'] = ve_config['limit'] * guarantee_pct // 100
         ve_config['guarantee_type'] = guarantee_auto != 'yes'
         self.register_ve(uuid, ve_type, VEConfig(**ve_config))
