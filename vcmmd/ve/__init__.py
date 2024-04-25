@@ -1,5 +1,5 @@
 # Copyright (c) 2016-2017, Parallels International GmbH
-# Copyright (c) 2017-2022, Virtuozzo International GmbH, All rights reserved
+# Copyright (c) 2017-2024, Virtuozzo International GmbH, All rights reserved
 #
 # This file is part of OpenVZ. OpenVZ is free software; you can redistribute
 # it and/or modify it under the terms of the GNU General Public License as
