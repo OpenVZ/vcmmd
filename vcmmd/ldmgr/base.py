@@ -220,9 +220,9 @@ class LoadManager:
             ve_type = self._fix_hci_ve_type(ve_name, ve_type)
 
             if ve_type not in (VE_TYPE_CT, VE_TYPE_SERVICE):
-                ve_config.complete(cache=int(
+                ve_config.complete(VEConfig(cache=int(
                     VCMMDConfig().get("LoadManager.Controllers.VMCacheLimitTotal",
-                                      VM_DEFAULT_CACHE_LIMIT_MB * 1024 * 1024)))
+                                      VM_DEFAULT_CACHE_LIMIT_MB * 1024 * 1024))))
 
             ve_config.complete(DefaultVEConfig)
             if ve_type not in (VE_TYPE_CT, VE_TYPE_SERVICE) and \
